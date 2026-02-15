@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { usePods, useDeletePod } from "@/hooks/useOrgData";
+import { usePods, useDeletePod, useDecisions, useOverviewMetrics } from "@/hooks/useOrgData";
 import { useOrg } from "@/contexts/OrgContext";
 import StatusBadge from "@/components/StatusBadge";
 import CreatePodForm from "@/components/CreatePodForm";
@@ -10,27 +10,30 @@ function daysSince(dateStr: string): number {
 }
 
 export default function Pods() {
-  const { data: pods = [], isLoading } = usePods();
+  const { data: pods = [], isLoading: pLoading } = usePods();
+  const { data: decisions = [], isLoading: dLoading } = useDecisions();
+  const { data: metrics } = useOverviewMetrics();
   const deletePod = useDeletePod();
   const { currentRole } = useOrg();
   const [showCreate, setShowCreate] = useState(false);
 
   const isAdmin = currentRole === "admin";
+  const canWrite = currentRole === "admin" || currentRole === "pod_lead";
 
-  if (isLoading) return <p className="text-xs text-muted-foreground uppercase tracking-widest">Loading...</p>;
+  if (pLoading || dLoading) return <p className="text-xs text-muted-foreground uppercase tracking-widest">Loading...</p>;
 
   const isEmpty = pods.length === 0;
 
-  const velocityStats = pods.map((pod: any) => {
-    const inits = pod.pod_initiatives || [];
-    const shipped = inits.filter((i: any) => i.shipped).length;
-    const total = inits.length;
-    const withDemo = inits.filter((i: any) => i.last_demo_date);
-    const avgCycle = withDemo.length
-      ? Math.round(withDemo.reduce((s: number, i: any) => s + daysSince(i.last_demo_date!), 0) / withDemo.length)
-      : null;
-    const resolved = total ? Math.round((shipped / total) * 100) : 0;
-    return { shipped, total, avgCycle, resolved };
+  const activeHighImpact = decisions.filter((d) => d.status === "Active" && d.impact_tier === "High");
+  const authorityActive = activeHighImpact.length >= 5;
+  const activeDecisions = decisions.filter((d) => d.status === "Active");
+
+  // Group active decisions by solution_domain for pod matching
+  const decisionsByDomain: Record<string, typeof decisions> = {};
+  activeDecisions.forEach((d) => {
+    const domain = d.solution_domain || "Cross";
+    if (!decisionsByDomain[domain]) decisionsByDomain[domain] = [];
+    decisionsByDomain[domain].push(d);
   });
 
   return (
@@ -39,7 +42,9 @@ export default function Pods() {
         <div>
           <h1 className="text-xl font-bold">Builder Pods</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {pods.length} pods · {pods.reduce((sum: number, p: any) => sum + (p.pod_initiatives?.length || 0), 0)} initiatives
+            {authorityActive
+              ? "Authority allocates. Pods execute."
+              : `${pods.length} pods · ${pods.reduce((sum: number, p: any) => sum + (p.pod_initiatives?.length || 0), 0)} initiatives`}
           </p>
         </div>
         {isAdmin && !showCreate && (
@@ -49,6 +54,21 @@ export default function Pods() {
           </button>
         )}
       </div>
+
+      {/* Authority Mode Banner */}
+      {authorityActive && (
+        <div className="mb-6 border rounded-md px-4 py-3 bg-accent/30">
+          <div className="flex items-center gap-3">
+            <div className="w-2 h-2 bg-foreground rounded-full shrink-0" />
+            <div>
+              <p className="text-sm font-semibold">Pods executing {activeHighImpact.length} active strategic commitments.</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Authority Mode Active — all slots occupied.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showCreate && <CreatePodForm onClose={() => setShowCreate(false)} />}
 
@@ -62,13 +82,37 @@ export default function Pods() {
         </div>
       ) : (
         <div className="space-y-6">
-          {pods.map((pod: any, podIdx: number) => {
-            const stats = velocityStats[podIdx];
-            const zeroVelocity = stats.shipped === 0 && stats.total > 0;
+          {pods.map((pod: any) => {
             const inits = pod.pod_initiatives || [];
+            const shipped = inits.filter((i: any) => i.shipped).length;
+            const total = inits.length;
+            const withDemo = inits.filter((i: any) => i.last_demo_date);
+            const avgCycle = withDemo.length
+              ? Math.round(withDemo.reduce((s: number, i: any) => s + daysSince(i.last_demo_date!), 0) / withDemo.length)
+              : null;
+            const resolved = total ? Math.round((shipped / total) * 100) : 0;
+            const zeroVelocity = shipped === 0 && total > 0;
+
+            // Match decisions to pod by solution_domain
+            const podDecisions = decisionsByDomain[pod.solution_domain] || [];
+
+            // Compute slices shipped in last 7 days
+            const shippedLast7 = inits.filter((i: any) => {
+              if (!i.shipped || !i.last_demo_date) return false;
+              return daysSince(i.last_demo_date) <= 7;
+            }).length;
+
+            // Last demo date across all initiatives
+            const allDemos = inits
+              .filter((i: any) => i.last_demo_date)
+              .map((i: any) => new Date(i.last_demo_date).getTime());
+            const lastDemoDate = allDemos.length > 0
+              ? new Date(Math.max(...allDemos)).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+              : null;
 
             return (
               <div key={pod.id} className="border rounded-md">
+                {/* Pod Header */}
                 <div className={cn("px-4 py-3 border-b", zeroVelocity ? "bg-signal-amber/5" : "bg-surface-elevated")}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -79,9 +123,6 @@ export default function Pods() {
                       </div>
                     </div>
                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      <span>Shipped: <span className="font-semibold text-foreground text-mono">{stats.shipped}/{stats.total}</span></span>
-                      <span>Resolved: <span className="font-semibold text-foreground text-mono">{stats.resolved}%</span></span>
-                      {stats.avgCycle !== null && <span>Cycle: <span className="font-semibold text-foreground text-mono">{stats.avgCycle}d</span></span>}
                       {zeroVelocity && <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider">Zero velocity</span>}
                       {isAdmin && (
                         <button onClick={() => { if (confirm(`Delete pod "${pod.name}"?`)) deletePod.mutate(pod.id); }}
@@ -90,6 +131,70 @@ export default function Pods() {
                     </div>
                   </div>
                 </div>
+
+                {/* Velocity Metrics Row */}
+                <div className="px-4 py-2.5 border-b bg-muted/30">
+                  <div className="flex items-center gap-6 text-xs text-muted-foreground">
+                    <span>Slices shipped (7d): <span className="font-semibold text-foreground font-mono">{shippedLast7}</span></span>
+                    <span>Avg cycle: <span className="font-semibold text-foreground font-mono">{avgCycle !== null ? `${avgCycle}d` : "—"}</span></span>
+                    <span>Last demo: <span className="font-semibold text-foreground font-mono">{lastDemoDate || "Never"}</span></span>
+                    <span>Shipped: <span className="font-semibold text-foreground font-mono">{shipped}/{total}</span></span>
+                    <span>Resolved: <span className="font-semibold text-foreground font-mono">{resolved}%</span></span>
+                  </div>
+                </div>
+
+                {/* Active Strategic Decisions assigned to this pod */}
+                {podDecisions.length > 0 ? (
+                  <div className="border-b">
+                    <div className="px-4 py-2 bg-accent/20">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Active Decisions · {podDecisions.length}
+                      </p>
+                    </div>
+                    <div className="divide-y">
+                      {podDecisions.map((d) => {
+                        const sliceDue = d.slice_remaining !== undefined ? d.slice_remaining : null;
+                        return (
+                          <div key={d.id} className={cn(
+                            "px-4 py-3",
+                            d.decision_health === "Degrading" && "bg-signal-red/5",
+                            d.decision_health === "At Risk" && "bg-signal-amber/5"
+                          )}>
+                            <div className="flex items-center gap-3 mb-1">
+                              <div className="flex gap-1.5 shrink-0">
+                                <StatusBadge status={d.solution_domain} />
+                                {d.decision_health && <StatusBadge status={d.decision_health} />}
+                              </div>
+                              <p className="text-sm font-medium flex-1 truncate">{d.title}</p>
+                            </div>
+                            <div className="flex gap-6 text-xs text-muted-foreground ml-0">
+                              <span>Owner: <span className="font-medium text-foreground">{d.owner}</span></span>
+                              <span>Slice due: <span className={cn(
+                                "font-medium",
+                                sliceDue !== null && sliceDue <= 0 ? "text-signal-red" :
+                                sliceDue !== null && sliceDue <= 3 ? "text-signal-amber" :
+                                "text-foreground"
+                              )}>{sliceDue !== null ? (sliceDue <= 0 ? `${Math.abs(sliceDue)}d overdue` : `${sliceDue}d`) : "—"}</span></span>
+                              <span>Health: <span className={cn(
+                                "font-medium",
+                                d.decision_health === "On Track" ? "text-signal-green" :
+                                d.decision_health === "At Risk" ? "text-signal-amber" :
+                                d.decision_health === "Degrading" ? "text-signal-red" :
+                                "text-foreground"
+                              )}>{d.decision_health || "—"}</span></span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="px-4 py-4 border-b">
+                    <p className="text-xs text-muted-foreground">No strategic commitments assigned.</p>
+                  </div>
+                )}
+
+                {/* Initiatives */}
                 {inits.length === 0 ? (
                   <div className="px-4 py-6 text-center text-xs text-muted-foreground">No initiatives yet.</div>
                 ) : (
