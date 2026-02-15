@@ -1,4 +1,4 @@
-import { useDecisions, useSignals, usePods, useOverviewMetrics } from "@/hooks/useOrgData";
+import { useDecisions, useUpdateDecision, useSignals, usePods, useOverviewMetrics } from "@/hooks/useOrgData";
 import StatusBadge from "@/components/StatusBadge";
 import MetricCard from "@/components/MetricCard";
 import DataExport from "@/components/DataExport";
@@ -6,11 +6,108 @@ import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useOrg } from "@/contexts/OrgContext";
+import { toast } from "sonner";
 import CreateDecisionForm from "@/components/CreateDecisionForm";
+import type { DecisionComputed } from "@/hooks/useOrgData";
 
 function daysSince(dateStr: string): number {
   return Math.floor((Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24));
 }
+
+function parseWorkflowError(msg: string): string | null {
+  const map: Record<string, string> = {
+    HIGH_IMPACT_CAP: "Cannot exceed 5 active high-impact decisions.",
+    OUTCOME_REQUIRED: "Outcome Target required to activate.",
+    OWNER_REQUIRED: "Owner required to activate.",
+    OUTCOME_CATEGORY_REQUIRED: "Outcome Category required to activate.",
+    EXPECTED_IMPACT_REQUIRED: "Expected Impact required to activate.",
+    EXPOSURE_REQUIRED: "Exposure Value required to activate.",
+  };
+  for (const [key, label] of Object.entries(map)) {
+    if (msg.includes(key)) return label;
+  }
+  return null;
+}
+
+function SeededDecisionsList({
+  decisions,
+  canWrite,
+  updateDecision,
+  navigate,
+}: {
+  decisions: DecisionComputed[];
+  canWrite: boolean;
+  updateDecision: ReturnType<typeof useUpdateDecision>;
+  navigate: ReturnType<typeof useNavigate>;
+}) {
+  const highImpact = decisions.filter((d) => d.impact_tier === "High");
+  const activeHighCount = highImpact.filter((d) => d.status === "Active").length;
+
+  const handleActivate = (d: DecisionComputed) => {
+    updateDecision.mutate(
+      { id: d.id, status: "Active" as any },
+      {
+        onSuccess: () => {
+          toast.success(`"${d.title}" activated.`);
+        },
+        onError: (err: any) => {
+          const msg = err?.message || String(err);
+          const parsed = parseWorkflowError(msg);
+          toast.error(parsed || "Cannot activate. Complete required fields first.");
+        },
+      }
+    );
+  };
+
+  return (
+    <section className="mb-8">
+      <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+        Registered Decisions ({activeHighCount}/5)
+      </h2>
+      <div className="border rounded-md divide-y">
+        {highImpact.map((d) => {
+          const isDraft = d.status === "Draft";
+          const isActive = d.status === "Active";
+          return (
+            <div
+              key={d.id}
+              className="px-4 py-3 flex items-center gap-4 cursor-pointer hover:bg-accent/30 transition-colors"
+              onClick={() => navigate("/decisions")}
+            >
+              <div className="flex gap-1.5 shrink-0">
+                <StatusBadge status={d.solution_domain} />
+                <StatusBadge status={d.impact_tier} />
+                <StatusBadge status={d.status} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{d.title}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{d.owner}</p>
+              </div>
+              {isDraft && canWrite && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleActivate(d); }}
+                  disabled={updateDecision.isPending}
+                  className="text-[11px] font-semibold uppercase tracking-wider text-foreground border border-foreground px-3 py-1 rounded-sm hover:bg-foreground hover:text-background transition-colors disabled:opacity-50"
+                >
+                  Activate
+                </button>
+              )}
+              {isActive && (
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-signal-green">Active</span>
+              )}
+            </div>
+          );
+        })}
+        {highImpact.length === 0 && (
+          <div className="px-4 py-6 text-center">
+            <p className="text-xs text-muted-foreground">No high-impact decisions registered yet.</p>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 
 type SolutionDomain = "S1" | "S2" | "S3" | "Cross";
 
@@ -47,6 +144,7 @@ export default function Overview() {
   const { data: signals = [], isLoading: sLoading } = useSignals();
   const { data: pods = [], isLoading: pLoading } = usePods();
   const { data: metrics, isLoading: mLoading } = useOverviewMetrics();
+  const updateDecision = useUpdateDecision();
   const { currentRole } = useOrg();
   const navigate = useNavigate();
 
@@ -341,6 +439,16 @@ export default function Overview() {
       {/* Register Decision Modal */}
       {showRegister && (
         <CreateDecisionForm onClose={() => setShowRegister(false)} />
+      )}
+
+      {/* Seeded Decisions List */}
+      {authorityInactive && decisions.length > 0 && (
+        <SeededDecisionsList
+          decisions={decisions}
+          canWrite={canWrite}
+          updateDecision={updateDecision}
+          navigate={navigate}
+        />
       )}
 
       {/* Authority Mode Active — Capacity Banner */}
