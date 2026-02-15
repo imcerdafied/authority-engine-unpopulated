@@ -163,7 +163,6 @@ export default function Overview() {
 
   const activeHighImpact = decisions.filter((d) => d.status === "Active" && d.impact_tier === "High");
   const authorityActive = activeHighImpact.length >= 5;
-  const authorityInactive = activeHighImpact.length < 5;
 
   const activeDecisions = decisions.filter((d) => d.status === "Active");
   const blockedDecisions = decisions.filter(
@@ -179,14 +178,6 @@ export default function Overview() {
     .map((d) => d.revenue_at_risk!)
     .join(" · ");
 
-  const top3Risk = [...activeDecisions]
-    .sort((a, b) => {
-      const tierOrder: Record<string, number> = { High: 0, Medium: 1, Low: 2 };
-      if (tierOrder[a.impact_tier] !== tierOrder[b.impact_tier]) return tierOrder[a.impact_tier] - tierOrder[b.impact_tier];
-      return daysSince(b.created_at) - daysSince(a.created_at);
-    })
-    .slice(0, 3);
-
   // Decision Latency computation
   const latencyTarget = 7;
   const latencyValue = m.decision_latency_days;
@@ -194,6 +185,10 @@ export default function Overview() {
 
   // Decisions requiring exec attention
   const execAttentionDecisions = decisions.filter((d) => d.needs_exec_attention);
+
+  // Slice compliance
+  const sliceCompliant = m.total_active > 0 ? m.total_active - m.overdue_slices : 0;
+  const slicePercent = m.total_active > 0 ? Math.round((sliceCompliant / m.total_active) * 100) : 100;
 
   // ==================== EXECUTIVE MODE ====================
   if (executiveMode) {
@@ -217,7 +212,7 @@ export default function Overview() {
         {!hasData ? (
           <>
             <div className="grid grid-cols-4 gap-3 mb-8">
-              <MetricCard label="Active High-Impact" value={`${m.active_high_impact}/5`} sub={authorityActive ? "Authority Mode Active" : "Authority Mode Inactive"} />
+              <MetricCard label="Active High-Impact" value={`${m.active_high_impact}/5`} sub="Authority Mode Inactive" />
               <MetricCard label="Decision Latency" value="—" sub={`Target: ${latencyTarget}d`} />
               <MetricCard label="Operating Friction" value="—" sub="No active constraints" />
               <MetricCard label="Exec Attention" value="0" sub="No items flagged" />
@@ -284,7 +279,7 @@ export default function Overview() {
               </div>
             )}
 
-            {/* Top Strategic Exposures */}
+            {/* Active High-Impact Decisions */}
             <section className="mb-8">
               <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
                 Active High-Impact Decisions
@@ -358,10 +353,122 @@ export default function Overview() {
     );
   }
 
-  // ==================== FULL VIEW ====================
-  const sliceCompliant = m.total_active > 0 ? m.total_active - m.overdue_slices : 0;
-  const slicePercent = m.total_active > 0 ? Math.round((sliceCompliant / m.total_active) * 100) : 100;
+  // ==================== STATE 1: SEEDING MODE (< 5 Active High-Impact) ====================
+  if (!authorityActive) {
+    return (
+      <div>
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold">Executive Overview</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              {new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+            </p>
+          </div>
+          <DataExport />
+        </div>
 
+        {/* Compact metrics — seeding relevant only */}
+        <div className="grid grid-cols-3 gap-3 mb-8">
+          <MetricCard
+            label="Active High-Impact"
+            value={`${m.active_high_impact}/5`}
+            sub={`${5 - m.active_high_impact} slots remaining`}
+          />
+          <MetricCard label="Blocked > 5 days" value={m.blocked_gt5_days} />
+          <MetricCard label="Unlinked Signals" value={m.unlinked_signals} />
+        </div>
+
+        {/* Initialization Panel */}
+        <div className="mb-8 border rounded-md px-6 py-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-sm font-bold">Authority Initialization in Progress</h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                {m.active_high_impact} of 5 active decisions registered. Activate remaining to engage operating constraint.
+              </p>
+            </div>
+            {canWrite && (
+              <button
+                onClick={() => setShowRegister(true)}
+                className="text-[11px] font-semibold uppercase tracking-wider text-background bg-foreground px-4 py-2 rounded-sm hover:bg-foreground/90 transition-colors shrink-0"
+              >
+                + Register Decision
+              </button>
+            )}
+          </div>
+          {/* Progress bar */}
+          <div className="w-full bg-secondary rounded-full h-1.5">
+            <div
+              className="bg-foreground h-1.5 rounded-full transition-all duration-500"
+              style={{ width: `${(m.active_high_impact / 5) * 100}%` }}
+            />
+          </div>
+          <div className="flex justify-between mt-1.5 text-[10px] text-muted-foreground font-mono">
+            <span>{m.active_high_impact}/5 Active</span>
+            <span>Authority Mode at 5</span>
+          </div>
+        </div>
+
+        {/* Register Decision Modal */}
+        {showRegister && (
+          <CreateDecisionForm onClose={() => setShowRegister(false)} />
+        )}
+
+        {/* Seeded Decisions — Primary Content */}
+        <SeededDecisionsList
+          decisions={decisions}
+          canWrite={canWrite}
+          updateDecision={updateDecision}
+          navigate={navigate}
+        />
+
+        {/* Blocked Escalation */}
+        {blockedDecisions.length > 0 && (
+          <section className="mb-8">
+            <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">Blocked — Escalation Required</h2>
+            <div className="border border-signal-red/30 rounded-md bg-signal-red/5 divide-y divide-signal-red/10">
+              {blockedDecisions.map((d) => {
+                const age = d.age_days ?? daysSince(d.created_at);
+                return (
+                  <div key={d.id} className="px-4 py-3">
+                    <div className="flex items-center gap-3 mb-1">
+                      <StatusBadge status={d.solution_domain} />
+                      <StatusBadge status="Blocked" />
+                      <p className="text-sm font-medium flex-1">{d.title}</p>
+                      <span className="text-xs text-mono font-semibold text-signal-red">{age}d</span>
+                    </div>
+                    {d.blocked_reason && <p className="text-xs text-muted-foreground mt-1">{d.blocked_reason}</p>}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* Signal Pressure */}
+        {unlinkedSignals.length > 0 && (
+          <section className="mb-8">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Signals Awaiting Authority</h2>
+              <Link to="/signals" className="text-xs text-muted-foreground hover:text-foreground transition-colors">View all →</Link>
+            </div>
+            <div className="border rounded-md divide-y">
+              {unlinkedSignals.slice(0, 5).map((s) => (
+                <div key={s.id} className="px-4 py-3 flex items-center gap-4">
+                  {s.solution_domain && <StatusBadge status={s.solution_domain} />}
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-32 shrink-0">{s.type}</span>
+                  <p className="text-sm flex-1">{s.description}</p>
+                  <span className="text-xs text-muted-foreground shrink-0">{daysSince(s.created_at)}d ago</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+      </div>
+    );
+  }
+
+  // ==================== STATE 2: OPERATING MODE (= 5 Active High-Impact) ====================
   return (
     <div>
       <div className="mb-8 flex items-center justify-between">
@@ -382,17 +489,25 @@ export default function Overview() {
         </div>
       </div>
 
-      {/* Metrics */}
+      {/* Authority Mode Active — Capacity Banner */}
+      <div
+        className="mb-6 border border-foreground rounded-md px-4 py-3 cursor-pointer hover:bg-accent/50 transition-colors"
+        onClick={() => navigate("/decisions")}
+      >
+        <p className="text-sm font-bold">Authority Mode Active</p>
+        <p className="text-xs text-muted-foreground mt-0.5">High-impact capacity full. Close 1 decision to open 1.</p>
+      </div>
+
+      {/* Full Metrics Row */}
       <div className="grid grid-cols-5 gap-3 mb-8">
         <MetricCard
           label="Active High-Impact"
           value={`${m.active_high_impact}/5`}
-          alert={m.at_capacity}
-          danger={m.at_capacity}
-          sub={m.at_capacity ? "Authority Mode Active" : `${5 - m.active_high_impact} slots open`}
+          danger
+          sub="Authority Mode Active"
         />
-        <MetricCard label="Blocked > 5 days" value={m.blocked_gt5_days} />
-        <MetricCard label="Unlinked Signals" value={m.unlinked_signals} />
+        <MetricCard label="Blocked > 5 days" value={m.blocked_gt5_days} alert={m.blocked_gt5_days > 0} />
+        <MetricCard label="Unlinked Signals" value={m.unlinked_signals} alert={m.unlinked_signals > 0} />
         <MetricCard
           label="Decision Latency"
           value={m.total_active ? `${latencyValue}d` : "—"}
@@ -406,63 +521,12 @@ export default function Overview() {
         />
       </div>
 
-      {/* Authority Mode Inactive — Activation Panel */}
-      {authorityInactive && (
-        <div
-          className={cn(
-            "mb-8 border-2 border-dashed rounded-md px-6 py-10 text-center",
-            canWrite && "cursor-pointer hover:border-foreground/40 transition-colors"
-          )}
-          onClick={() => canWrite && setShowRegister(true)}
-        >
-          <h2 className="text-lg font-bold mb-2">Authority Mode Inactive</h2>
-          <p className="text-sm text-muted-foreground mb-4">
-            Register up to 5 high-impact decisions to activate operating constraint.
-          </p>
-          <div className="flex justify-center gap-6 text-xs text-muted-foreground/70 mb-6">
-            <span>5 decision hard cap</span>
-            <span>Outcome linkage required</span>
-            <span>10-day working slice</span>
-            <span>Single accountable owner</span>
-          </div>
-          {canWrite && (
-            <button
-              onClick={(e) => { e.stopPropagation(); setShowRegister(true); }}
-              className="text-[11px] font-semibold uppercase tracking-wider text-background bg-foreground px-5 py-2.5 rounded-sm hover:bg-foreground/90 transition-colors"
-            >
-              + Register High-Impact Decision
-            </button>
-          )}
-        </div>
-      )}
-
       {/* Register Decision Modal */}
       {showRegister && (
         <CreateDecisionForm onClose={() => setShowRegister(false)} />
       )}
 
-      {/* Seeded Decisions List */}
-      {authorityInactive && decisions.length > 0 && (
-        <SeededDecisionsList
-          decisions={decisions}
-          canWrite={canWrite}
-          updateDecision={updateDecision}
-          navigate={navigate}
-        />
-      )}
-
-      {/* Authority Mode Active — Capacity Banner */}
-      {authorityActive && (
-        <div
-          className="mb-6 border border-foreground rounded-md px-4 py-3 cursor-pointer hover:bg-accent/50 transition-colors"
-          onClick={() => navigate("/decisions")}
-        >
-          <p className="text-sm font-bold">High-Impact Capacity Full — Authority Mode Active</p>
-          <p className="text-xs text-muted-foreground mt-0.5">Close 1 decision to open 1.</p>
-        </div>
-      )}
-
-      {/* Operating Friction — with driver breakdown */}
+      {/* Operating Friction */}
       {(activeDecisions.length > 0 || blockedDecisions.length > 0) && (
         <div className={cn(
           "mb-6 border rounded-md px-4 py-3",
