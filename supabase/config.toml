@@ -1,1 +1,4 @@
 project_id = "pizxxtkgnudyotqlkzwe"
+
+[functions.nightly-backup]
+verify_jwt = false

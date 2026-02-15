@@ -1,6 +1,7 @@
 import { useDecisions, useSignals, usePods, useOverviewMetrics } from "@/hooks/useOrgData";
 import StatusBadge from "@/components/StatusBadge";
 import MetricCard from "@/components/MetricCard";
+import DataExport from "@/components/DataExport";
 import { Link } from "react-router-dom";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -207,12 +208,15 @@ export default function Overview() {
             {new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
           </p>
         </div>
-        <button
-          onClick={() => setExecutiveMode(true)}
-          className="text-[11px] font-semibold uppercase tracking-wider text-foreground border border-foreground px-3 py-1.5 rounded-sm hover:bg-foreground hover:text-background transition-colors"
-        >
-          Executive Mode
-        </button>
+        <div className="flex items-center gap-3">
+          <DataExport />
+          <button
+            onClick={() => setExecutiveMode(true)}
+            className="text-[11px] font-semibold uppercase tracking-wider text-foreground border border-foreground px-3 py-1.5 rounded-sm hover:bg-foreground hover:text-background transition-colors"
+          >
+            Executive Mode
+          </button>
+        </div>
       </div>
 
       {/* Metrics — all server-computed */}
