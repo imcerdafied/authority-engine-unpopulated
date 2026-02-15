@@ -1,6 +1,8 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrg } from "@/contexts/OrgContext";
+import { useAuth } from "@/contexts/AuthContext";
+import type { TablesInsert } from "@/integrations/supabase/types";
 
 export function useDecisions() {
   const { currentOrg } = useOrg();
@@ -17,6 +19,55 @@ export function useDecisions() {
       return data || [];
     },
     enabled: !!currentOrg,
+  });
+}
+
+export function useCreateDecision() {
+  const qc = useQueryClient();
+  const { currentOrg } = useOrg();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async (input: Omit<TablesInsert<"decisions">, "org_id" | "created_by">) => {
+      if (!currentOrg || !user) throw new Error("No org or user");
+      const { data, error } = await supabase
+        .from("decisions")
+        .insert({ ...input, org_id: currentOrg.id, created_by: user.id })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["decisions", currentOrg?.id] }),
+  });
+}
+
+export function useUpdateDecision() {
+  const qc = useQueryClient();
+  const { currentOrg } = useOrg();
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: { id: string } & Partial<TablesInsert<"decisions">>) => {
+      const { data, error } = await supabase
+        .from("decisions")
+        .update(updates)
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["decisions", currentOrg?.id] }),
+  });
+}
+
+export function useDeleteDecision() {
+  const qc = useQueryClient();
+  const { currentOrg } = useOrg();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("decisions").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["decisions", currentOrg?.id] }),
   });
 }
 
@@ -38,6 +89,37 @@ export function useSignals() {
   });
 }
 
+export function useCreateSignal() {
+  const qc = useQueryClient();
+  const { currentOrg } = useOrg();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async (input: Omit<TablesInsert<"signals">, "org_id" | "created_by">) => {
+      if (!currentOrg || !user) throw new Error("No org or user");
+      const { data, error } = await supabase
+        .from("signals")
+        .insert({ ...input, org_id: currentOrg.id, created_by: user.id })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["signals", currentOrg?.id] }),
+  });
+}
+
+export function useDeleteSignal() {
+  const qc = useQueryClient();
+  const { currentOrg } = useOrg();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("signals").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["signals", currentOrg?.id] }),
+  });
+}
+
 export function usePods() {
   const { currentOrg } = useOrg();
   return useQuery({
@@ -53,6 +135,54 @@ export function usePods() {
       return data || [];
     },
     enabled: !!currentOrg,
+  });
+}
+
+export function useCreatePod() {
+  const qc = useQueryClient();
+  const { currentOrg } = useOrg();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async (input: Omit<TablesInsert<"pods">, "org_id" | "created_by">) => {
+      if (!currentOrg || !user) throw new Error("No org or user");
+      const { data, error } = await supabase
+        .from("pods")
+        .insert({ ...input, org_id: currentOrg.id, created_by: user.id })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pods", currentOrg?.id] }),
+  });
+}
+
+export function useDeletePod() {
+  const qc = useQueryClient();
+  const { currentOrg } = useOrg();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("pods").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pods", currentOrg?.id] }),
+  });
+}
+
+export function useCreatePodInitiative() {
+  const qc = useQueryClient();
+  const { currentOrg } = useOrg();
+  return useMutation({
+    mutationFn: async (input: TablesInsert<"pod_initiatives">) => {
+      const { data, error } = await supabase
+        .from("pod_initiatives")
+        .insert(input)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pods", currentOrg?.id] }),
   });
 }
 
