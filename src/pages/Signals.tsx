@@ -1,5 +1,6 @@
 import { signals } from "@/lib/mock-data";
 import { daysSince, SignalType } from "@/lib/types";
+import StatusBadge from "@/components/StatusBadge";
 import { cn } from "@/lib/utils";
 
 const signalTypeLabels: SignalType[] = [
@@ -8,6 +9,8 @@ const signalTypeLabels: SignalType[] = [
   "Agent Drift",
   "Exec Escalation",
   "Launch Milestone",
+  "Renewal Risk",
+  "Cross-Solution Conflict",
 ];
 
 export default function Signals() {
@@ -60,6 +63,7 @@ export default function Signals() {
         {signals.map((s) => (
           <div key={s.id} className="p-4">
             <div className="flex items-center gap-3 mb-2">
+              {s.solutionType && <StatusBadge status={s.solutionType} />}
               <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground bg-muted px-2 py-0.5 rounded-sm">
                 {s.type}
               </span>

@@ -1,5 +1,6 @@
 import { closedDecisions } from "@/lib/mock-data";
 import { daysSince } from "@/lib/types";
+import StatusBadge from "@/components/StatusBadge";
 
 export default function Memory() {
   return (
@@ -15,7 +16,11 @@ export default function Memory() {
         {closedDecisions.map((cd) => (
           <div key={cd.id} className="border rounded-md p-5">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold">{cd.title}</h3>
+              <div className="flex items-center gap-2">
+                <StatusBadge status={cd.solutionType} />
+                <StatusBadge status={cd.predictionAccuracy} />
+                <h3 className="text-sm font-semibold">{cd.title}</h3>
+              </div>
               <span className="text-xs text-muted-foreground">
                 Closed {daysSince(cd.closedDate)}d ago
               </span>
@@ -32,20 +37,29 @@ export default function Memory() {
               </div>
             </div>
 
-            {(cd.segmentShift || cd.agentImpact) && (
-              <div className="grid grid-cols-2 gap-4 text-xs mb-3">
-                {cd.segmentShift && (
-                  <div>
-                    <p className="text-muted-foreground mb-0.5">Segment Shift</p>
-                    <p className="font-medium">{cd.segmentShift}</p>
-                  </div>
-                )}
-                {cd.agentImpact && (
-                  <div>
-                    <p className="text-muted-foreground mb-0.5">Agent Impact</p>
-                    <p className="font-medium">{cd.agentImpact}</p>
-                  </div>
-                )}
+            <div className="grid grid-cols-3 gap-4 text-xs mb-3">
+              <div>
+                <p className="text-muted-foreground mb-0.5">Prediction Accuracy</p>
+                <p className="font-semibold">{cd.predictionAccuracy}</p>
+              </div>
+              {cd.renewalImpact && (
+                <div>
+                  <p className="text-muted-foreground mb-0.5">Renewal Impact</p>
+                  <p className="font-medium">{cd.renewalImpact}</p>
+                </div>
+              )}
+              {cd.segmentShift && (
+                <div>
+                  <p className="text-muted-foreground mb-0.5">Segment Movement</p>
+                  <p className="font-medium">{cd.segmentShift}</p>
+                </div>
+              )}
+            </div>
+
+            {cd.agentImpact && (
+              <div className="text-xs mb-3">
+                <p className="text-muted-foreground mb-0.5">Agent Impact</p>
+                <p className="font-medium">{cd.agentImpact}</p>
               </div>
             )}
 

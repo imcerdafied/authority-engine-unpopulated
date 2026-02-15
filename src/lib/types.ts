@@ -1,7 +1,9 @@
 export type ImpactTier = "High" | "Medium" | "Low";
 export type DecisionStatus = "Draft" | "Active" | "Blocked" | "Closed";
-export type SignalType = "KPI Deviation" | "Segment Variance" | "Agent Drift" | "Exec Escalation" | "Launch Milestone";
-export type OutcomeCategory = "Revenue" | "Retention" | "Conversion" | "Trust" | "Agent Performance" | "Efficiency";
+export type SignalType = "KPI Deviation" | "Segment Variance" | "Agent Drift" | "Exec Escalation" | "Launch Milestone" | "Renewal Risk" | "Cross-Solution Conflict";
+export type OutcomeCategory = "Revenue" | "Retention" | "Conversion" | "Trust" | "Agent Performance" | "Efficiency" | "Enterprise Renewal" | "Platform Adoption" | "Agent Trust" | "QoE Risk" | "Executive Credibility";
+export type SolutionType = "S1" | "S2" | "S3" | "Cross-Solution";
+export type DecisionHealth = "On Track" | "At Risk" | "Degrading";
 
 export interface Decision {
   id: string;
@@ -22,6 +24,9 @@ export interface Decision {
   measuredOutcomeResult?: string;
   blockedReason?: string;
   blockedDependencyOwner?: string;
+  solutionType: SolutionType;
+  surface: string;
+  decisionHealth?: DecisionHealth;
 }
 
 export interface Signal {
@@ -31,12 +36,14 @@ export interface Signal {
   source: string;
   createdDate: string;
   decisionId?: string;
+  solutionType?: SolutionType;
 }
 
 export interface Pod {
   id: string;
   name: string;
   owner: string;
+  solutionType: SolutionType;
   initiatives: PodInitiative[];
 }
 
@@ -48,6 +55,8 @@ export interface PodInitiative {
   owner: string;
   outcomeLinked: boolean;
   shipped: boolean;
+  renewalAligned?: boolean;
+  crossSolutionDep?: string;
 }
 
 export interface ClosedDecision {
@@ -60,6 +69,9 @@ export interface ClosedDecision {
   agentImpact?: string;
   notes: string;
   closedDate: string;
+  solutionType: SolutionType;
+  renewalImpact?: string;
+  predictionAccuracy: "Accurate" | "Partial" | "Missed";
 }
 
 export function daysSince(dateStr: string): number {

@@ -1,9 +1,9 @@
 import { pods } from "@/lib/mock-data";
 import { daysSince } from "@/lib/types";
+import StatusBadge from "@/components/StatusBadge";
 import { cn } from "@/lib/utils";
 
 export default function Pods() {
-  // Builder velocity stats
   const velocityStats = pods.map((pod) => {
     const shipped = pod.initiatives.filter((i) => i.shipped).length;
     const total = pod.initiatives.length;
@@ -33,9 +33,12 @@ export default function Pods() {
             <div key={pod.id} className="border rounded-md">
               <div className={cn("px-4 py-3 border-b", zeroVelocity ? "bg-signal-amber/5" : "bg-surface-elevated")}>
                 <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-sm font-semibold">{pod.name}</h2>
-                    <p className="text-xs text-muted-foreground">{pod.owner}</p>
+                  <div className="flex items-center gap-3">
+                    <StatusBadge status={pod.solutionType} />
+                    <div>
+                      <h2 className="text-sm font-semibold">{pod.name}</h2>
+                      <p className="text-xs text-muted-foreground">{pod.owner}</p>
+                    </div>
                   </div>
                   <div className="flex gap-4 text-xs text-muted-foreground">
                     <span>Shipped: <span className="font-semibold text-foreground text-mono">{stats.shipped}/{stats.total}</span></span>
@@ -72,6 +75,11 @@ export default function Pods() {
                             Unbound — No Outcome
                           </span>
                         )}
+                        {init.renewalAligned && (
+                          <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                            Renewal-Aligned
+                          </span>
+                        )}
                       </div>
                       <div className="flex gap-6 text-xs text-muted-foreground">
                         <span>Owner: {init.owner}</span>
@@ -97,6 +105,9 @@ export default function Pods() {
                             {init.shipped ? "Delivered" : sliceOverdue ? `${Math.abs(daysToSlice)}d overdue` : `${daysToSlice}d left`}
                           </span>
                         </span>
+                        {init.crossSolutionDep && (
+                          <span>Dep: <span className="font-medium text-foreground">{init.crossSolutionDep}</span></span>
+                        )}
                       </div>
                     </div>
                   );
