@@ -3,24 +3,30 @@ import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const hasSupabaseUrl = Boolean(process.env.SUPABASE_URL);
+  const hasServiceRoleKey = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+  const hasAnthropicKey = Boolean(process.env.ANTHROPIC_API_KEY);
+
+  if (!hasSupabaseUrl || !hasServiceRoleKey || !hasAnthropicKey) {
+    return res.status(500).json({
+      error: "Missing env vars",
+      hasSupabaseUrl,
+      hasServiceRoleKey,
+      hasAnthropicKey,
+      envKeysSample: Object.keys(process.env).filter(Boolean).slice(0, 50),
+    });
+  }
+
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    return res.status(500).json({ error: "Missing Supabase server env vars" });
-  }
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return res.status(500).json({ error: "Missing ANTHROPIC_API_KEY" });
-  }
-
+  const supabaseUrl = process.env.SUPABASE_URL as string;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY as string;
   const anthropic = new Anthropic({
-    apiKey: process.env.ANTHROPIC_API_KEY,
+    apiKey: process.env.ANTHROPIC_API_KEY as string,
   });
-  const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
+  const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
     const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
