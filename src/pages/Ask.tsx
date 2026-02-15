@@ -1,7 +1,12 @@
 import { useState } from "react";
-import { decisions, signals, pods } from "@/lib/mock-data";
-import { daysSince } from "@/lib/types";
+import { useDecisions, useSignals, usePods } from "@/hooks/useOrgData";
 import StatusBadge from "@/components/StatusBadge";
+
+function daysSince(dateStr: string): number {
+  const d = new Date(dateStr);
+  const now = new Date();
+  return Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
+}
 
 const presetQuestions = [
   "What needs attention?",
@@ -17,99 +22,72 @@ interface Answer {
   items: { label: string; detail: string; solution?: string }[];
 }
 
-function computeAnswer(question: string): Answer {
+function computeAnswer(question: string, decisions: any[], signals: any[], pods: any[]): Answer {
   switch (question) {
     case "What needs attention?": {
-      const unlinkedSignals = signals.filter((s) => !s.decisionId);
+      const unlinkedSignals = signals.filter((s: any) => !s.decision_id);
       const agingDecisions = decisions.filter(
-        (d) => d.status === "Active" && daysSince(d.createdDate) > 7
+        (d: any) => d.status === "Active" && daysSince(d.created_at) > 7
       );
       const noOutcome = pods
-        .flatMap((p) => p.initiatives)
-        .filter((i) => !i.outcomeLinked);
+        .flatMap((p: any) => p.pod_initiatives || [])
+        .filter((i: any) => !i.outcome_linked);
       return {
         question,
         items: [
-          ...unlinkedSignals.map((s) => ({
-            label: `Signal: ${s.type}`,
-            detail: s.description,
-            solution: s.solutionType,
-          })),
-          ...agingDecisions.map((d) => ({
-            label: `Aging: ${d.title}`,
-            detail: `${daysSince(d.createdDate)} days, owned by ${d.owner}`,
-            solution: d.solutionType,
-          })),
-          ...noOutcome.map((i) => ({
-            label: `Unbound: ${i.name}`,
-            detail: `Owner: ${i.owner}`,
-          })),
+          ...unlinkedSignals.map((s: any) => ({ label: `Signal: ${s.type}`, detail: s.description, solution: s.solution_type })),
+          ...agingDecisions.map((d: any) => ({ label: `Aging: ${d.title}`, detail: `${daysSince(d.created_at)} days, owned by ${d.owner}`, solution: d.solution_type })),
+          ...noOutcome.map((i: any) => ({ label: `Unbound: ${i.name}`, detail: `Owner: ${i.owner}` })),
         ],
       };
     }
     case "What's blocked?": {
-      const blocked = decisions.filter((d) => d.status === "Blocked");
+      const blocked = decisions.filter((d: any) => d.status === "Blocked");
       return {
         question,
-        items: blocked.map((d) => ({
+        items: blocked.map((d: any) => ({
           label: d.title,
-          detail: `Blocked for ${daysSince(d.createdDate)} days · ${d.blockedReason || "No reason specified"} · Dependency: ${d.blockedDependencyOwner || "Unknown"}`,
-          solution: d.solutionType,
+          detail: `Blocked for ${daysSince(d.created_at)} days · ${d.blocked_reason || "No reason specified"} · Dependency: ${d.blocked_dependency_owner || "Unknown"}`,
+          solution: d.solution_type,
         })),
       };
     }
     case "Which segment is at risk?": {
-      const segmentDecisions = decisions.filter(
-        (d) => d.segmentImpact && d.status !== "Closed"
-      );
-      const segmentSignals = signals.filter(
-        (s) => s.type === "Segment Variance"
-      );
+      const segmentDecisions = decisions.filter((d: any) => d.segment_impact && d.status !== "Closed");
+      const segmentSignals = signals.filter((s: any) => s.type === "Segment Variance");
       return {
         question,
         items: [
-          ...segmentSignals.map((s) => ({
-            label: `Signal: ${s.type}`,
-            detail: s.description,
-            solution: s.solutionType,
-          })),
-          ...segmentDecisions.map((d) => ({
-            label: `${d.segmentImpact}: ${d.title}`,
-            detail: `${d.status} · ${daysSince(d.createdDate)}d old · ${d.revenueAtRisk || "No exposure quantified"}`,
-            solution: d.solutionType,
+          ...segmentSignals.map((s: any) => ({ label: `Signal: ${s.type}`, detail: s.description, solution: s.solution_type })),
+          ...segmentDecisions.map((d: any) => ({
+            label: `${d.segment_impact}: ${d.title}`,
+            detail: `${d.status} · ${daysSince(d.created_at)}d old · ${d.revenue_at_risk || "No exposure quantified"}`,
+            solution: d.solution_type,
           })),
         ],
       };
     }
     case "What decision is aging?": {
       const aging = decisions
-        .filter((d) => d.status === "Active")
-        .sort((a, b) => daysSince(b.createdDate) - daysSince(a.createdDate));
+        .filter((d: any) => d.status === "Active")
+        .sort((a: any, b: any) => daysSince(b.created_at) - daysSince(a.created_at));
       return {
         question,
-        items: aging.map((d) => ({
+        items: aging.map((d: any) => ({
           label: d.title,
-          detail: `${daysSince(d.createdDate)} days · ${d.owner} · ${d.surface} · ${d.decisionHealth || "Unknown health"}`,
-          solution: d.solutionType,
+          detail: `${daysSince(d.created_at)} days · ${d.owner} · ${d.surface} · ${d.decision_health || "Unknown health"}`,
+          solution: d.solution_type,
         })),
       };
     }
     case "Where is legacy gravity?": {
-      const s1Decisions = decisions.filter((d) => d.solutionType === "S1" && d.status === "Active");
-      const s1Inits = pods.filter((p) => p.solutionType === "S1").flatMap((p) => p.initiatives).filter((i) => !i.shipped);
+      const s1Decisions = decisions.filter((d: any) => d.solution_type === "S1" && d.status === "Active");
+      const s1Inits = pods.filter((p: any) => p.solution_type === "S1").flatMap((p: any) => p.pod_initiatives || []).filter((i: any) => !i.shipped);
       return {
         question,
         items: [
-          ...s1Decisions.map((d) => ({
-            label: `S1 Decision: ${d.title}`,
-            detail: `${daysSince(d.createdDate)}d old · ${d.owner} · ${d.revenueAtRisk || ""}`,
-            solution: "S1",
-          })),
-          ...s1Inits.map((i) => ({
-            label: `S1 Initiative: ${i.name}`,
-            detail: `Owner: ${i.owner} · Not shipped`,
-            solution: "S1",
-          })),
+          ...s1Decisions.map((d: any) => ({ label: `S1 Decision: ${d.title}`, detail: `${daysSince(d.created_at)}d old · ${d.owner} · ${d.revenue_at_risk || ""}`, solution: "S1" })),
+          ...s1Inits.map((i: any) => ({ label: `S1 Initiative: ${i.name}`, detail: `Owner: ${i.owner} · Not shipped`, solution: "S1" })),
           ...(s1Decisions.length === 0 && s1Inits.length === 0
             ? [{ label: "No legacy gravity detected", detail: "S1 attention is within normal bounds" }]
             : []),
@@ -117,15 +95,13 @@ function computeAnswer(question: string): Answer {
       };
     }
     case "What renewal exposure exists?": {
-      const renewalDecisions = decisions.filter(
-        (d) => d.revenueAtRisk && d.status !== "Closed"
-      );
+      const renewalDecisions = decisions.filter((d: any) => d.revenue_at_risk && d.status !== "Closed");
       return {
         question,
-        items: renewalDecisions.map((d) => ({
+        items: renewalDecisions.map((d: any) => ({
           label: d.title,
-          detail: `${d.revenueAtRisk} · ${d.owner} · ${d.surface} · ${d.decisionHealth || "Unknown"}`,
-          solution: d.solutionType,
+          detail: `${d.revenue_at_risk} · ${d.owner} · ${d.surface} · ${d.decision_health || "Unknown"}`,
+          solution: d.solution_type,
         })),
       };
     }
@@ -136,21 +112,22 @@ function computeAnswer(question: string): Answer {
 
 export default function Ask() {
   const [answer, setAnswer] = useState<Answer | null>(null);
+  const { data: decisions = [] } = useDecisions();
+  const { data: signals = [] } = useSignals();
+  const { data: pods = [] } = usePods();
 
   return (
     <div>
       <div className="mb-6">
         <h1 className="text-xl font-bold">Ask</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Query the operating layer
-        </p>
+        <p className="text-sm text-muted-foreground mt-1">Query the operating layer</p>
       </div>
 
       <div className="grid grid-cols-3 gap-2 mb-8">
         {presetQuestions.map((q) => (
           <button
             key={q}
-            onClick={() => setAnswer(computeAnswer(q))}
+            onClick={() => setAnswer(computeAnswer(q, decisions, signals, pods))}
             className={`text-left border rounded-md px-4 py-3 text-sm font-medium transition-colors hover:bg-accent ${
               answer?.question === q ? "bg-accent border-foreground/20" : ""
             }`}
@@ -177,9 +154,7 @@ export default function Ask() {
                     {item.solution && <StatusBadge status={item.solution} />}
                     <p className="text-sm font-medium">{item.label}</p>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    {item.detail}
-                  </p>
+                  <p className="text-xs text-muted-foreground">{item.detail}</p>
                 </div>
               ))}
             </div>
