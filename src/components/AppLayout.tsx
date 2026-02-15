@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrg } from "@/contexts/OrgContext";
+import logo from "@/assets/logo.png";
 
 const navItems = [
   { label: "Overview", path: "/" },
@@ -29,12 +30,17 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       {/* Sidebar */}
       <aside className="w-56 shrink-0 bg-sidebar border-r border-sidebar-border flex flex-col">
         <div className="px-5 py-6">
-          <h1 className="text-sm font-bold tracking-widest uppercase text-sidebar-primary">
-            Build
-          </h1>
-          <h1 className="text-sm font-bold tracking-widest uppercase text-sidebar-primary">
-            Authority
-          </h1>
+          <div className="flex items-center gap-2.5">
+            <img src={logo} alt="Build Authority" className="w-7 h-7" />
+            <div>
+              <h1 className="text-sm font-bold tracking-widest uppercase text-sidebar-primary leading-tight">
+                Build
+              </h1>
+              <h1 className="text-sm font-bold tracking-widest uppercase text-sidebar-primary leading-tight">
+                Authority
+              </h1>
+            </div>
+          </div>
           {currentOrg?.name ? (
             <p className="text-[10px] uppercase tracking-widest text-sidebar-muted mt-1">
               {currentOrg.name}
