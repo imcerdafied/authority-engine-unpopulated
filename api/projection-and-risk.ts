@@ -118,13 +118,21 @@ Return JSON exactly:
       risk_reason: "AI projection + deterministic rules",
     };
 
-    await supabase.from("decision_projections").insert({
-      org_id: body.org_id,
-      decision_id: body.decision_id,
-      scenarios: projection,
-      decision_metadata_hash: `model:claude-opus-4-6`,
-      generated_at: new Date().toISOString(),
-    });
+    const { error: insertError } = await supabase
+      .from("decision_projections")
+      .insert({
+        org_id: body.org_id,
+        decision_id: body.decision_id,
+        model: "claude-opus-4-6",
+        projection,
+      });
+
+    if (insertError) {
+      return res.status(500).json({
+        error: "decision_projections insert failed",
+        detail: insertError.message,
+      });
+    }
 
     await supabase.from("decision_risk").upsert({
       org_id: body.org_id,
