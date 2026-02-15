@@ -238,3 +238,33 @@ export function useClosedDecisions() {
     enabled: !!currentOrg,
   });
 }
+
+export interface OverviewMetrics {
+  active_high_impact: number;
+  blocked_gt5_days: number;
+  unlinked_signals: number;
+  decision_latency_days: number;
+  overdue_slices: number;
+  total_active: number;
+  blocked_count: number;
+  friction_score: number;
+  friction_level: string;
+  friction_drivers: string[];
+  at_capacity: boolean;
+}
+
+export function useOverviewMetrics() {
+  const { currentOrg } = useOrg();
+  return useQuery<OverviewMetrics>({
+    queryKey: ["overview_metrics", currentOrg?.id],
+    queryFn: async () => {
+      if (!currentOrg) throw new Error("No org");
+      const { data, error } = await supabase.rpc("get_overview_metrics", {
+        _org_id: currentOrg.id,
+      });
+      if (error) throw error;
+      return data as unknown as OverviewMetrics;
+    },
+    enabled: !!currentOrg,
+  });
+}

@@ -1,4 +1,4 @@
-import { useDecisions, useSignals, usePods } from "@/hooks/useOrgData";
+import { useDecisions, useSignals, usePods, useOverviewMetrics } from "@/hooks/useOrgData";
 import StatusBadge from "@/components/StatusBadge";
 import MetricCard from "@/components/MetricCard";
 import { Link } from "react-router-dom";
@@ -10,32 +10,6 @@ function daysSince(dateStr: string): number {
 }
 
 type SolutionDomain = "S1" | "S2" | "S3" | "Cross";
-
-function computeOperatingFriction(decisions: any[], signals: any[], pods: any[]) {
-  const activeDecisions = decisions.filter((d) => d.status === "Active");
-  const avgAge = activeDecisions.length
-    ? activeDecisions.reduce((s, d) => s + daysSince(d.created_at), 0) / activeDecisions.length
-    : 0;
-  const allInits = pods.flatMap((p: any) => p.pod_initiatives || []);
-  const overdueSlices = allInits.filter((i: any) => !i.shipped && daysSince(i.slice_deadline) > 0).length;
-  const overduePercent = allInits.length ? (overdueSlices / allInits.length) * 100 : 0;
-  const blockedCount = decisions.filter((d) => d.status === "Blocked").length;
-  const unlinkedCount = signals.filter((s: any) => !s.decision_id).length;
-  const renewalAging = decisions.filter((d) => d.status === "Active" && d.outcome_category === "Enterprise Renewal" && daysSince(d.created_at) > 7).length;
-  const crossConflicts = signals.filter((s: any) => s.type === "Cross-Solution Conflict" && !s.decision_id).length;
-
-  const score = (avgAge * 2) + (overduePercent * 0.5) + (blockedCount * 10) + (unlinkedCount * 5) + (renewalAging * 8) + (crossConflicts * 7);
-  const level = score > 60 ? "High" : score > 30 ? "Moderate" : "Low";
-
-  const drivers: string[] = [];
-  if (overdueSlices > 0) drivers.push(`${overdueSlices} overdue slices`);
-  if (renewalAging > 0) drivers.push(`${renewalAging} renewal decision aging`);
-  if (unlinkedCount > 0) drivers.push(`${unlinkedCount} unlinked signals`);
-  if (crossConflicts > 0) drivers.push(`${crossConflicts} cross-solution conflicts`);
-  if (blockedCount > 0) drivers.push(`${blockedCount} blocked decisions`);
-
-  return { score: Math.round(score), level, drivers };
-}
 
 function computeSolutionDrift(decisions: any[]) {
   const active = decisions.filter((d) => d.status === "Active");
@@ -77,31 +51,27 @@ export default function Overview() {
   const { data: decisions = [], isLoading: dLoading } = useDecisions();
   const { data: signals = [], isLoading: sLoading } = useSignals();
   const { data: pods = [], isLoading: pLoading } = usePods();
+  const { data: metrics, isLoading: mLoading } = useOverviewMetrics();
 
-  if (dLoading || sLoading || pLoading) {
+  if (dLoading || sLoading || pLoading || mLoading) {
     return <p className="text-xs text-muted-foreground uppercase tracking-widest">Loading...</p>;
   }
+
+  const m = metrics || {
+    active_high_impact: 0, blocked_gt5_days: 0, unlinked_signals: 0,
+    decision_latency_days: 0, overdue_slices: 0, total_active: 0,
+    blocked_count: 0, friction_score: 0, friction_level: "Low",
+    friction_drivers: [], at_capacity: false,
+  };
 
   const isEmpty = decisions.length === 0 && signals.length === 0 && pods.length === 0;
 
   const activeDecisions = decisions.filter((d) => d.status === "Active");
-  const highImpactActive = activeDecisions.filter((d) => d.impact_tier === "High");
-  const atCapacity = highImpactActive.length >= 5;
   const blockedDecisions = decisions.filter(
     (d) => d.status === "Blocked" && daysSince(d.created_at) > 5
   );
   const unlinkedSignals = signals.filter((s) => !s.decision_id);
-  const avgLatency = activeDecisions.length
-    ? Math.round(
-        activeDecisions.reduce((sum, d) => sum + daysSince(d.created_at), 0) /
-          activeDecisions.length
-      )
-    : 0;
 
-  const withinSlice = activeDecisions.filter((d) => daysSince(d.created_at) <= (d.slice_deadline_days || 10));
-  const slicePercent = activeDecisions.length ? Math.round((withinSlice.length / activeDecisions.length) * 100) : 100;
-
-  const friction = computeOperatingFriction(decisions, signals, pods);
   const drift = computeSolutionDrift(decisions);
   const velocity = computeBuilderVelocity(pods);
 
@@ -151,8 +121,8 @@ export default function Overview() {
           <>
             <div className="grid grid-cols-4 gap-3 mb-8">
               <MetricCard label="ARR at Risk" value={totalRevenueAtRisk || "—"} alert={!!totalRevenueAtRisk} />
-              <MetricCard label="Decision Latency" value={`${avgLatency}d`} alert={avgLatency > 7} sub="vs 10d target" />
-              <MetricCard label="Operating Friction" value={friction.level} alert={friction.level !== "Low"} danger={friction.level === "High"} />
+              <MetricCard label="Decision Latency" value={`${m.decision_latency_days}d`} alert={m.decision_latency_days > 7} sub="vs 10d target" />
+              <MetricCard label="Operating Friction" value={m.friction_level} alert={m.friction_level !== "Low"} danger={m.friction_level === "High"} />
               <MetricCard label="Agent Trust Delta" value={decisions.find((d) => d.solution_domain === "S3" && d.current_delta)?.current_delta || "—"} alert />
             </div>
 
@@ -224,6 +194,10 @@ export default function Overview() {
     );
   }
 
+  // Slice compliance from server data
+  const sliceCompliant = m.total_active > 0 ? m.total_active - m.overdue_slices : 0;
+  const slicePercent = m.total_active > 0 ? Math.round((sliceCompliant / m.total_active) * 100) : 100;
+
   return (
     <div>
       <div className="mb-8 flex items-center justify-between">
@@ -241,25 +215,25 @@ export default function Overview() {
         </button>
       </div>
 
-      {/* Metrics */}
+      {/* Metrics — all server-computed */}
       <div className="grid grid-cols-5 gap-3 mb-8">
         <MetricCard
           label="Active High-Impact"
-          value={`${highImpactActive.length}/5`}
-          alert={atCapacity}
-          danger={atCapacity}
-          sub={atCapacity ? "Authority saturated" : `${5 - highImpactActive.length} slots open`}
+          value={`${m.active_high_impact}/5`}
+          alert={m.at_capacity}
+          danger={m.at_capacity}
+          sub={m.at_capacity ? "Authority saturated" : `${5 - m.active_high_impact} slots open`}
         />
-        <MetricCard label="Blocked > 5 days" value={blockedDecisions.length} />
-        <MetricCard label="Unlinked Signals" value={unlinkedSignals.length} />
+        <MetricCard label="Blocked > 5 days" value={m.blocked_gt5_days} />
+        <MetricCard label="Unlinked Signals" value={m.unlinked_signals} />
         <MetricCard
           label="Decision Latency"
-          value={activeDecisions.length ? `${avgLatency}d` : "—"}
-          sub="vs 10d target"
+          value={m.total_active ? `${m.decision_latency_days}d` : "—"}
+          sub="signal → decision avg"
         />
         <MetricCard
-          label="Within 10d Slice"
-          value={activeDecisions.length ? `${slicePercent}%` : "—"}
+          label="Within Slice"
+          value={m.total_active ? `${slicePercent}%` : "—"}
           sub="of active decisions"
         />
       </div>
@@ -277,35 +251,36 @@ export default function Overview() {
       )}
 
       {/* Capacity Warning */}
-      {atCapacity && (
+      {m.at_capacity && (
         <div className="mb-6 border border-signal-red/40 bg-signal-red/5 rounded-md px-4 py-3">
           <p className="text-sm font-semibold text-signal-red">High-Impact Capacity Full — Decision Authority Saturated</p>
           <p className="text-xs text-signal-red/80 mt-0.5">5/5 strategic decision slots active. Close 1 to open 1.</p>
         </div>
       )}
 
-      {/* Operating Friction */}
+      {/* Operating Friction — server-computed */}
       {!isEmpty && (
         <div className={cn(
           "mb-6 border rounded-md px-4 py-3",
-          friction.level === "High" ? "border-signal-red/40 bg-signal-red/5" :
-          friction.level === "Moderate" ? "border-signal-amber/40 bg-signal-amber/5" : ""
+          m.friction_level === "High" ? "border-signal-red/40 bg-signal-red/5" :
+          m.friction_level === "Moderate" ? "border-signal-amber/40 bg-signal-amber/5" : ""
         )}>
           <div className="flex items-center justify-between mb-2">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Operating Friction</p>
               <p className={cn(
                 "text-lg font-bold mt-0.5",
-                friction.level === "High" && "text-signal-red",
-                friction.level === "Moderate" && "text-signal-amber"
+                m.friction_level === "High" && "text-signal-red",
+                m.friction_level === "Moderate" && "text-signal-amber"
               )}>
-                {friction.level}
+                {m.friction_level}
               </p>
             </div>
+            <span className="text-xs text-muted-foreground font-mono">score: {m.friction_score}</span>
           </div>
-          {friction.drivers.length > 0 && (
+          {m.friction_drivers.length > 0 && (
             <div className="flex gap-4 flex-wrap">
-              {friction.drivers.map((d, i) => (
+              {m.friction_drivers.map((d, i) => (
                 <span key={i} className="text-xs text-muted-foreground">• {d}</span>
               ))}
             </div>
@@ -344,11 +319,9 @@ export default function Overview() {
           </div>
           <div className="border rounded-md divide-y">
             {activeDecisions.slice(0, 5).map((d) => {
-              const age = daysSince(d.created_at);
-              const sliceMax = d.slice_deadline_days || 10;
-              const sliceRemaining = sliceMax - age;
-              const exceeded = sliceRemaining < 0;
-              const urgent = sliceRemaining >= 0 && sliceRemaining <= 3;
+              const sliceRemaining = d.slice_remaining ?? 0;
+              const exceeded = d.is_exceeded ?? false;
+              const urgent = d.is_urgent ?? false;
               return (
                 <div key={d.id} className={cn("px-4 py-3", exceeded && "bg-signal-red/5")}>
                   <div className="flex items-center gap-4">
@@ -373,7 +346,7 @@ export default function Overview() {
                         {exceeded ? `${Math.abs(sliceRemaining)}d over` : `${sliceRemaining}d left`}
                       </p>
                       <p className="text-[11px] text-muted-foreground">
-                        {exceeded ? `Exceeded ${sliceMax}d window` : "slice clock"}
+                        {exceeded ? `Exceeded ${d.slice_deadline_days || 10}d window` : "slice clock"}
                       </p>
                     </div>
                   </div>
@@ -390,7 +363,7 @@ export default function Overview() {
           <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">Blocked — Escalation Required</h2>
           <div className="border border-signal-red/30 rounded-md bg-signal-red/5 divide-y divide-signal-red/10">
             {blockedDecisions.map((d) => {
-              const age = daysSince(d.created_at);
+              const age = d.age_days ?? daysSince(d.created_at);
               return (
                 <div key={d.id} className="px-4 py-3">
                   <div className="flex items-center gap-3 mb-1">
@@ -398,7 +371,7 @@ export default function Overview() {
                     <StatusBadge status="Blocked" />
                     <p className="text-sm font-medium flex-1">{d.title}</p>
                     <span className="text-xs text-mono font-semibold text-signal-red">{age}d</span>
-                    {age > 7 && (
+                    {d.needs_exec_attention && (
                       <span className="text-[11px] font-semibold text-signal-red uppercase tracking-wider animate-pulse-slow">Exec Attention</span>
                     )}
                   </div>
