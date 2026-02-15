@@ -4,19 +4,54 @@ import { useOrg } from "@/contexts/OrgContext";
 import { useAuth } from "@/contexts/AuthContext";
 import type { TablesInsert } from "@/integrations/supabase/types";
 
+export interface DecisionComputed {
+  id: string;
+  org_id: string;
+  title: string;
+  surface: string;
+  owner: string;
+  status: string;
+  impact_tier: string;
+  solution_type: string;
+  trigger_signal: string | null;
+  outcome_target: string | null;
+  outcome_category: string | null;
+  expected_impact: string | null;
+  current_delta: string | null;
+  revenue_at_risk: string | null;
+  segment_impact: string | null;
+  decision_health: string | null;
+  blocked_reason: string | null;
+  blocked_dependency_owner: string | null;
+  slice_deadline_days: number | null;
+  shipped_slice_date: string | null;
+  measured_outcome_result: string | null;
+  created_at: string;
+  updated_at: string;
+  created_by: string | null;
+  // Server-computed fields
+  age_days: number;
+  slice_remaining: number;
+  is_exceeded: boolean;
+  is_urgent: boolean;
+  is_aging: boolean;
+  is_unbound: boolean;
+  needs_exec_attention: boolean;
+}
+
 export function useDecisions() {
   const { currentOrg } = useOrg();
-  return useQuery({
+  return useQuery<DecisionComputed[]>({
     queryKey: ["decisions", currentOrg?.id],
     queryFn: async () => {
       if (!currentOrg) return [];
       const { data, error } = await supabase
-        .from("decisions")
+        .from("decisions_computed" as any)
         .select("*")
         .eq("org_id", currentOrg.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data || [];
+      return (data || []) as unknown as DecisionComputed[];
     },
     enabled: !!currentOrg,
   });
