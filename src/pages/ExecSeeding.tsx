@@ -56,6 +56,8 @@ function SeedingForm({ onCreated }: { onCreated: () => void }) {
   const [impactTier, setImpactTier] = useState<ImpactTier>("High");
   const [outcomeTarget, setOutcomeTarget] = useState("");
   const [outcomeCategory, setOutcomeCategory] = useState<OutcomeCategory | "">("");
+  const [expectedImpact, setExpectedImpact] = useState("");
+  const [exposureValue, setExposureValue] = useState("");
   const [triggerSignal, setTriggerSignal] = useState("");
   const [revenueAtRisk, setRevenueAtRisk] = useState("");
 
@@ -72,11 +74,12 @@ function SeedingForm({ onCreated }: { onCreated: () => void }) {
         impact_tier: impactTier,
         outcome_target: outcomeTarget || null,
         outcome_category: outcomeCategory || null,
+        expected_impact: expectedImpact || null,
+        exposure_value: exposureValue || null,
         trigger_signal: triggerSignal || null,
         revenue_at_risk: revenueAtRisk || null,
         status: "Active",
       });
-      // Reset form
       setTitle("");
       setOwner("");
       setSurface("");
@@ -84,6 +87,8 @@ function SeedingForm({ onCreated }: { onCreated: () => void }) {
       setImpactTier("High");
       setOutcomeTarget("");
       setOutcomeCategory("");
+      setExpectedImpact("");
+      setExposureValue("");
       setTriggerSignal("");
       setRevenueAtRisk("");
       onCreated();
@@ -91,10 +96,16 @@ function SeedingForm({ onCreated }: { onCreated: () => void }) {
       const msg = err?.message || String(err);
       if (msg.includes("HIGH_IMPACT_CAP")) {
         toast.error("All 5 high-impact slots are filled.");
+      } else if (msg.includes("OUTCOME_CATEGORY_REQUIRED")) {
+        toast.error("Outcome Category is required to activate.");
+      } else if (msg.includes("EXPECTED_IMPACT_REQUIRED")) {
+        toast.error("Expected Impact is required to activate.");
+      } else if (msg.includes("EXPOSURE_REQUIRED")) {
+        toast.error("Exposure Value is required to activate.");
       } else if (msg.includes("OUTCOME_REQUIRED")) {
-        toast.error("Outcome Target is required to activate a decision.");
+        toast.error("Outcome Target is required to activate.");
       } else if (msg.includes("OWNER_REQUIRED")) {
-        toast.error("Owner is required to activate a decision.");
+        toast.error("Owner is required to activate.");
       } else {
         toast.error("Failed to create decision.");
       }
@@ -140,11 +151,21 @@ function SeedingForm({ onCreated }: { onCreated: () => void }) {
           <input required value={outcomeTarget} onChange={(e) => setOutcomeTarget(e.target.value)} placeholder="Required to activate" className={inputClass} />
         </div>
         <div>
-          <label className={labelClass}>Outcome Category</label>
-          <select value={outcomeCategory} onChange={(e) => setOutcomeCategory(e.target.value as OutcomeCategory)} className={inputClass}>
-            <option value="">—</option>
+          <label className={labelClass}>Outcome Category *</label>
+          <select required value={outcomeCategory} onChange={(e) => setOutcomeCategory(e.target.value as OutcomeCategory)} className={inputClass}>
+            <option value="">— Select —</option>
             {outcomeCategories.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelClass}>Expected Impact *</label>
+          <input required value={expectedImpact} onChange={(e) => setExpectedImpact(e.target.value)} placeholder="e.g. +15% adoption" className={inputClass} />
+        </div>
+        <div>
+          <label className={labelClass}>Exposure Value *</label>
+          <input required value={exposureValue} onChange={(e) => setExposureValue(e.target.value)} placeholder="e.g. $2.1M ARR" className={inputClass} />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">

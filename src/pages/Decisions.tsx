@@ -6,8 +6,101 @@ import CreateDecisionForm from "@/components/CreateDecisionForm";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { Database } from "@/integrations/supabase/types";
+import type { DecisionComputed } from "@/hooks/useOrgData";
 
 type DecisionStatus = Database["public"]["Enums"]["decision_status"];
+
+function parseWorkflowError(msg: string): string | null {
+  const map: Record<string, string> = {
+    HIGH_IMPACT_CAP: "Cannot exceed 5 active high-impact decisions.",
+    OUTCOME_REQUIRED: "Outcome Target required to activate.",
+    OWNER_REQUIRED: "Owner required to activate.",
+    OUTCOME_CATEGORY_REQUIRED: "Outcome Category required to activate.",
+    EXPECTED_IMPACT_REQUIRED: "Expected Impact required to activate.",
+    EXPOSURE_REQUIRED: "Exposure Value required to activate.",
+    ACTUAL_OUTCOME_REQUIRED: "Actual Outcome Value required to close.",
+    OUTCOME_DELTA_REQUIRED: "Outcome Delta required to close.",
+    CLOSURE_NOTE_REQUIRED: "Closure Note required to close.",
+  };
+  for (const [key, label] of Object.entries(map)) {
+    if (msg.includes(key)) return label;
+  }
+  return null;
+}
+
+function ClosureModal({ decision, onClose, onSubmit, isPending }: {
+  decision: DecisionComputed;
+  onClose: () => void;
+  onSubmit: (data: { actual_outcome_value: string; outcome_delta: string; closure_note: string }) => void;
+  isPending: boolean;
+}) {
+  const [actualOutcome, setActualOutcome] = useState("");
+  const [outcomeDelta, setOutcomeDelta] = useState("");
+  const [closureNote, setClosureNote] = useState("");
+
+  const inputClass = "w-full border rounded-sm px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-foreground";
+  const labelClass = "text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1";
+
+  return (
+    <div className="fixed inset-0 bg-background/80 flex items-center justify-center z-50">
+      <div className="border rounded-md p-6 bg-background w-full max-w-md shadow-lg">
+        <h2 className="text-sm font-bold mb-1">Close Decision</h2>
+        <p className="text-xs text-muted-foreground mb-4">{decision.title}</p>
+        <div className="space-y-3">
+          <div>
+            <label className={labelClass}>Actual Outcome Value *</label>
+            <input required value={actualOutcome} onChange={(e) => setActualOutcome(e.target.value)}
+              placeholder="e.g. +12% adoption achieved" className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>Outcome Delta *</label>
+            <input required value={outcomeDelta} onChange={(e) => setOutcomeDelta(e.target.value)}
+              placeholder="e.g. -3% vs target" className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>Closure Note *</label>
+            <textarea required value={closureNote} onChange={(e) => setClosureNote(e.target.value)}
+              placeholder="Summary of results and learnings" rows={3}
+              className={inputClass} />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <button onClick={onClose} className="text-xs text-muted-foreground hover:text-foreground px-3 py-1.5">Cancel</button>
+            <button
+              disabled={isPending || !actualOutcome || !outcomeDelta || !closureNote}
+              onClick={() => onSubmit({ actual_outcome_value: actualOutcome, outcome_delta: outcomeDelta, closure_note: closureNote })}
+              className="text-[11px] font-semibold uppercase tracking-wider text-background bg-foreground px-4 py-2 rounded-sm hover:bg-foreground/90 transition-colors disabled:opacity-50"
+            >
+              {isPending ? "Closing..." : "Close Decision"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WorkflowBadge({ label, type = "info" }: { label: string; type?: "info" | "warn" | "success" }) {
+  return (
+    <span className={cn(
+      "text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-sm",
+      type === "warn" && "bg-signal-amber/10 text-signal-amber",
+      type === "success" && "bg-signal-green/10 text-signal-green",
+      type === "info" && "bg-muted text-muted-foreground"
+    )}>
+      {label}
+    </span>
+  );
+}
+
+function getReadinessIssues(d: DecisionComputed): string[] {
+  const issues: string[] = [];
+  if (!d.outcome_target) issues.push("Outcome Target");
+  if (!d.outcome_category) issues.push("Outcome Category");
+  if (!d.expected_impact) issues.push("Expected Impact");
+  if (!(d as any).exposure_value) issues.push("Exposure Value");
+  if (!d.owner) issues.push("Owner");
+  return issues;
+}
 
 export default function Decisions() {
   const { data: decisions = [], isLoading } = useDecisions();
@@ -15,6 +108,7 @@ export default function Decisions() {
   const deleteDecision = useDeleteDecision();
   const { currentRole } = useOrg();
   const [showCreate, setShowCreate] = useState(false);
+  const [closingDecision, setClosingDecision] = useState<DecisionComputed | null>(null);
 
   const canWrite = currentRole === "admin" || currentRole === "pod_lead";
   const canDelete = currentRole === "admin";
@@ -33,21 +127,38 @@ export default function Decisions() {
 
   const statusOptions: DecisionStatus[] = ["Draft", "Active", "Blocked", "Closed"];
 
-  const handleStatusChange = (id: string, newStatus: DecisionStatus) => {
+  const handleStatusChange = (d: DecisionComputed, newStatus: DecisionStatus) => {
+    // Intercept Active→Closed to show closure modal
+    if (newStatus === "Closed" && d.status === "Active") {
+      setClosingDecision(d);
+      return;
+    }
+
     updateDecision.mutate(
-      { id, status: newStatus },
+      { id: d.id, status: newStatus },
       {
         onError: (err: any) => {
           const msg = err?.message || String(err);
-          if (msg.includes("HIGH_IMPACT_CAP")) {
-            toast.error("Cannot exceed 5 active high-impact decisions. Close one first.");
-          } else if (msg.includes("OUTCOME_REQUIRED")) {
-            toast.error("Cannot activate without an Outcome Target.");
-          } else if (msg.includes("OWNER_REQUIRED")) {
-            toast.error("Cannot activate without an assigned Owner.");
-          } else {
-            toast.error("Failed to update status.");
-          }
+          const parsed = parseWorkflowError(msg);
+          toast.error(parsed || "Failed to update status.");
+        },
+      }
+    );
+  };
+
+  const handleClosure = (data: { actual_outcome_value: string; outcome_delta: string; closure_note: string }) => {
+    if (!closingDecision) return;
+    updateDecision.mutate(
+      { id: closingDecision.id, status: "Closed" as DecisionStatus, ...data },
+      {
+        onSuccess: () => {
+          setClosingDecision(null);
+          toast.success("Decision closed with outcome recorded.");
+        },
+        onError: (err: any) => {
+          const msg = err?.message || String(err);
+          const parsed = parseWorkflowError(msg);
+          toast.error(parsed || "Failed to close decision.");
         },
       }
     );
@@ -97,6 +208,8 @@ export default function Decisions() {
               <div className="space-y-2">
                 {items.map((d) => {
                   const isBlocked = d.status === "Blocked";
+                  const isDraft = d.status === "Draft";
+                  const readinessIssues = isDraft ? getReadinessIssues(d) : [];
 
                   return (
                     <div key={d.id} className={cn("border rounded-md p-4", d.is_exceeded ? "border-signal-red/40 bg-signal-red/5" : d.is_aging ? "border-signal-amber/40" : "")}>
@@ -105,6 +218,18 @@ export default function Decisions() {
                         <StatusBadge status={d.impact_tier} />
                         <StatusBadge status={d.status} />
                         {d.decision_health && <StatusBadge status={d.decision_health} />}
+
+                        {/* Workflow badges */}
+                        {isDraft && readinessIssues.length === 0 && (
+                          <WorkflowBadge label="Ready to Activate" type="success" />
+                        )}
+                        {isDraft && readinessIssues.length > 0 && (
+                          <WorkflowBadge label={`Missing: ${readinessIssues.join(", ")}`} type="warn" />
+                        )}
+                        {d.status === "Active" && (d as any).activated_at && (
+                          <WorkflowBadge label="Activated" type="success" />
+                        )}
+
                         {d.status === "Active" && (
                           <span className={cn("text-[11px] font-semibold uppercase tracking-wider", d.is_exceeded ? "text-signal-red" : d.is_urgent ? "text-signal-amber" : "text-muted-foreground")}>
                             {d.is_exceeded ? `Exceeded ${d.slice_deadline_days || 10}d build window` : `Slice due in ${d.slice_remaining}d`}
@@ -126,6 +251,7 @@ export default function Decisions() {
                       </div>
 
                       <div className="grid grid-cols-4 gap-4 text-xs mb-3">
+                        {(d as any).exposure_value && <div><span className="text-muted-foreground">Exposure</span><p className="font-semibold mt-0.5 text-signal-amber">{(d as any).exposure_value}</p></div>}
                         {d.current_delta && <div><span className="text-muted-foreground">Current Delta</span><p className="font-semibold mt-0.5 text-signal-amber">{d.current_delta}</p></div>}
                         {d.revenue_at_risk && <div><span className="text-muted-foreground">Enterprise Exposure</span><p className="font-semibold mt-0.5 text-signal-red">{d.revenue_at_risk}</p></div>}
                         {d.segment_impact && <div><span className="text-muted-foreground">Segment</span><p className="font-medium mt-0.5">{d.segment_impact}</p></div>}
@@ -140,7 +266,7 @@ export default function Decisions() {
                         {canWrite && (
                           <div>
                             <span className="text-muted-foreground">Status</span>
-                            <select value={d.status} onChange={(e) => handleStatusChange(d.id, e.target.value as DecisionStatus)}
+                            <select value={d.status} onChange={(e) => handleStatusChange(d, e.target.value as DecisionStatus)}
                               className="block mt-0.5 border rounded-sm px-2 py-1 text-xs bg-background focus:outline-none">
                               {statusOptions.map((s) => <option key={s} value={s}>{s}</option>)}
                             </select>
@@ -167,6 +293,16 @@ export default function Decisions() {
             </section>
           );
         })
+      )}
+
+      {/* Closure Modal */}
+      {closingDecision && (
+        <ClosureModal
+          decision={closingDecision}
+          onClose={() => setClosingDecision(null)}
+          onSubmit={handleClosure}
+          isPending={updateDecision.isPending}
+        />
       )}
     </div>
   );
