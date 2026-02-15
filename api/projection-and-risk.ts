@@ -2,63 +2,25 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
-
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
-function stripJson(raw: string) {
-  const unfenced = raw
-    .trim()
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/\s*```$/i, "")
-    .trim();
-
-  const firstBrace = unfenced.indexOf("{");
-  const lastBrace = unfenced.lastIndexOf("}");
-  const jsonString =
-    firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace
-      ? unfenced.slice(firstBrace, lastBrace + 1)
-      : unfenced;
-
-  return JSON.parse(jsonString);
-}
-
-function computeRisk(projection: any, exposureValue: string) {
-  let score = 0;
-
-  const delayed = projection?.delayed_10_days?.confidence;
-  const depr = projection?.deprioritized?.confidence;
-
-  if (delayed === "High") score += 20;
-  if (delayed === "Medium") score += 12;
-
-  if (depr === "High") score += 25;
-  if (depr === "Medium") score += 15;
-
-  if (exposureValue?.toLowerCase().includes("renewal")) score += 10;
-
-  score = Math.min(100, score);
-
-  let indicator = "Green";
-  if (score >= 70) indicator = "Red";
-  else if (score >= 40) indicator = "Yellow";
-
-  return {
-    risk_score: score,
-    risk_indicator: indicator,
-    risk_reason: "AI projection + deterministic rules",
-  };
-}
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
+
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return res.status(500).json({ error: "Missing Supabase server env vars" });
+  }
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return res.status(500).json({ error: "Missing ANTHROPIC_API_KEY" });
+  }
+
+  const anthropic = new Anthropic({
+    apiKey: process.env.ANTHROPIC_API_KEY,
+  });
+  const supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  );
 
   try {
     const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
@@ -102,15 +64,60 @@ Return JSON exactly:
     });
 
     const textBlock = response.content.find((c) => c.type === "text");
-    const projection = stripJson(textBlock?.text ?? "");
+    const raw = (textBlock?.text ?? "").trim();
 
-    const risk = computeRisk(projection, body.exposure_value);
+    const unfenced = raw
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/\s*```$/i, "")
+      .trim();
+
+    const firstBrace = unfenced.indexOf("{");
+    const lastBrace = unfenced.lastIndexOf("}");
+    const jsonString =
+      firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace
+        ? unfenced.slice(firstBrace, lastBrace + 1)
+        : unfenced;
+
+    let projection: Record<string, unknown>;
+    try {
+      projection = JSON.parse(jsonString) as Record<string, unknown>;
+    } catch {
+      return res.status(500).json({
+        error: "Projection+risk generation failed",
+        detail: "Invalid JSON in model response",
+      });
+    }
+
+    let score = 0;
+    const delayed = (projection?.delayed_10_days as Record<string, unknown>)
+      ?.confidence as string | undefined;
+    const depr = (projection?.deprioritized as Record<string, unknown>)
+      ?.confidence as string | undefined;
+
+    if (delayed === "High") score += 20;
+    if (delayed === "Medium") score += 12;
+    if (depr === "High") score += 25;
+    if (depr === "Medium") score += 15;
+    if (String(body.exposure_value ?? "").toLowerCase().includes("renewal"))
+      score += 10;
+
+    score = Math.min(100, score);
+    let indicator = "Green";
+    if (score >= 70) indicator = "Red";
+    else if (score >= 40) indicator = "Yellow";
+
+    const risk = {
+      risk_score: score,
+      risk_indicator: indicator,
+      risk_reason: "AI projection + deterministic rules",
+    };
 
     await supabase.from("decision_projections").insert({
       org_id: body.org_id,
       decision_id: body.decision_id,
-      model: "claude-opus-4-6",
-      projection,
+      scenarios: projection,
+      decision_metadata_hash: `model:claude-opus-4-6`,
+      generated_at: new Date().toISOString(),
     });
 
     await supabase.from("decision_risk").upsert({
@@ -124,10 +131,10 @@ Return JSON exactly:
     });
 
     return res.status(200).json({ projection, risk });
-  } catch (err: any) {
+  } catch (err: unknown) {
     return res.status(500).json({
       error: "Projection+risk generation failed",
-      detail: String(err?.message ?? err),
+      detail: err instanceof Error ? err.message : String(err),
     });
   }
 }
