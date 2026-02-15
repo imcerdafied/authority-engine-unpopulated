@@ -62,8 +62,23 @@ Return JSON exactly:
     });
 
     const textBlock = response.content.find((c) => c.type === "text");
-    const text = textBlock?.text ?? "";
-    const json = JSON.parse(text);
+const raw = (textBlock?.text ?? "").trim();
+
+// Remove ```json or ``` fences if present
+const unfenced = raw
+  .replace(/^```(?:json)?\s*/i, "")
+  .replace(/\s*```$/i, "")
+  .trim();
+
+// Extract first JSON object safely
+const firstBrace = unfenced.indexOf("{");
+const lastBrace = unfenced.lastIndexOf("}");
+const jsonString =
+  firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace
+    ? unfenced.slice(firstBrace, lastBrace + 1)
+    : unfenced;
+
+const json = JSON.parse(jsonString);
 
     return res.status(200).json(json);
   } catch (err: any) {
