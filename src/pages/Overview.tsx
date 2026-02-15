@@ -1,23 +1,30 @@
-import { decisions, signals, pods } from "@/lib/mock-data";
-import { daysSince, SolutionType } from "@/lib/types";
+import { useDecisions, useSignals, usePods } from "@/hooks/useOrgData";
 import StatusBadge from "@/components/StatusBadge";
 import MetricCard from "@/components/MetricCard";
 import { Link } from "react-router-dom";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
-function computeOperatingFriction() {
+function daysSince(dateStr: string): number {
+  const d = new Date(dateStr);
+  const now = new Date();
+  return Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+type SolutionType = "S1" | "S2" | "S3" | "Cross-Solution";
+
+function computeOperatingFriction(decisions: any[], signals: any[], pods: any[]) {
   const activeDecisions = decisions.filter((d) => d.status === "Active");
   const avgAge = activeDecisions.length
-    ? activeDecisions.reduce((s, d) => s + daysSince(d.createdDate), 0) / activeDecisions.length
+    ? activeDecisions.reduce((s, d) => s + daysSince(d.created_at), 0) / activeDecisions.length
     : 0;
-  const allInits = pods.flatMap((p) => p.initiatives);
-  const overdueSlices = allInits.filter((i) => !i.shipped && daysSince(i.sliceDeadline) > 0).length;
+  const allInits = pods.flatMap((p: any) => p.pod_initiatives || []);
+  const overdueSlices = allInits.filter((i: any) => !i.shipped && daysSince(i.slice_deadline) > 0).length;
   const overduePercent = allInits.length ? (overdueSlices / allInits.length) * 100 : 0;
   const blockedCount = decisions.filter((d) => d.status === "Blocked").length;
-  const unlinkedCount = signals.filter((s) => !s.decisionId).length;
-  const renewalAging = decisions.filter((d) => d.status === "Active" && d.outcomeCategory === "Enterprise Renewal" && daysSince(d.createdDate) > 7).length;
-  const crossConflicts = signals.filter((s) => s.type === "Cross-Solution Conflict" && !s.decisionId).length;
+  const unlinkedCount = signals.filter((s: any) => !s.decision_id).length;
+  const renewalAging = decisions.filter((d) => d.status === "Active" && d.outcome_category === "Enterprise Renewal" && daysSince(d.created_at) > 7).length;
+  const crossConflicts = signals.filter((s: any) => s.type === "Cross-Solution Conflict" && !s.decision_id).length;
 
   const score = (avgAge * 2) + (overduePercent * 0.5) + (blockedCount * 10) + (unlinkedCount * 5) + (renewalAging * 8) + (crossConflicts * 7);
   const level = score > 60 ? "High" : score > 30 ? "Moderate" : "Low";
@@ -32,10 +39,10 @@ function computeOperatingFriction() {
   return { score: Math.round(score), level, drivers };
 }
 
-function computeSolutionDrift() {
+function computeSolutionDrift(decisions: any[]) {
   const active = decisions.filter((d) => d.status === "Active");
   const counts: Record<SolutionType, number> = { S1: 0, S2: 0, S3: 0, "Cross-Solution": 0 };
-  active.forEach((d) => { counts[d.solutionType]++; });
+  active.forEach((d) => { counts[d.solution_type as SolutionType]++; });
   const total = active.length || 1;
   const s1Pct = Math.round((counts.S1 / total) * 100);
   const s2Pct = Math.round((counts.S2 / total) * 100);
@@ -44,16 +51,17 @@ function computeSolutionDrift() {
   return { s1Pct, s2Pct, s3Pct, counts, legacyGravity };
 }
 
-function computeBuilderVelocity() {
-  return pods.map((pod) => {
-    const shipped = pod.initiatives.filter((i) => i.shipped).length;
-    const total = pod.initiatives.length;
-    const withDemo = pod.initiatives.filter((i) => i.lastDemoDate);
+function computeBuilderVelocity(pods: any[]) {
+  return pods.map((pod: any) => {
+    const inits = pod.pod_initiatives || [];
+    const shipped = inits.filter((i: any) => i.shipped).length;
+    const total = inits.length;
+    const withDemo = inits.filter((i: any) => i.last_demo_date);
     const avgCycle = withDemo.length
-      ? Math.round(withDemo.reduce((s, i) => s + daysSince(i.lastDemoDate!), 0) / withDemo.length)
+      ? Math.round(withDemo.reduce((s: number, i: any) => s + daysSince(i.last_demo_date!), 0) / withDemo.length)
       : null;
     const resolved = total ? Math.round((shipped / total) * 100) : 0;
-    return { name: pod.name, solutionType: pod.solutionType, shipped, total, avgCycle, resolved };
+    return { name: pod.name, solutionType: pod.solution_type, shipped, total, avgCycle, resolved };
   });
 }
 
@@ -68,40 +76,47 @@ function EmptyState({ message, sub }: { message: string; sub?: string }) {
 
 export default function Overview() {
   const [executiveMode, setExecutiveMode] = useState(false);
+  const { data: decisions = [], isLoading: dLoading } = useDecisions();
+  const { data: signals = [], isLoading: sLoading } = useSignals();
+  const { data: pods = [], isLoading: pLoading } = usePods();
+
+  if (dLoading || sLoading || pLoading) {
+    return <p className="text-xs text-muted-foreground uppercase tracking-widest">Loading...</p>;
+  }
 
   const isEmpty = decisions.length === 0 && signals.length === 0 && pods.length === 0;
 
   const activeDecisions = decisions.filter((d) => d.status === "Active");
-  const highImpactActive = activeDecisions.filter((d) => d.impactTier === "High");
+  const highImpactActive = activeDecisions.filter((d) => d.impact_tier === "High");
   const atCapacity = highImpactActive.length >= 5;
   const blockedDecisions = decisions.filter(
-    (d) => d.status === "Blocked" && daysSince(d.createdDate) > 5
+    (d) => d.status === "Blocked" && daysSince(d.created_at) > 5
   );
-  const unlinkedSignals = signals.filter((s) => !s.decisionId);
+  const unlinkedSignals = signals.filter((s) => !s.decision_id);
   const avgLatency = activeDecisions.length
     ? Math.round(
-        activeDecisions.reduce((sum, d) => sum + daysSince(d.createdDate), 0) /
+        activeDecisions.reduce((sum, d) => sum + daysSince(d.created_at), 0) /
           activeDecisions.length
       )
     : 0;
 
-  const withinSlice = activeDecisions.filter((d) => daysSince(d.createdDate) <= (d.sliceDeadlineDays || 10));
+  const withinSlice = activeDecisions.filter((d) => daysSince(d.created_at) <= (d.slice_deadline_days || 10));
   const slicePercent = activeDecisions.length ? Math.round((withinSlice.length / activeDecisions.length) * 100) : 100;
 
-  const friction = computeOperatingFriction();
-  const drift = computeSolutionDrift();
-  const velocity = computeBuilderVelocity();
+  const friction = computeOperatingFriction(decisions, signals, pods);
+  const drift = computeSolutionDrift(decisions);
+  const velocity = computeBuilderVelocity(pods);
 
   const totalRevenueAtRisk = decisions
-    .filter((d) => d.status === "Active" && d.revenueAtRisk)
-    .map((d) => d.revenueAtRisk!)
+    .filter((d) => d.status === "Active" && d.revenue_at_risk)
+    .map((d) => d.revenue_at_risk!)
     .join(" · ");
 
   const top3Risk = [...activeDecisions]
     .sort((a, b) => {
-      const tierOrder = { High: 0, Medium: 1, Low: 2 };
-      if (tierOrder[a.impactTier] !== tierOrder[b.impactTier]) return tierOrder[a.impactTier] - tierOrder[b.impactTier];
-      return daysSince(b.createdDate) - daysSince(a.createdDate);
+      const tierOrder: Record<string, number> = { High: 0, Medium: 1, Low: 2 };
+      if (tierOrder[a.impact_tier] !== tierOrder[b.impact_tier]) return tierOrder[a.impact_tier] - tierOrder[b.impact_tier];
+      return daysSince(b.created_at) - daysSince(a.created_at);
     })
     .slice(0, 3);
 
@@ -137,28 +152,10 @@ export default function Overview() {
         ) : (
           <>
             <div className="grid grid-cols-4 gap-3 mb-8">
-              <MetricCard
-                label="ARR at Risk"
-                value={totalRevenueAtRisk || "—"}
-                alert={!!totalRevenueAtRisk}
-              />
-              <MetricCard
-                label="Decision Latency"
-                value={`${avgLatency}d`}
-                alert={avgLatency > 7}
-                sub="vs 10d target"
-              />
-              <MetricCard
-                label="Operating Friction"
-                value={friction.level}
-                alert={friction.level !== "Low"}
-                danger={friction.level === "High"}
-              />
-              <MetricCard
-                label="Agent Trust Delta"
-                value={decisions.find((d) => d.solutionType === "S3" && d.currentDelta)?.currentDelta || "—"}
-                alert
-              />
+              <MetricCard label="ARR at Risk" value={totalRevenueAtRisk || "—"} alert={!!totalRevenueAtRisk} />
+              <MetricCard label="Decision Latency" value={`${avgLatency}d`} alert={avgLatency > 7} sub="vs 10d target" />
+              <MetricCard label="Operating Friction" value={friction.level} alert={friction.level !== "Low"} danger={friction.level === "High"} />
+              <MetricCard label="Agent Trust Delta" value={decisions.find((d) => d.solution_type === "S3" && d.current_delta)?.current_delta || "—"} alert />
             </div>
 
             <section className="mb-8">
@@ -167,17 +164,17 @@ export default function Overview() {
               </h2>
               <div className="border rounded-md divide-y">
                 {top3Risk.map((d) => {
-                  const age = daysSince(d.createdDate);
-                  const exceeded = age > (d.sliceDeadlineDays || 10);
+                  const age = daysSince(d.created_at);
+                  const exceeded = age > (d.slice_deadline_days || 10);
                   return (
                     <div key={d.id} className={cn("px-4 py-4", exceeded && "bg-signal-red/5")}>
                       <div className="flex items-center gap-3 mb-2">
-                        <StatusBadge status={d.solutionType} />
-                        <StatusBadge status={d.impactTier} />
-                        {d.decisionHealth && <StatusBadge status={d.decisionHealth} />}
+                        <StatusBadge status={d.solution_type} />
+                        <StatusBadge status={d.impact_tier} />
+                        {d.decision_health && <StatusBadge status={d.decision_health} />}
                         {exceeded && (
                           <span className="text-[11px] font-semibold text-signal-red uppercase tracking-wider">
-                            Exceeded {d.sliceDeadlineDays || 10}d window
+                            Exceeded {d.slice_deadline_days || 10}d window
                           </span>
                         )}
                       </div>
@@ -185,7 +182,7 @@ export default function Overview() {
                       <div className="flex gap-6 text-xs text-muted-foreground mt-1">
                         <span>{d.owner}</span>
                         <span className="text-mono">{age}d old</span>
-                        {d.revenueAtRisk && <span className="text-signal-amber font-semibold">{d.revenueAtRisk}</span>}
+                        {d.revenue_at_risk && <span className="text-signal-amber font-semibold">{d.revenue_at_risk}</span>}
                       </div>
                     </div>
                   );
@@ -200,11 +197,11 @@ export default function Overview() {
                 </h2>
                 <div className="border border-signal-red/30 rounded-md bg-signal-red/5 divide-y divide-signal-red/10">
                   {blockedDecisions.map((d) => {
-                    const age = daysSince(d.createdDate);
+                    const age = daysSince(d.created_at);
                     return (
                       <div key={d.id} className="px-4 py-3">
                         <div className="flex items-center gap-3 mb-1">
-                          <StatusBadge status={d.solutionType} />
+                          <StatusBadge status={d.solution_type} />
                           <StatusBadge status="Blocked" />
                           <span className="text-sm font-medium flex-1">{d.title}</span>
                           {age > 7 && (
@@ -213,9 +210,9 @@ export default function Overview() {
                             </span>
                           )}
                         </div>
-                        {d.blockedReason && <p className="text-xs text-muted-foreground">{d.blockedReason}</p>}
-                        {d.blockedDependencyOwner && (
-                          <p className="text-xs text-muted-foreground">Dependency: {d.blockedDependencyOwner} · {age}d blocked</p>
+                        {d.blocked_reason && <p className="text-xs text-muted-foreground">{d.blocked_reason}</p>}
+                        {d.blocked_dependency_owner && (
+                          <p className="text-xs text-muted-foreground">Dependency: {d.blocked_dependency_owner} · {age}d blocked</p>
                         )}
                       </div>
                     );
@@ -255,14 +252,8 @@ export default function Overview() {
           danger={atCapacity}
           sub={atCapacity ? "Authority saturated" : `${5 - highImpactActive.length} slots open`}
         />
-        <MetricCard
-          label="Blocked > 5 days"
-          value={blockedDecisions.length}
-        />
-        <MetricCard
-          label="Unlinked Signals"
-          value={unlinkedSignals.length}
-        />
+        <MetricCard label="Blocked > 5 days" value={blockedDecisions.length} />
+        <MetricCard label="Unlinked Signals" value={unlinkedSignals.length} />
         <MetricCard
           label="Decision Latency"
           value={activeDecisions.length ? `${avgLatency}d` : "—"}
@@ -295,7 +286,7 @@ export default function Overview() {
         </div>
       )}
 
-      {/* Operating Friction — only show when there's data */}
+      {/* Operating Friction */}
       {!isEmpty && (
         <div className={cn(
           "mb-6 border rounded-md px-4 py-3",
@@ -324,7 +315,7 @@ export default function Overview() {
         </div>
       )}
 
-      {/* Solution Drift Index — only show when there's data */}
+      {/* Solution Drift Index */}
       {!isEmpty && (
         <div className={cn(
           "mb-8 border rounded-md px-4 py-3",
@@ -350,17 +341,13 @@ export default function Overview() {
       {activeDecisions.length > 0 && (
         <section className="mb-8">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Active Decisions
-            </h2>
-            <Link to="/decisions" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-              View all →
-            </Link>
+            <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Active Decisions</h2>
+            <Link to="/decisions" className="text-xs text-muted-foreground hover:text-foreground transition-colors">View all →</Link>
           </div>
           <div className="border rounded-md divide-y">
             {activeDecisions.slice(0, 5).map((d) => {
-              const age = daysSince(d.createdDate);
-              const sliceMax = d.sliceDeadlineDays || 10;
+              const age = daysSince(d.created_at);
+              const sliceMax = d.slice_deadline_days || 10;
               const sliceRemaining = sliceMax - age;
               const exceeded = sliceRemaining < 0;
               const urgent = sliceRemaining >= 0 && sliceRemaining <= 3;
@@ -368,16 +355,16 @@ export default function Overview() {
                 <div key={d.id} className={cn("px-4 py-3", exceeded && "bg-signal-red/5")}>
                   <div className="flex items-center gap-4">
                     <div className="flex gap-1.5 shrink-0">
-                      <StatusBadge status={d.solutionType} />
-                      <StatusBadge status={d.impactTier} />
-                      {d.decisionHealth && <StatusBadge status={d.decisionHealth} />}
+                      <StatusBadge status={d.solution_type} />
+                      <StatusBadge status={d.impact_tier} />
+                      {d.decision_health && <StatusBadge status={d.decision_health} />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{d.title}</p>
                       <div className="flex gap-4 text-xs text-muted-foreground mt-0.5">
                         <span>{d.owner}</span>
                         <span>{d.surface}</span>
-                        {d.revenueAtRisk && <span className="text-signal-amber font-semibold">{d.revenueAtRisk}</span>}
+                        {d.revenue_at_risk && <span className="text-signal-amber font-semibold">{d.revenue_at_risk}</span>}
                       </div>
                     </div>
                     <div className="text-right shrink-0">
@@ -402,29 +389,24 @@ export default function Overview() {
       {/* Blocked Escalation */}
       {blockedDecisions.length > 0 && (
         <section className="mb-8">
-          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-            Blocked — Escalation Required
-          </h2>
+          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">Blocked — Escalation Required</h2>
           <div className="border border-signal-red/30 rounded-md bg-signal-red/5 divide-y divide-signal-red/10">
             {blockedDecisions.map((d) => {
-              const age = daysSince(d.createdDate);
-              const execAttention = age > 7;
+              const age = daysSince(d.created_at);
               return (
                 <div key={d.id} className="px-4 py-3">
                   <div className="flex items-center gap-3 mb-1">
-                    <StatusBadge status={d.solutionType} />
+                    <StatusBadge status={d.solution_type} />
                     <StatusBadge status="Blocked" />
                     <p className="text-sm font-medium flex-1">{d.title}</p>
                     <span className="text-xs text-mono font-semibold text-signal-red">{age}d</span>
-                    {execAttention && (
-                      <span className="text-[11px] font-semibold text-signal-red uppercase tracking-wider animate-pulse-slow">
-                        Exec Attention
-                      </span>
+                    {age > 7 && (
+                      <span className="text-[11px] font-semibold text-signal-red uppercase tracking-wider animate-pulse-slow">Exec Attention</span>
                     )}
                   </div>
-                  {d.blockedReason && <p className="text-xs text-muted-foreground mt-1">{d.blockedReason}</p>}
-                  {d.blockedDependencyOwner && (
-                    <p className="text-xs text-muted-foreground">Dependency: {d.blockedDependencyOwner}</p>
+                  {d.blocked_reason && <p className="text-xs text-muted-foreground mt-1">{d.blocked_reason}</p>}
+                  {d.blocked_dependency_owner && (
+                    <p className="text-xs text-muted-foreground">Dependency: {d.blocked_dependency_owner}</p>
                   )}
                 </div>
               );
@@ -437,12 +419,8 @@ export default function Overview() {
       {unlinkedSignals.length > 0 && (
         <section className="mb-8">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Signals Awaiting Authority
-            </h2>
-            <Link to="/signals" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-              View all →
-            </Link>
+            <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Signals Awaiting Authority</h2>
+            <Link to="/signals" className="text-xs text-muted-foreground hover:text-foreground transition-colors">View all →</Link>
           </div>
           {unlinkedSignals.length > 3 && (
             <div className="mb-3 border border-signal-amber/40 bg-signal-amber/5 rounded-md px-4 py-2">
@@ -451,20 +429,13 @@ export default function Overview() {
               </p>
             </div>
           )}
-          <div className={cn(
-            "border rounded-md divide-y",
-            unlinkedSignals.length > 3 && "border-signal-amber/30"
-          )}>
+          <div className={cn("border rounded-md divide-y", unlinkedSignals.length > 3 && "border-signal-amber/30")}>
             {unlinkedSignals.slice(0, 5).map((s) => (
               <div key={s.id} className="px-4 py-3 flex items-center gap-4">
-                {s.solutionType && <StatusBadge status={s.solutionType} />}
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-32 shrink-0">
-                  {s.type}
-                </span>
+                {s.solution_type && <StatusBadge status={s.solution_type} />}
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-32 shrink-0">{s.type}</span>
                 <p className="text-sm flex-1">{s.description}</p>
-                <span className="text-xs text-muted-foreground shrink-0">
-                  {daysSince(s.createdDate)}d ago
-                </span>
+                <span className="text-xs text-muted-foreground shrink-0">{daysSince(s.created_at)}d ago</span>
               </div>
             ))}
           </div>
@@ -474,9 +445,7 @@ export default function Overview() {
       {/* Builder Velocity */}
       {velocity.length > 0 && (
         <section>
-          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-            Builder Velocity — Last 14 Days
-          </h2>
+          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">Builder Velocity — Last 14 Days</h2>
           <div className="border rounded-md divide-y">
             {velocity.map((v) => {
               const zeroVelocity = v.shipped === 0;
@@ -488,9 +457,7 @@ export default function Overview() {
                       <p className="text-sm font-semibold">{v.name}</p>
                     </div>
                     {zeroVelocity && (
-                      <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider">
-                        Zero velocity
-                      </span>
+                      <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider">Zero velocity</span>
                     )}
                   </div>
                   <div className="flex gap-6 text-xs text-muted-foreground">

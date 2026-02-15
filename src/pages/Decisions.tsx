@@ -1,16 +1,27 @@
-import { decisions } from "@/lib/mock-data";
-import { daysSince } from "@/lib/types";
+import { useDecisions } from "@/hooks/useOrgData";
 import StatusBadge from "@/components/StatusBadge";
 import { cn } from "@/lib/utils";
 
+function daysSince(dateStr: string): number {
+  const d = new Date(dateStr);
+  const now = new Date();
+  return Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
+}
+
 export default function Decisions() {
+  const { data: decisions = [], isLoading } = useDecisions();
+
+  if (isLoading) {
+    return <p className="text-xs text-muted-foreground uppercase tracking-widest">Loading...</p>;
+  }
+
   const grouped = {
     Active: decisions.filter((d) => d.status === "Active"),
     Blocked: decisions.filter((d) => d.status === "Blocked"),
     Draft: decisions.filter((d) => d.status === "Draft"),
   };
 
-  const highActive = grouped.Active.filter((d) => d.impactTier === "High").length;
+  const highActive = grouped.Active.filter((d) => d.impact_tier === "High").length;
   const atCapacity = highActive >= 5;
   const isEmpty = decisions.length === 0;
 
@@ -58,13 +69,13 @@ export default function Decisions() {
               </h2>
               <div className="space-y-2">
                 {items.map((d) => {
-                  const age = daysSince(d.createdDate);
+                  const age = daysSince(d.created_at);
                   const aging = age > 7;
-                  const sliceMax = d.sliceDeadlineDays || 10;
+                  const sliceMax = d.slice_deadline_days || 10;
                   const sliceRemaining = sliceMax - age;
                   const exceeded = sliceRemaining < 0;
                   const urgent = sliceRemaining >= 0 && sliceRemaining <= 3;
-                  const unboundOutcome = !d.outcomeCategory;
+                  const unboundOutcome = !d.outcome_category;
                   const isBlocked = d.status === "Blocked";
                   const execAttention = isBlocked && age > 7;
 
@@ -78,10 +89,10 @@ export default function Decisions() {
                       )}
                     >
                       <div className="flex items-start gap-2 mb-2 flex-wrap">
-                        <StatusBadge status={d.solutionType} />
-                        <StatusBadge status={d.impactTier} />
+                        <StatusBadge status={d.solution_type} />
+                        <StatusBadge status={d.impact_tier} />
                         <StatusBadge status={d.status} />
-                        {d.decisionHealth && <StatusBadge status={d.decisionHealth} />}
+                        {d.decision_health && <StatusBadge status={d.decision_health} />}
                         {d.status === "Active" && (
                           <span className={cn(
                             "text-[11px] font-semibold uppercase tracking-wider",
@@ -91,24 +102,18 @@ export default function Decisions() {
                           </span>
                         )}
                         {aging && (
-                          <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider animate-pulse-slow">
-                            Aging
-                          </span>
+                          <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider animate-pulse-slow">Aging</span>
                         )}
                         {unboundOutcome && (
-                          <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider ml-auto">
-                            Unbound — no authority
-                          </span>
+                          <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider ml-auto">Unbound — no authority</span>
                         )}
                         {execAttention && (
-                          <span className="text-[11px] font-semibold text-signal-red uppercase tracking-wider ml-auto animate-pulse-slow">
-                            Executive Attention Required
-                          </span>
+                          <span className="text-[11px] font-semibold text-signal-red uppercase tracking-wider ml-auto animate-pulse-slow">Executive Attention Required</span>
                         )}
                       </div>
 
                       <h3 className="text-sm font-semibold mb-1">{d.title}</h3>
-                      <p className="text-xs text-muted-foreground mb-3">{d.triggerSignal}</p>
+                      <p className="text-xs text-muted-foreground mb-3">{d.trigger_signal}</p>
 
                       <div className="grid grid-cols-4 gap-4 text-xs mb-3">
                         <div>
@@ -117,39 +122,39 @@ export default function Decisions() {
                         </div>
                         <div>
                           <span className="text-muted-foreground">Outcome Target</span>
-                          <p className="font-medium mt-0.5">{d.outcomeTarget}</p>
+                          <p className="font-medium mt-0.5">{d.outcome_target || "—"}</p>
                         </div>
-                        {d.outcomeCategory && (
+                        {d.outcome_category && (
                           <div>
                             <span className="text-muted-foreground">Category</span>
-                            <p className="font-medium mt-0.5">{d.outcomeCategory}</p>
+                            <p className="font-medium mt-0.5">{d.outcome_category}</p>
                           </div>
                         )}
-                        {d.expectedImpact && (
+                        {d.expected_impact && (
                           <div>
                             <span className="text-muted-foreground">Expected Impact</span>
-                            <p className="font-medium mt-0.5">{d.expectedImpact}</p>
+                            <p className="font-medium mt-0.5">{d.expected_impact}</p>
                           </div>
                         )}
                       </div>
 
                       <div className="grid grid-cols-4 gap-4 text-xs mb-3">
-                        {d.currentDelta && (
+                        {d.current_delta && (
                           <div>
                             <span className="text-muted-foreground">Current Delta</span>
-                            <p className="font-semibold mt-0.5 text-signal-amber">{d.currentDelta}</p>
+                            <p className="font-semibold mt-0.5 text-signal-amber">{d.current_delta}</p>
                           </div>
                         )}
-                        {d.revenueAtRisk && (
+                        {d.revenue_at_risk && (
                           <div>
                             <span className="text-muted-foreground">Enterprise Exposure</span>
-                            <p className="font-semibold mt-0.5 text-signal-red">{d.revenueAtRisk}</p>
+                            <p className="font-semibold mt-0.5 text-signal-red">{d.revenue_at_risk}</p>
                           </div>
                         )}
-                        {d.segmentImpact && (
+                        {d.segment_impact && (
                           <div>
                             <span className="text-muted-foreground">Segment</span>
-                            <p className="font-medium mt-0.5">{d.segmentImpact}</p>
+                            <p className="font-medium mt-0.5">{d.segment_impact}</p>
                           </div>
                         )}
                         <div>
@@ -167,11 +172,11 @@ export default function Decisions() {
                         </div>
                       </div>
 
-                      {isBlocked && d.blockedReason && (
+                      {isBlocked && d.blocked_reason && (
                         <div className="mt-3 pt-3 border-t text-xs">
-                          <p className="text-muted-foreground">Blocked: {d.blockedReason}</p>
-                          {d.blockedDependencyOwner && (
-                            <p className="text-muted-foreground mt-0.5">Dependency: {d.blockedDependencyOwner}</p>
+                          <p className="text-muted-foreground">Blocked: {d.blocked_reason}</p>
+                          {d.blocked_dependency_owner && (
+                            <p className="text-muted-foreground mt-0.5">Dependency: {d.blocked_dependency_owner}</p>
                           )}
                         </div>
                       )}
