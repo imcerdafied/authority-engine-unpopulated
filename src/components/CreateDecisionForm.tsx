@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useCreateDecision } from "@/hooks/useOrgData";
 import { useOrg } from "@/contexts/OrgContext";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 import type { Database } from "@/integrations/supabase/types";
 
 type SolutionDomain = Database["public"]["Enums"]["solution_domain"];
@@ -14,9 +16,10 @@ const outcomeCategories: OutcomeCategory[] = [
   "ARR", "NRR", "DPI_Adoption", "Agent_Trust", "Live_Event_Risk", "Operational_Efficiency",
 ];
 
-export default function CreateDecisionForm({ onClose }: { onClose: () => void }) {
+export default function CreateDecisionForm({ onClose, navigateAfter = false }: { onClose: () => void; navigateAfter?: boolean }) {
   const createDecision = useCreateDecision();
   const { currentRole } = useOrg();
+  const navigate = useNavigate();
   const canCreate = currentRole === "admin" || currentRole === "pod_lead";
 
   const [title, setTitle] = useState("");
@@ -50,7 +53,17 @@ export default function CreateDecisionForm({ onClose }: { onClose: () => void })
       trigger_signal: triggerSignal || null,
       revenue_at_risk: revenueAtRisk || null,
     });
+    toast.success(`Draft created — "${title}"`, {
+      description: "Complete required fields to activate.",
+      action: {
+        label: "View decision",
+        onClick: () => navigate("/decisions"),
+      },
+    });
     onClose();
+    if (navigateAfter) {
+      navigate("/decisions");
+    }
   };
 
   return (
