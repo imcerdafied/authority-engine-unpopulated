@@ -57,8 +57,19 @@ function computeBuilderVelocity() {
   });
 }
 
+function EmptyState({ message, sub }: { message: string; sub?: string }) {
+  return (
+    <div className="border border-dashed rounded-md px-6 py-8 text-center">
+      <p className="text-sm font-medium text-muted-foreground">{message}</p>
+      {sub && <p className="text-xs text-muted-foreground/70 mt-1">{sub}</p>}
+    </div>
+  );
+}
+
 export default function Overview() {
   const [executiveMode, setExecutiveMode] = useState(false);
+
+  const isEmpty = decisions.length === 0 && signals.length === 0 && pods.length === 0;
 
   const activeDecisions = decisions.filter((d) => d.status === "Active");
   const highImpactActive = activeDecisions.filter((d) => d.impactTier === "High");
@@ -67,10 +78,12 @@ export default function Overview() {
     (d) => d.status === "Blocked" && daysSince(d.createdDate) > 5
   );
   const unlinkedSignals = signals.filter((s) => !s.decisionId);
-  const avgLatency = Math.round(
-    activeDecisions.reduce((sum, d) => sum + daysSince(d.createdDate), 0) /
-      (activeDecisions.length || 1)
-  );
+  const avgLatency = activeDecisions.length
+    ? Math.round(
+        activeDecisions.reduce((sum, d) => sum + daysSince(d.createdDate), 0) /
+          activeDecisions.length
+      )
+    : 0;
 
   const withinSlice = activeDecisions.filter((d) => daysSince(d.createdDate) <= (d.sliceDeadlineDays || 10));
   const slicePercent = activeDecisions.length ? Math.round((withinSlice.length / activeDecisions.length) * 100) : 100;
@@ -108,92 +121,109 @@ export default function Overview() {
           </button>
         </div>
 
-        <div className="grid grid-cols-4 gap-3 mb-8">
-          <MetricCard
-            label="ARR at Risk"
-            value={totalRevenueAtRisk || "—"}
-            alert={!!totalRevenueAtRisk}
-          />
-          <MetricCard
-            label="Decision Latency"
-            value={`${avgLatency}d`}
-            alert={avgLatency > 7}
-            sub="vs 10d target"
-          />
-          <MetricCard
-            label="Operating Friction"
-            value={friction.level}
-            alert={friction.level !== "Low"}
-            danger={friction.level === "High"}
-          />
-          <MetricCard
-            label="Agent Trust Delta"
-            value={decisions.find((d) => d.solutionType === "S3" && d.currentDelta)?.currentDelta || "—"}
-            alert
-          />
-        </div>
-
-        <section className="mb-8">
-          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-            Top Strategic Exposures
-          </h2>
-          <div className="border rounded-md divide-y">
-            {top3Risk.map((d) => {
-              const age = daysSince(d.createdDate);
-              const exceeded = age > (d.sliceDeadlineDays || 10);
-              return (
-                <div key={d.id} className={cn("px-4 py-4", exceeded && "bg-signal-red/5")}>
-                  <div className="flex items-center gap-3 mb-2">
-                    <StatusBadge status={d.solutionType} />
-                    <StatusBadge status={d.impactTier} />
-                    {d.decisionHealth && <StatusBadge status={d.decisionHealth} />}
-                    {exceeded && (
-                      <span className="text-[11px] font-semibold text-signal-red uppercase tracking-wider">
-                        Exceeded {d.sliceDeadlineDays || 10}d window
-                      </span>
-                    )}
-                  </div>
-                  <h3 className="text-sm font-semibold">{d.title}</h3>
-                  <div className="flex gap-6 text-xs text-muted-foreground mt-1">
-                    <span>{d.owner}</span>
-                    <span className="text-mono">{age}d old</span>
-                    {d.revenueAtRisk && <span className="text-signal-amber font-semibold">{d.revenueAtRisk}</span>}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
-        {blockedDecisions.length > 0 && (
-          <section>
-            <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-              Blocked — Requires Escalation
-            </h2>
-            <div className="border border-signal-red/30 rounded-md bg-signal-red/5 divide-y divide-signal-red/10">
-              {blockedDecisions.map((d) => {
-                const age = daysSince(d.createdDate);
-                return (
-                  <div key={d.id} className="px-4 py-3">
-                    <div className="flex items-center gap-3 mb-1">
-                      <StatusBadge status={d.solutionType} />
-                      <StatusBadge status="Blocked" />
-                      <span className="text-sm font-medium flex-1">{d.title}</span>
-                      {age > 7 && (
-                        <span className="text-[11px] font-semibold text-signal-red uppercase tracking-wider animate-pulse-slow">
-                          Executive Attention Required
-                        </span>
-                      )}
-                    </div>
-                    {d.blockedReason && <p className="text-xs text-muted-foreground">{d.blockedReason}</p>}
-                    {d.blockedDependencyOwner && (
-                      <p className="text-xs text-muted-foreground">Dependency: {d.blockedDependencyOwner} · {age}d blocked</p>
-                    )}
-                  </div>
-                );
-              })}
+        {isEmpty ? (
+          <>
+            <div className="grid grid-cols-4 gap-3 mb-8">
+              <MetricCard label="ARR at Risk" value="—" />
+              <MetricCard label="Decision Latency" value="—" sub="vs 10d target" />
+              <MetricCard label="Operating Friction" value="—" />
+              <MetricCard label="Agent Trust Delta" value="—" />
             </div>
-          </section>
+            <EmptyState
+              message="No strategic exposures registered."
+              sub="Seed high-impact decisions to activate Executive View."
+            />
+          </>
+        ) : (
+          <>
+            <div className="grid grid-cols-4 gap-3 mb-8">
+              <MetricCard
+                label="ARR at Risk"
+                value={totalRevenueAtRisk || "—"}
+                alert={!!totalRevenueAtRisk}
+              />
+              <MetricCard
+                label="Decision Latency"
+                value={`${avgLatency}d`}
+                alert={avgLatency > 7}
+                sub="vs 10d target"
+              />
+              <MetricCard
+                label="Operating Friction"
+                value={friction.level}
+                alert={friction.level !== "Low"}
+                danger={friction.level === "High"}
+              />
+              <MetricCard
+                label="Agent Trust Delta"
+                value={decisions.find((d) => d.solutionType === "S3" && d.currentDelta)?.currentDelta || "—"}
+                alert
+              />
+            </div>
+
+            <section className="mb-8">
+              <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                Top Strategic Exposures
+              </h2>
+              <div className="border rounded-md divide-y">
+                {top3Risk.map((d) => {
+                  const age = daysSince(d.createdDate);
+                  const exceeded = age > (d.sliceDeadlineDays || 10);
+                  return (
+                    <div key={d.id} className={cn("px-4 py-4", exceeded && "bg-signal-red/5")}>
+                      <div className="flex items-center gap-3 mb-2">
+                        <StatusBadge status={d.solutionType} />
+                        <StatusBadge status={d.impactTier} />
+                        {d.decisionHealth && <StatusBadge status={d.decisionHealth} />}
+                        {exceeded && (
+                          <span className="text-[11px] font-semibold text-signal-red uppercase tracking-wider">
+                            Exceeded {d.sliceDeadlineDays || 10}d window
+                          </span>
+                        )}
+                      </div>
+                      <h3 className="text-sm font-semibold">{d.title}</h3>
+                      <div className="flex gap-6 text-xs text-muted-foreground mt-1">
+                        <span>{d.owner}</span>
+                        <span className="text-mono">{age}d old</span>
+                        {d.revenueAtRisk && <span className="text-signal-amber font-semibold">{d.revenueAtRisk}</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            {blockedDecisions.length > 0 && (
+              <section>
+                <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                  Blocked — Requires Escalation
+                </h2>
+                <div className="border border-signal-red/30 rounded-md bg-signal-red/5 divide-y divide-signal-red/10">
+                  {blockedDecisions.map((d) => {
+                    const age = daysSince(d.createdDate);
+                    return (
+                      <div key={d.id} className="px-4 py-3">
+                        <div className="flex items-center gap-3 mb-1">
+                          <StatusBadge status={d.solutionType} />
+                          <StatusBadge status="Blocked" />
+                          <span className="text-sm font-medium flex-1">{d.title}</span>
+                          {age > 7 && (
+                            <span className="text-[11px] font-semibold text-signal-red uppercase tracking-wider animate-pulse-slow">
+                              Executive Attention Required
+                            </span>
+                          )}
+                        </div>
+                        {d.blockedReason && <p className="text-xs text-muted-foreground">{d.blockedReason}</p>}
+                        {d.blockedDependencyOwner && (
+                          <p className="text-xs text-muted-foreground">Dependency: {d.blockedDependencyOwner} · {age}d blocked</p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+          </>
         )}
       </div>
     );
@@ -216,14 +246,6 @@ export default function Overview() {
         </button>
       </div>
 
-      {/* Capacity Warning */}
-      {atCapacity && (
-        <div className="mb-6 border border-signal-red/40 bg-signal-red/5 rounded-md px-4 py-3">
-          <p className="text-sm font-semibold text-signal-red">High-Impact Capacity Full — Decision Authority Saturated</p>
-          <p className="text-xs text-signal-red/80 mt-0.5">5/5 strategic decision slots active. Close 1 to open 1.</p>
-        </div>
-      )}
-
       {/* Metrics */}
       <div className="grid grid-cols-5 gap-3 mb-8">
         <MetricCard
@@ -236,124 +258,146 @@ export default function Overview() {
         <MetricCard
           label="Blocked > 5 days"
           value={blockedDecisions.length}
-          alert={blockedDecisions.length > 0}
         />
         <MetricCard
           label="Unlinked Signals"
           value={unlinkedSignals.length}
-          alert={unlinkedSignals.length > 3}
         />
         <MetricCard
           label="Decision Latency"
-          value={`${avgLatency}d`}
+          value={activeDecisions.length ? `${avgLatency}d` : "—"}
           sub="vs 10d target"
-          alert={avgLatency > 7}
         />
         <MetricCard
           label="Within 10d Slice"
-          value={`${slicePercent}%`}
+          value={activeDecisions.length ? `${slicePercent}%` : "—"}
           sub="of active decisions"
-          alert={slicePercent < 70}
         />
       </div>
 
-      {/* Operating Friction */}
-      <div className={cn(
-        "mb-6 border rounded-md px-4 py-3",
-        friction.level === "High" ? "border-signal-red/40 bg-signal-red/5" :
-        friction.level === "Moderate" ? "border-signal-amber/40 bg-signal-amber/5" : ""
-      )}>
-        <div className="flex items-center justify-between mb-2">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Operating Friction</p>
-            <p className={cn(
-              "text-lg font-bold mt-0.5",
-              friction.level === "High" && "text-signal-red",
-              friction.level === "Moderate" && "text-signal-amber"
-            )}>
-              {friction.level}
-            </p>
-          </div>
+      {/* Empty guidance */}
+      {isEmpty && (
+        <div className="border border-dashed rounded-md px-6 py-10 text-center mb-8">
+          <p className="text-sm font-medium text-muted-foreground">
+            Seed up to 5 high-impact decisions to activate Authority mode.
+          </p>
+          <p className="text-xs text-muted-foreground/70 mt-1.5">
+            Constraints: 5-decision hard cap · 10-day slice clock · outcome linkage required · owner required
+          </p>
         </div>
-        {friction.drivers.length > 0 && (
-          <div className="flex gap-4 flex-wrap">
-            {friction.drivers.map((d, i) => (
-              <span key={i} className="text-xs text-muted-foreground">• {d}</span>
-            ))}
-          </div>
-        )}
-      </div>
+      )}
 
-      {/* Solution Drift Index */}
-      <div className={cn(
-        "mb-8 border rounded-md px-4 py-3",
-        drift.legacyGravity && "border-signal-amber/40 bg-signal-amber/5"
-      )}>
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Solution Drift Index</p>
-          {drift.legacyGravity && (
-            <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider animate-pulse-slow">
-              Legacy Gravity Detected
-            </span>
+      {/* Capacity Warning */}
+      {atCapacity && (
+        <div className="mb-6 border border-signal-red/40 bg-signal-red/5 rounded-md px-4 py-3">
+          <p className="text-sm font-semibold text-signal-red">High-Impact Capacity Full — Decision Authority Saturated</p>
+          <p className="text-xs text-signal-red/80 mt-0.5">5/5 strategic decision slots active. Close 1 to open 1.</p>
+        </div>
+      )}
+
+      {/* Operating Friction — only show when there's data */}
+      {!isEmpty && (
+        <div className={cn(
+          "mb-6 border rounded-md px-4 py-3",
+          friction.level === "High" ? "border-signal-red/40 bg-signal-red/5" :
+          friction.level === "Moderate" ? "border-signal-amber/40 bg-signal-amber/5" : ""
+        )}>
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Operating Friction</p>
+              <p className={cn(
+                "text-lg font-bold mt-0.5",
+                friction.level === "High" && "text-signal-red",
+                friction.level === "Moderate" && "text-signal-amber"
+              )}>
+                {friction.level}
+              </p>
+            </div>
+          </div>
+          {friction.drivers.length > 0 && (
+            <div className="flex gap-4 flex-wrap">
+              {friction.drivers.map((d, i) => (
+                <span key={i} className="text-xs text-muted-foreground">• {d}</span>
+              ))}
+            </div>
           )}
         </div>
-        <div className="flex gap-6 text-xs">
-          <span>S1 · Video: <span className={cn("font-semibold text-mono", drift.s1Pct > 50 && "text-signal-amber")}>{drift.s1Pct}%</span></span>
-          <span>S2 · DPI: <span className="font-semibold text-mono">{drift.s2Pct}%</span></span>
-          <span>S3 · Agent: <span className="font-semibold text-mono">{drift.s3Pct}%</span></span>
-        </div>
-      </div>
+      )}
 
-      {/* Top Active Decisions with Clocks */}
-      <section className="mb-8">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Active Decisions
-          </h2>
-          <Link to="/decisions" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-            View all →
-          </Link>
+      {/* Solution Drift Index — only show when there's data */}
+      {!isEmpty && (
+        <div className={cn(
+          "mb-8 border rounded-md px-4 py-3",
+          drift.legacyGravity && "border-signal-amber/40 bg-signal-amber/5"
+        )}>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Solution Drift Index</p>
+            {drift.legacyGravity && (
+              <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider animate-pulse-slow">
+                Legacy Gravity Detected
+              </span>
+            )}
+          </div>
+          <div className="flex gap-6 text-xs">
+            <span>S1 · Video: <span className={cn("font-semibold text-mono", drift.s1Pct > 50 && "text-signal-amber")}>{drift.s1Pct}%</span></span>
+            <span>S2 · DPI: <span className="font-semibold text-mono">{drift.s2Pct}%</span></span>
+            <span>S3 · Agent: <span className="font-semibold text-mono">{drift.s3Pct}%</span></span>
+          </div>
         </div>
-        <div className="border rounded-md divide-y">
-          {activeDecisions.slice(0, 5).map((d) => {
-            const age = daysSince(d.createdDate);
-            const sliceMax = d.sliceDeadlineDays || 10;
-            const sliceRemaining = sliceMax - age;
-            const exceeded = sliceRemaining < 0;
-            const urgent = sliceRemaining >= 0 && sliceRemaining <= 3;
-            return (
-              <div key={d.id} className={cn("px-4 py-3", exceeded && "bg-signal-red/5")}>
-                <div className="flex items-center gap-4">
-                  <div className="flex gap-1.5 shrink-0">
-                    <StatusBadge status={d.solutionType} />
-                    <StatusBadge status={d.impactTier} />
-                    {d.decisionHealth && <StatusBadge status={d.decisionHealth} />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{d.title}</p>
-                    <div className="flex gap-4 text-xs text-muted-foreground mt-0.5">
-                      <span>{d.owner}</span>
-                      <span>{d.surface}</span>
-                      {d.revenueAtRisk && <span className="text-signal-amber font-semibold">{d.revenueAtRisk}</span>}
+      )}
+
+      {/* Active Decisions */}
+      {activeDecisions.length > 0 && (
+        <section className="mb-8">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Active Decisions
+            </h2>
+            <Link to="/decisions" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+              View all →
+            </Link>
+          </div>
+          <div className="border rounded-md divide-y">
+            {activeDecisions.slice(0, 5).map((d) => {
+              const age = daysSince(d.createdDate);
+              const sliceMax = d.sliceDeadlineDays || 10;
+              const sliceRemaining = sliceMax - age;
+              const exceeded = sliceRemaining < 0;
+              const urgent = sliceRemaining >= 0 && sliceRemaining <= 3;
+              return (
+                <div key={d.id} className={cn("px-4 py-3", exceeded && "bg-signal-red/5")}>
+                  <div className="flex items-center gap-4">
+                    <div className="flex gap-1.5 shrink-0">
+                      <StatusBadge status={d.solutionType} />
+                      <StatusBadge status={d.impactTier} />
+                      {d.decisionHealth && <StatusBadge status={d.decisionHealth} />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{d.title}</p>
+                      <div className="flex gap-4 text-xs text-muted-foreground mt-0.5">
+                        <span>{d.owner}</span>
+                        <span>{d.surface}</span>
+                        {d.revenueAtRisk && <span className="text-signal-amber font-semibold">{d.revenueAtRisk}</span>}
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className={cn(
+                        "text-sm font-semibold text-mono",
+                        exceeded ? "text-signal-red" : urgent ? "text-signal-amber" : ""
+                      )}>
+                        {exceeded ? `${Math.abs(sliceRemaining)}d over` : `${sliceRemaining}d left`}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {exceeded ? `Exceeded ${sliceMax}d window` : "slice clock"}
+                      </p>
                     </div>
                   </div>
-                  <div className="text-right shrink-0">
-                    <p className={cn(
-                      "text-sm font-semibold text-mono",
-                      exceeded ? "text-signal-red" : urgent ? "text-signal-amber" : ""
-                    )}>
-                      {exceeded ? `${Math.abs(sliceRemaining)}d over` : `${sliceRemaining}d left`}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {exceeded ? `Exceeded ${sliceMax}d window` : "slice clock"}
-                    </p>
-                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* Blocked Escalation */}
       {blockedDecisions.length > 0 && (
@@ -390,74 +434,78 @@ export default function Overview() {
       )}
 
       {/* Signal Pressure */}
-      <section className="mb-8">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Signals Awaiting Authority
-          </h2>
-          <Link to="/signals" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-            View all →
-          </Link>
-        </div>
-        {unlinkedSignals.length > 3 && (
-          <div className="mb-3 border border-signal-amber/40 bg-signal-amber/5 rounded-md px-4 py-2">
-            <p className="text-xs font-semibold text-signal-amber">
-              {unlinkedSignals.length} signals without decisions — inaction is visible
-            </p>
+      {unlinkedSignals.length > 0 && (
+        <section className="mb-8">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Signals Awaiting Authority
+            </h2>
+            <Link to="/signals" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+              View all →
+            </Link>
           </div>
-        )}
-        <div className={cn(
-          "border rounded-md divide-y",
-          unlinkedSignals.length > 3 && "border-signal-amber/30"
-        )}>
-          {unlinkedSignals.slice(0, 5).map((s) => (
-            <div key={s.id} className="px-4 py-3 flex items-center gap-4">
-              {s.solutionType && <StatusBadge status={s.solutionType} />}
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-32 shrink-0">
-                {s.type}
-              </span>
-              <p className="text-sm flex-1">{s.description}</p>
-              <span className="text-xs text-muted-foreground shrink-0">
-                {daysSince(s.createdDate)}d ago
-              </span>
+          {unlinkedSignals.length > 3 && (
+            <div className="mb-3 border border-signal-amber/40 bg-signal-amber/5 rounded-md px-4 py-2">
+              <p className="text-xs font-semibold text-signal-amber">
+                {unlinkedSignals.length} signals without decisions — inaction is visible
+              </p>
             </div>
-          ))}
-        </div>
-      </section>
+          )}
+          <div className={cn(
+            "border rounded-md divide-y",
+            unlinkedSignals.length > 3 && "border-signal-amber/30"
+          )}>
+            {unlinkedSignals.slice(0, 5).map((s) => (
+              <div key={s.id} className="px-4 py-3 flex items-center gap-4">
+                {s.solutionType && <StatusBadge status={s.solutionType} />}
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-32 shrink-0">
+                  {s.type}
+                </span>
+                <p className="text-sm flex-1">{s.description}</p>
+                <span className="text-xs text-muted-foreground shrink-0">
+                  {daysSince(s.createdDate)}d ago
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Builder Velocity */}
-      <section>
-        <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-          Builder Velocity — Last 14 Days
-        </h2>
-        <div className="border rounded-md divide-y">
-          {velocity.map((v) => {
-            const zeroVelocity = v.shipped === 0;
-            return (
-              <div key={v.name} className={cn("px-4 py-3", zeroVelocity && "bg-signal-amber/5")}>
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    <StatusBadge status={v.solutionType} />
-                    <p className="text-sm font-semibold">{v.name}</p>
+      {velocity.length > 0 && (
+        <section>
+          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+            Builder Velocity — Last 14 Days
+          </h2>
+          <div className="border rounded-md divide-y">
+            {velocity.map((v) => {
+              const zeroVelocity = v.shipped === 0;
+              return (
+                <div key={v.name} className={cn("px-4 py-3", zeroVelocity && "bg-signal-amber/5")}>
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <StatusBadge status={v.solutionType} />
+                      <p className="text-sm font-semibold">{v.name}</p>
+                    </div>
+                    {zeroVelocity && (
+                      <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider">
+                        Zero velocity
+                      </span>
+                    )}
                   </div>
-                  {zeroVelocity && (
-                    <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider">
-                      Zero velocity
-                    </span>
-                  )}
+                  <div className="flex gap-6 text-xs text-muted-foreground">
+                    <span>Shipped: <span className="font-semibold text-foreground text-mono">{v.shipped}/{v.total}</span></span>
+                    <span>Resolved: <span className="font-semibold text-foreground text-mono">{v.resolved}%</span></span>
+                    {v.avgCycle !== null && (
+                      <span>Avg cycle: <span className="font-semibold text-foreground text-mono">{v.avgCycle}d</span></span>
+                    )}
+                  </div>
                 </div>
-                <div className="flex gap-6 text-xs text-muted-foreground">
-                  <span>Shipped: <span className="font-semibold text-foreground text-mono">{v.shipped}/{v.total}</span></span>
-                  <span>Resolved: <span className="font-semibold text-foreground text-mono">{v.resolved}%</span></span>
-                  {v.avgCycle !== null && (
-                    <span>Avg cycle: <span className="font-semibold text-foreground text-mono">{v.avgCycle}d</span></span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
+              );
+            })}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
