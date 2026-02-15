@@ -128,7 +128,6 @@ export default function Decisions() {
   const statusOptions: DecisionStatus[] = ["Draft", "Active", "Blocked", "Closed"];
 
   const handleStatusChange = (d: DecisionComputed, newStatus: DecisionStatus) => {
-    // Intercept Active→Closed to show closure modal
     if (newStatus === "Closed" && d.status === "Active") {
       setClosingDecision(d);
       return;
@@ -184,16 +183,16 @@ export default function Decisions() {
       {showCreate && <CreateDecisionForm onClose={() => setShowCreate(false)} />}
 
       {atCapacity && (
-        <div className="mb-6 border border-signal-red/40 bg-signal-red/5 rounded-md px-4 py-3">
-          <p className="text-sm font-semibold text-signal-red">High-Impact Capacity Full — Decision Authority Saturated</p>
-          <p className="text-xs text-signal-red/80 mt-0.5">5/5 strategic decision slots active. Close 1 to open 1.</p>
+        <div className="mb-6 border border-foreground rounded-md px-4 py-3">
+          <p className="text-sm font-bold">High-Impact Capacity Full — Authority Mode Active</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Close 1 decision to open 1.</p>
         </div>
       )}
 
       {isEmpty && !showCreate ? (
         <div className="border border-dashed rounded-md px-6 py-10 text-center">
-          <p className="text-sm font-medium text-muted-foreground">No High-Impact Decisions Registered.</p>
-          <p className="text-xs text-muted-foreground/70 mt-1.5">Authority begins by defining the five decisions that matter most.</p>
+          <p className="text-sm font-medium text-muted-foreground">No decisions registered.</p>
+          <p className="text-xs text-muted-foreground/70 mt-1.5">Register first high-impact decision to initiate constraint.</p>
           <div className="flex justify-center gap-6 mt-4 text-xs text-muted-foreground/50">
             <span>Hard cap: 5</span><span>10-day slice rule</span><span>Outcome required</span><span>Owner required</span>
           </div>
@@ -219,7 +218,6 @@ export default function Decisions() {
                         <StatusBadge status={d.status} />
                         {d.decision_health && <StatusBadge status={d.decision_health} />}
 
-                        {/* Workflow badges */}
                         {isDraft && readinessIssues.length === 0 && (
                           <WorkflowBadge label="Ready to Activate" type="success" />
                         )}
@@ -235,9 +233,9 @@ export default function Decisions() {
                             {d.is_exceeded ? `Exceeded ${d.slice_deadline_days || 10}d build window` : `Slice due in ${d.slice_remaining}d`}
                           </span>
                         )}
-                        {d.is_aging && <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider animate-pulse-slow">Aging</span>}
+                        {d.is_aging && <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider">Aging</span>}
                         {d.is_unbound && <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider ml-auto">Unbound — no authority</span>}
-                        {d.needs_exec_attention && <span className="text-[11px] font-semibold text-signal-red uppercase tracking-wider ml-auto animate-pulse-slow">Executive Attention Required</span>}
+                        {d.needs_exec_attention && <span className="text-[11px] font-semibold text-signal-red uppercase tracking-wider ml-auto">Executive Attention Required</span>}
                       </div>
 
                       <h3 className="text-sm font-semibold mb-1">{d.title}</h3>
@@ -295,7 +293,6 @@ export default function Decisions() {
         })
       )}
 
-      {/* Closure Modal */}
       {closingDecision && (
         <ClosureModal
           decision={closingDecision}

@@ -2,9 +2,11 @@ import { useDecisions, useSignals, usePods, useOverviewMetrics } from "@/hooks/u
 import StatusBadge from "@/components/StatusBadge";
 import MetricCard from "@/components/MetricCard";
 import DataExport from "@/components/DataExport";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { useOrg } from "@/contexts/OrgContext";
+import CreateDecisionForm from "@/components/CreateDecisionForm";
 
 function daysSince(dateStr: string): number {
   return Math.floor((Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24));
@@ -38,21 +40,17 @@ function computeBuilderVelocity(pods: any[]) {
   });
 }
 
-function EmptyState({ message, sub }: { message: string; sub?: string }) {
-  return (
-    <div className="border border-dashed rounded-md px-6 py-8 text-center">
-      <p className="text-sm font-medium text-muted-foreground">{message}</p>
-      {sub && <p className="text-xs text-muted-foreground/70 mt-1">{sub}</p>}
-    </div>
-  );
-}
-
 export default function Overview() {
   const [executiveMode, setExecutiveMode] = useState(false);
+  const [showRegister, setShowRegister] = useState(false);
   const { data: decisions = [], isLoading: dLoading } = useDecisions();
   const { data: signals = [], isLoading: sLoading } = useSignals();
   const { data: pods = [], isLoading: pLoading } = usePods();
   const { data: metrics, isLoading: mLoading } = useOverviewMetrics();
+  const { currentRole } = useOrg();
+  const navigate = useNavigate();
+
+  const canWrite = currentRole === "admin" || currentRole === "pod_lead";
 
   if (dLoading || sLoading || pLoading || mLoading) {
     return <p className="text-xs text-muted-foreground uppercase tracking-widest">Loading...</p>;
@@ -65,7 +63,9 @@ export default function Overview() {
     friction_drivers: [], at_capacity: false,
   };
 
-  const isEmpty = decisions.length === 0 && signals.length === 0 && pods.length === 0;
+  const activeHighImpact = decisions.filter((d) => d.status === "Active" && d.impact_tier === "High");
+  const authorityActive = activeHighImpact.length >= 5;
+  const authorityInactive = activeHighImpact.length < 5;
 
   const activeDecisions = decisions.filter((d) => d.status === "Active");
   const blockedDecisions = decisions.filter(
@@ -89,13 +89,24 @@ export default function Overview() {
     })
     .slice(0, 3);
 
+  // Decision Latency computation
+  const latencyTarget = 7;
+  const latencyValue = m.decision_latency_days;
+  const latencyDelta = m.total_active ? latencyValue - latencyTarget : null;
+
+  // Decisions requiring exec attention
+  const execAttentionDecisions = decisions.filter((d) => d.needs_exec_attention);
+
+  // ==================== EXECUTIVE MODE ====================
   if (executiveMode) {
+    const hasData = decisions.length > 0 || signals.length > 0;
+
     return (
       <div>
         <div className="mb-8 flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold">Executive View</h1>
-            <p className="text-sm text-muted-foreground mt-1">Board-ready clarity — what requires attention today</p>
+            <p className="text-sm text-muted-foreground mt-1">Board-level operating state</p>
           </div>
           <button
             onClick={() => setExecutiveMode(false)}
@@ -105,83 +116,137 @@ export default function Overview() {
           </button>
         </div>
 
-        {isEmpty ? (
+        {!hasData ? (
           <>
             <div className="grid grid-cols-4 gap-3 mb-8">
-              <MetricCard label="ARR at Risk" value="—" />
-              <MetricCard label="Decision Latency" value="—" sub="vs 10d target" />
-              <MetricCard label="Operating Friction" value="—" />
-              <MetricCard label="Agent Trust Delta" value="—" />
+              <MetricCard label="Active High-Impact" value={`${m.active_high_impact}/5`} sub={authorityActive ? "Authority Mode Active" : "Authority Mode Inactive"} />
+              <MetricCard label="Decision Latency" value="—" sub={`Target: ${latencyTarget}d`} />
+              <MetricCard label="Operating Friction" value="—" sub="No active constraints" />
+              <MetricCard label="Exec Attention" value="0" sub="No items flagged" />
             </div>
-            <EmptyState
-              message="No strategic exposures registered."
-              sub="Seed high-impact decisions to activate Executive View."
-            />
+            <div className="border border-dashed rounded-md px-6 py-8 text-center">
+              <p className="text-sm font-medium text-muted-foreground">Authority layer not yet activated.</p>
+              <p className="text-xs text-muted-foreground/70 mt-1">Register high-impact decisions to populate executive view.</p>
+            </div>
           </>
         ) : (
           <>
+            {/* Core Executive Metrics */}
             <div className="grid grid-cols-4 gap-3 mb-8">
-              <MetricCard label="ARR at Risk" value={totalRevenueAtRisk || "—"} alert={!!totalRevenueAtRisk} />
-              <MetricCard label="Decision Latency" value={`${m.decision_latency_days}d`} alert={m.decision_latency_days > 7} sub="vs 10d target" />
-              <MetricCard label="Operating Friction" value={m.friction_level} alert={m.friction_level !== "Low"} danger={m.friction_level === "High"} />
-              <MetricCard label="Agent Trust Delta" value={decisions.find((d) => d.solution_domain === "S3" && d.current_delta)?.current_delta || "—"} alert />
+              <MetricCard
+                label="Active High-Impact"
+                value={`${m.active_high_impact}/5`}
+                alert={m.at_capacity}
+                danger={m.at_capacity}
+                sub={authorityActive ? "Authority Mode Active" : `${5 - m.active_high_impact} slots open`}
+              />
+              <MetricCard
+                label="Decision Latency"
+                value={m.total_active ? `${latencyValue}d` : "—"}
+                alert={latencyDelta !== null && latencyDelta > 0}
+                sub={latencyDelta !== null ? `Target: ${latencyTarget}d · Δ ${latencyDelta > 0 ? "+" : ""}${latencyDelta}d` : `Target: ${latencyTarget}d`}
+              />
+              <MetricCard
+                label="Operating Friction"
+                value={m.friction_score}
+                alert={m.friction_level !== "Low"}
+                danger={m.friction_level === "High"}
+                sub={m.friction_level}
+              />
+              <MetricCard
+                label="Exec Attention"
+                value={execAttentionDecisions.length}
+                alert={execAttentionDecisions.length > 0}
+                danger={execAttentionDecisions.length > 0}
+                sub={execAttentionDecisions.length > 0 ? "Decisions flagged" : "No items flagged"}
+              />
             </div>
 
+            {/* ARR / Renewal Exposure */}
+            {totalRevenueAtRisk && (
+              <div className="mb-6 border border-signal-amber/40 bg-signal-amber/5 rounded-md px-4 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">ARR / Renewal Exposure</p>
+                <p className="text-sm font-semibold text-signal-amber">{totalRevenueAtRisk}</p>
+              </div>
+            )}
+
+            {/* Operating Friction Breakdown */}
+            {m.friction_drivers.length > 0 && (
+              <div className={cn(
+                "mb-6 border rounded-md px-4 py-3",
+                m.friction_level === "High" ? "border-signal-red/40 bg-signal-red/5" :
+                m.friction_level === "Moderate" ? "border-signal-amber/40 bg-signal-amber/5" : ""
+              )}>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Friction Drivers</p>
+                <div className="space-y-1">
+                  {m.friction_drivers.map((d, i) => (
+                    <p key={i} className="text-xs text-muted-foreground">• {d}</p>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Top Strategic Exposures */}
             <section className="mb-8">
               <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-                Top Strategic Exposures
+                Active High-Impact Decisions
               </h2>
-              <div className="border rounded-md divide-y">
-                {top3Risk.map((d) => {
-                  const age = daysSince(d.created_at);
-                  const exceeded = age > (d.slice_deadline_days || 10);
-                  return (
-                    <div key={d.id} className={cn("px-4 py-4", exceeded && "bg-signal-red/5")}>
-                      <div className="flex items-center gap-3 mb-2">
-                        <StatusBadge status={d.solution_domain} />
-                        <StatusBadge status={d.impact_tier} />
-                        {d.decision_health && <StatusBadge status={d.decision_health} />}
-                        {exceeded && (
-                          <span className="text-[11px] font-semibold text-signal-red uppercase tracking-wider">
-                            Exceeded {d.slice_deadline_days || 10}d window
-                          </span>
-                        )}
+              {activeHighImpact.length > 0 ? (
+                <div className="border rounded-md divide-y">
+                  {activeHighImpact.map((d) => {
+                    const age = daysSince(d.created_at);
+                    const exceeded = age > (d.slice_deadline_days || 10);
+                    return (
+                      <div key={d.id} className={cn("px-4 py-4", exceeded && "bg-signal-red/5")}>
+                        <div className="flex items-center gap-3 mb-2">
+                          <StatusBadge status={d.solution_domain} />
+                          <StatusBadge status={d.impact_tier} />
+                          {d.decision_health && <StatusBadge status={d.decision_health} />}
+                          {exceeded && (
+                            <span className="text-[11px] font-semibold text-signal-red uppercase tracking-wider">
+                              Exceeded {d.slice_deadline_days || 10}d window
+                            </span>
+                          )}
+                        </div>
+                        <h3 className="text-sm font-semibold">{d.title}</h3>
+                        <div className="flex gap-6 text-xs text-muted-foreground mt-1">
+                          <span>{d.owner}</span>
+                          <span className="text-mono">{age}d old</span>
+                          {d.revenue_at_risk && <span className="text-signal-amber font-semibold">{d.revenue_at_risk}</span>}
+                        </div>
                       </div>
-                      <h3 className="text-sm font-semibold">{d.title}</h3>
-                      <div className="flex gap-6 text-xs text-muted-foreground mt-1">
-                        <span>{d.owner}</span>
-                        <span className="text-mono">{age}d old</span>
-                        {d.revenue_at_risk && <span className="text-signal-amber font-semibold">{d.revenue_at_risk}</span>}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="border border-dashed rounded-md px-4 py-6 text-center">
+                  <p className="text-sm text-muted-foreground">No active high-impact decisions.</p>
+                </div>
+              )}
             </section>
 
-            {blockedDecisions.length > 0 && (
+            {/* Decisions Requiring Executive Attention */}
+            {execAttentionDecisions.length > 0 && (
               <section>
                 <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-                  Blocked — Requires Escalation
+                  Decisions Requiring Executive Attention
                 </h2>
                 <div className="border border-signal-red/30 rounded-md bg-signal-red/5 divide-y divide-signal-red/10">
-                  {blockedDecisions.map((d) => {
-                    const age = daysSince(d.created_at);
+                  {execAttentionDecisions.map((d) => {
+                    const age = d.age_days ?? daysSince(d.created_at);
                     return (
                       <div key={d.id} className="px-4 py-3">
                         <div className="flex items-center gap-3 mb-1">
                           <StatusBadge status={d.solution_domain} />
-                          <StatusBadge status="Blocked" />
+                          <StatusBadge status={d.status} />
                           <span className="text-sm font-medium flex-1">{d.title}</span>
-                          {age > 7 && (
-                            <span className="text-[11px] font-semibold text-signal-red uppercase tracking-wider animate-pulse-slow">
-                              Executive Attention Required
-                            </span>
-                          )}
+                          <span className="text-[11px] font-semibold text-signal-red uppercase tracking-wider">
+                            {age}d — Attention Required
+                          </span>
                         </div>
                         {d.blocked_reason && <p className="text-xs text-muted-foreground">{d.blocked_reason}</p>}
                         {d.blocked_dependency_owner && (
-                          <p className="text-xs text-muted-foreground">Dependency: {d.blocked_dependency_owner} · {age}d blocked</p>
+                          <p className="text-xs text-muted-foreground">Dependency: {d.blocked_dependency_owner}</p>
                         )}
                       </div>
                     );
@@ -195,7 +260,7 @@ export default function Overview() {
     );
   }
 
-  // Slice compliance from server data
+  // ==================== FULL VIEW ====================
   const sliceCompliant = m.total_active > 0 ? m.total_active - m.overdue_slices : 0;
   const slicePercent = m.total_active > 0 ? Math.round((sliceCompliant / m.total_active) * 100) : 100;
 
@@ -219,21 +284,22 @@ export default function Overview() {
         </div>
       </div>
 
-      {/* Metrics — all server-computed */}
+      {/* Metrics */}
       <div className="grid grid-cols-5 gap-3 mb-8">
         <MetricCard
           label="Active High-Impact"
           value={`${m.active_high_impact}/5`}
           alert={m.at_capacity}
           danger={m.at_capacity}
-          sub={m.at_capacity ? "Authority saturated" : `${5 - m.active_high_impact} slots open`}
+          sub={m.at_capacity ? "Authority Mode Active" : `${5 - m.active_high_impact} slots open`}
         />
         <MetricCard label="Blocked > 5 days" value={m.blocked_gt5_days} />
         <MetricCard label="Unlinked Signals" value={m.unlinked_signals} />
         <MetricCard
           label="Decision Latency"
-          value={m.total_active ? `${m.decision_latency_days}d` : "—"}
-          sub="signal → decision avg"
+          value={m.total_active ? `${latencyValue}d` : "—"}
+          sub={latencyDelta !== null ? `Target: ${latencyTarget}d · Δ ${latencyDelta > 0 ? "+" : ""}${latencyDelta}d` : `Target: ${latencyTarget}d`}
+          alert={latencyDelta !== null && latencyDelta > 0}
         />
         <MetricCard
           label="Within Slice"
@@ -242,28 +308,54 @@ export default function Overview() {
         />
       </div>
 
-      {/* Empty guidance */}
-      {isEmpty && (
-        <div className="border border-dashed rounded-md px-6 py-10 text-center mb-8">
-          <p className="text-sm font-medium text-muted-foreground">
-            Seed up to 5 high-impact decisions to activate Authority mode.
+      {/* Authority Mode Inactive — Activation Panel */}
+      {authorityInactive && (
+        <div
+          className={cn(
+            "mb-8 border-2 border-dashed rounded-md px-6 py-10 text-center",
+            canWrite && "cursor-pointer hover:border-foreground/40 transition-colors"
+          )}
+          onClick={() => canWrite && setShowRegister(true)}
+        >
+          <h2 className="text-lg font-bold mb-2">Authority Mode Inactive</h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            Register up to 5 high-impact decisions to activate operating constraint.
           </p>
-          <p className="text-xs text-muted-foreground/70 mt-1.5">
-            Constraints: 5-decision hard cap · 10-day slice clock · outcome linkage required · owner required
-          </p>
+          <div className="flex justify-center gap-6 text-xs text-muted-foreground/70 mb-6">
+            <span>5 decision hard cap</span>
+            <span>Outcome linkage required</span>
+            <span>10-day working slice</span>
+            <span>Single accountable owner</span>
+          </div>
+          {canWrite && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowRegister(true); }}
+              className="text-[11px] font-semibold uppercase tracking-wider text-background bg-foreground px-5 py-2.5 rounded-sm hover:bg-foreground/90 transition-colors"
+            >
+              + Register High-Impact Decision
+            </button>
+          )}
         </div>
       )}
 
-      {/* Capacity Warning */}
-      {m.at_capacity && (
-        <div className="mb-6 border border-signal-red/40 bg-signal-red/5 rounded-md px-4 py-3">
-          <p className="text-sm font-semibold text-signal-red">High-Impact Capacity Full — Decision Authority Saturated</p>
-          <p className="text-xs text-signal-red/80 mt-0.5">5/5 strategic decision slots active. Close 1 to open 1.</p>
+      {/* Register Decision Modal */}
+      {showRegister && (
+        <CreateDecisionForm onClose={() => setShowRegister(false)} />
+      )}
+
+      {/* Authority Mode Active — Capacity Banner */}
+      {authorityActive && (
+        <div
+          className="mb-6 border border-foreground rounded-md px-4 py-3 cursor-pointer hover:bg-accent/50 transition-colors"
+          onClick={() => navigate("/decisions")}
+        >
+          <p className="text-sm font-bold">High-Impact Capacity Full — Authority Mode Active</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Close 1 decision to open 1.</p>
         </div>
       )}
 
-      {/* Operating Friction — server-computed */}
-      {!isEmpty && (
+      {/* Operating Friction — with driver breakdown */}
+      {(activeDecisions.length > 0 || blockedDecisions.length > 0) && (
         <div className={cn(
           "mb-6 border rounded-md px-4 py-3",
           m.friction_level === "High" ? "border-signal-red/40 bg-signal-red/5" :
@@ -282,18 +374,23 @@ export default function Overview() {
             </div>
             <span className="text-xs text-muted-foreground font-mono">score: {m.friction_score}</span>
           </div>
-          {m.friction_drivers.length > 0 && (
-            <div className="flex gap-4 flex-wrap">
-              {m.friction_drivers.map((d, i) => (
-                <span key={i} className="text-xs text-muted-foreground">• {d}</span>
-              ))}
+          {m.friction_drivers.length > 0 ? (
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Primary Drivers</p>
+              <div className="space-y-0.5">
+                {m.friction_drivers.map((d, i) => (
+                  <p key={i} className="text-xs text-muted-foreground">• {d}</p>
+                ))}
+              </div>
             </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">No friction drivers detected.</p>
           )}
         </div>
       )}
 
       {/* Solution Drift Index */}
-      {!isEmpty && (
+      {activeDecisions.length > 0 && (
         <div className={cn(
           "mb-8 border rounded-md px-4 py-3",
           drift.legacyGravity && "border-signal-amber/40 bg-signal-amber/5"
@@ -301,7 +398,7 @@ export default function Overview() {
           <div className="flex items-center justify-between mb-2">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Solution Drift Index</p>
             {drift.legacyGravity && (
-              <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider animate-pulse-slow">
+              <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider">
                 Legacy Gravity Detected
               </span>
             )}
@@ -376,7 +473,7 @@ export default function Overview() {
                     <p className="text-sm font-medium flex-1">{d.title}</p>
                     <span className="text-xs text-mono font-semibold text-signal-red">{age}d</span>
                     {d.needs_exec_attention && (
-                      <span className="text-[11px] font-semibold text-signal-red uppercase tracking-wider animate-pulse-slow">Exec Attention</span>
+                      <span className="text-[11px] font-semibold text-signal-red uppercase tracking-wider">Exec Attention</span>
                     )}
                   </div>
                   {d.blocked_reason && <p className="text-xs text-muted-foreground mt-1">{d.blocked_reason}</p>}

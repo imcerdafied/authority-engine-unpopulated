@@ -56,7 +56,7 @@ export default function CreateDecisionForm({ onClose }: { onClose: () => void })
   return (
     <div className="border rounded-md p-5 mb-6 bg-surface-elevated">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Register Decision</h2>
+        <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Register High-Impact Decision</h2>
         <button onClick={onClose} className="text-xs text-muted-foreground hover:text-foreground">Cancel</button>
       </div>
       <form onSubmit={handleSubmit} className="space-y-3">

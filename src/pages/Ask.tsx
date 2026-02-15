@@ -144,7 +144,7 @@ export default function Ask() {
           </h2>
           {answer.items.length === 0 ? (
             <div className="border border-dashed rounded-md px-6 py-8 text-center">
-              <p className="text-sm text-muted-foreground">No data. Seed decisions and signals to activate queries.</p>
+              <p className="text-sm text-muted-foreground">No data available. Register decisions and signals to activate queries.</p>
             </div>
           ) : (
             <div className="border rounded-md divide-y">

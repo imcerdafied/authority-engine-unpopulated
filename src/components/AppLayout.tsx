@@ -35,9 +35,13 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           <h1 className="text-sm font-bold tracking-widest uppercase text-sidebar-primary">
             Authority
           </h1>
-          {currentOrg && (
+          {currentOrg?.name ? (
             <p className="text-[10px] uppercase tracking-widest text-sidebar-muted mt-1">
               {currentOrg.name}
+            </p>
+          ) : (
+            <p className="text-[10px] uppercase tracking-widest text-sidebar-muted mt-1">
+              Select Organization
             </p>
           )}
         </div>
