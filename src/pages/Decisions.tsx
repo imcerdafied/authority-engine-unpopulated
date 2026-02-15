@@ -3,6 +3,7 @@ import { useDecisions, useUpdateDecision, useDeleteDecision } from "@/hooks/useO
 import { useOrg } from "@/contexts/OrgContext";
 import StatusBadge from "@/components/StatusBadge";
 import CreateDecisionForm from "@/components/CreateDecisionForm";
+import ProjectionPanel from "@/components/ProjectionPanel";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { Database } from "@/integrations/supabase/types";
@@ -283,6 +284,10 @@ export default function Decisions() {
                           <p className="text-muted-foreground">Blocked: {d.blocked_reason}</p>
                           {d.blocked_dependency_owner && <p className="text-muted-foreground mt-0.5">Dependency: {d.blocked_dependency_owner}</p>}
                         </div>
+                      )}
+
+                      {(d.status === "Active" || d.status === "Draft") && (
+                        <ProjectionPanel decision={d} />
                       )}
                     </div>
                   );

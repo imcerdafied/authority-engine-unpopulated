@@ -148,6 +148,58 @@ export type Database = {
           },
         ]
       }
+      decision_projections: {
+        Row: {
+          created_at: string
+          decision_id: string
+          decision_metadata_hash: string
+          generated_at: string
+          id: string
+          org_id: string
+          scenarios: Json
+        }
+        Insert: {
+          created_at?: string
+          decision_id: string
+          decision_metadata_hash?: string
+          generated_at?: string
+          id?: string
+          org_id: string
+          scenarios?: Json
+        }
+        Update: {
+          created_at?: string
+          decision_id?: string
+          decision_metadata_hash?: string
+          generated_at?: string
+          id?: string
+          org_id?: string
+          scenarios?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_projections_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: false
+            referencedRelation: "decisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_projections_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: false
+            referencedRelation: "decisions_computed"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_projections_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       decisions: {
         Row: {
           activated_at: string | null
