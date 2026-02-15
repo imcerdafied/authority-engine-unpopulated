@@ -1,5 +1,6 @@
 import { signals } from "@/lib/mock-data";
 import { daysSince, SignalType } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 const signalTypeLabels: SignalType[] = [
   "KPI Deviation",
@@ -10,14 +11,37 @@ const signalTypeLabels: SignalType[] = [
 ];
 
 export default function Signals() {
+  const unlinked = signals.filter((s) => !s.decisionId);
+  const severe = unlinked.length > 3;
+
   return (
     <div>
       <div className="mb-6">
         <h1 className="text-xl font-bold">Signal Intake</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          {signals.length} signals · {signals.filter((s) => !s.decisionId).length} unlinked
+          {signals.length} signals · {unlinked.length} unlinked
         </p>
       </div>
+
+      {/* Pressure banner */}
+      {unlinked.length > 0 && (
+        <div className={cn(
+          "mb-6 border rounded-md px-4 py-3",
+          severe ? "border-signal-red/40 bg-signal-red/5" : "border-signal-amber/40 bg-signal-amber/5"
+        )}>
+          <p className={cn(
+            "text-sm font-semibold",
+            severe ? "text-signal-red" : "text-signal-amber"
+          )}>
+            {unlinked.length} signals awaiting authority
+          </p>
+          {severe && (
+            <p className="text-xs text-signal-red/80 mt-0.5">
+              Signal backlog exceeds threshold — decisions required
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Signal type legend */}
       <div className="flex gap-2 mb-6 flex-wrap">
@@ -54,6 +78,11 @@ export default function Signals() {
               )}
             </div>
             <p className="text-sm">{s.description}</p>
+            {!s.decisionId && (
+              <button className="mt-2 text-[11px] font-semibold uppercase tracking-wider text-foreground border border-foreground px-2 py-1 rounded-sm hover:bg-foreground hover:text-background transition-colors">
+                Spawn Decision →
+              </button>
+            )}
           </div>
         ))}
       </div>
