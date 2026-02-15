@@ -26,8 +26,8 @@ export default function Decisions() {
 
       {atCapacity && (
         <div className="mb-6 border border-signal-red/40 bg-signal-red/5 rounded-md px-4 py-3">
-          <p className="text-sm font-semibold text-signal-red">Capacity full — no new high-impact decisions allowed</p>
-          <p className="text-xs text-signal-red/80 mt-0.5">You must close 1 to open 1. {highActive}/5 high-impact slots occupied.</p>
+          <p className="text-sm font-semibold text-signal-red">High-Impact Capacity Full — Decision Authority Saturated</p>
+          <p className="text-xs text-signal-red/80 mt-0.5">5/5 strategic decision slots active. Close 1 to open 1.</p>
         </div>
       )}
 
@@ -61,15 +61,17 @@ export default function Decisions() {
                     )}
                   >
                     {/* Header row */}
-                    <div className="flex items-start gap-3 mb-2">
+                    <div className="flex items-start gap-2 mb-2 flex-wrap">
+                      <StatusBadge status={d.solutionType} />
                       <StatusBadge status={d.impactTier} />
                       <StatusBadge status={d.status} />
+                      {d.decisionHealth && <StatusBadge status={d.decisionHealth} />}
                       {d.status === "Active" && (
                         <span className={cn(
                           "text-[11px] font-semibold uppercase tracking-wider",
                           exceeded ? "text-signal-red" : urgent ? "text-signal-amber" : "text-muted-foreground"
                         )}>
-                          {exceeded ? `Exceeded ${sliceMax}d window` : `Slice due in ${sliceRemaining}d`}
+                          {exceeded ? `Exceeded ${sliceMax}d build window` : `Slice due in ${sliceRemaining}d`}
                         </span>
                       )}
                       {aging && (
@@ -92,8 +94,12 @@ export default function Decisions() {
                     <h3 className="text-sm font-semibold mb-1">{d.title}</h3>
                     <p className="text-xs text-muted-foreground mb-3">{d.triggerSignal}</p>
 
-                    {/* Outcome impact row */}
+                    {/* Solution & Surface */}
                     <div className="grid grid-cols-4 gap-4 text-xs mb-3">
+                      <div>
+                        <span className="text-muted-foreground">Surface</span>
+                        <p className="font-medium mt-0.5">{d.surface}</p>
+                      </div>
                       <div>
                         <span className="text-muted-foreground">Outcome Target</span>
                         <p className="font-medium mt-0.5">{d.outcomeTarget}</p>
@@ -110,28 +116,18 @@ export default function Decisions() {
                           <p className="font-medium mt-0.5">{d.expectedImpact}</p>
                         </div>
                       )}
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-4 text-xs mb-3">
                       {d.currentDelta && (
                         <div>
                           <span className="text-muted-foreground">Current Delta</span>
                           <p className="font-semibold mt-0.5 text-signal-amber">{d.currentDelta}</p>
                         </div>
                       )}
-                    </div>
-
-                    <div className="grid grid-cols-4 gap-4 text-xs">
-                      <div>
-                        <span className="text-muted-foreground">Owner</span>
-                        <p className="font-medium mt-0.5">{d.owner}</p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Age</span>
-                        <p className={cn("font-semibold text-mono mt-0.5", aging && "text-signal-amber")}>
-                          {age} days
-                        </p>
-                      </div>
                       {d.revenueAtRisk && (
                         <div>
-                          <span className="text-muted-foreground">Revenue at Risk</span>
+                          <span className="text-muted-foreground">Enterprise Exposure</span>
                           <p className="font-semibold mt-0.5 text-signal-red">{d.revenueAtRisk}</p>
                         </div>
                       )}
@@ -141,6 +137,19 @@ export default function Decisions() {
                           <p className="font-medium mt-0.5">{d.segmentImpact}</p>
                         </div>
                       )}
+                      <div>
+                        <span className="text-muted-foreground">Owner</span>
+                        <p className="font-medium mt-0.5">{d.owner}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-6 text-xs">
+                      <div>
+                        <span className="text-muted-foreground">Age</span>
+                        <p className={cn("font-semibold text-mono mt-0.5", aging && "text-signal-amber")}>
+                          {age} days
+                        </p>
+                      </div>
                     </div>
 
                     {/* Blocked details */}

@@ -25,6 +25,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           <h1 className="text-sm font-bold tracking-widest uppercase text-sidebar-primary">
             Authority
           </h1>
+          <p className="text-[10px] uppercase tracking-widest text-sidebar-muted mt-1">
+            Conviva
+          </p>
         </div>
         <nav className="flex-1 px-3 space-y-0.5">
           {navItems.map((item) => {
@@ -46,8 +49,14 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           })}
         </nav>
         <div className="px-5 py-4 border-t border-sidebar-border">
-          <p className="text-[11px] text-sidebar-muted uppercase tracking-wider">
-            Operating Layer v1
+          <p className="text-[10px] text-sidebar-muted uppercase tracking-wider">
+            S1 · Video Insights
+          </p>
+          <p className="text-[10px] text-sidebar-muted uppercase tracking-wider">
+            S2 · DPI Intelligence
+          </p>
+          <p className="text-[10px] text-sidebar-muted uppercase tracking-wider">
+            S3 · Agent Outcomes
           </p>
         </div>
       </aside>
