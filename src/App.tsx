@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -14,13 +15,19 @@ import Memory from "@/pages/Memory";
 import Ask from "@/pages/Ask";
 import Auth from "@/pages/Auth";
 import OrgSetup from "@/components/OrgSetup";
+import ExecSeeding from "@/pages/ExecSeeding";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+const SEEDING_DONE_KEY = "ba_seeding_done";
+
 function AuthGate({ children }: { children: React.ReactNode }) {
   const { user, loading: authLoading } = useAuth();
   const { currentOrg, memberships, loading: orgLoading } = useOrg();
+  const [seedingDone, setSeedingDone] = useState(() =>
+    localStorage.getItem(SEEDING_DONE_KEY) === "true"
+  );
 
   if (authLoading || orgLoading) {
     return (
@@ -32,6 +39,17 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
   if (!user) return <Auth />;
   if (memberships.length === 0) return <OrgSetup />;
+
+  if (!seedingDone) {
+    return (
+      <ExecSeeding
+        onExit={() => {
+          localStorage.setItem(SEEDING_DONE_KEY, "true");
+          setSeedingDone(true);
+        }}
+      />
+    );
+  }
 
   return <>{children}</>;
 }
