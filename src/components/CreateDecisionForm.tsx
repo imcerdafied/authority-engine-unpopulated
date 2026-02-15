@@ -26,6 +26,8 @@ export default function CreateDecisionForm({ onClose }: { onClose: () => void })
   const [impactTier, setImpactTier] = useState<ImpactTier>("Medium");
   const [outcomeTarget, setOutcomeTarget] = useState("");
   const [outcomeCategory, setOutcomeCategory] = useState<OutcomeCategory | "">("");
+  const [expectedImpact, setExpectedImpact] = useState("");
+  const [exposureValue, setExposureValue] = useState("");
   const [triggerSignal, setTriggerSignal] = useState("");
   const [revenueAtRisk, setRevenueAtRisk] = useState("");
 
@@ -43,6 +45,8 @@ export default function CreateDecisionForm({ onClose }: { onClose: () => void })
       impact_tier: impactTier,
       outcome_target: outcomeTarget || null,
       outcome_category: outcomeCategory || null,
+      expected_impact: expectedImpact || null,
+      exposure_value: exposureValue || null,
       trigger_signal: triggerSignal || null,
       revenue_at_risk: revenueAtRisk || null,
     });
@@ -102,6 +106,18 @@ export default function CreateDecisionForm({ onClose }: { onClose: () => void })
               <option value="">—</option>
               {outcomeCategories.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">Expected Impact</label>
+            <input value={expectedImpact} onChange={(e) => setExpectedImpact(e.target.value)} placeholder="e.g. +15% adoption"
+              className="w-full border rounded-sm px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-foreground" />
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">Exposure Value</label>
+            <input value={exposureValue} onChange={(e) => setExposureValue(e.target.value)} placeholder="e.g. $2.1M ARR at risk"
+              className="w-full border rounded-sm px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-foreground" />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3">

@@ -90,16 +90,78 @@ export type Database = {
           },
         ]
       }
+      decision_events: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          decision_id: string
+          event_type: string
+          from_status: string | null
+          id: string
+          metadata: Json | null
+          org_id: string
+          to_status: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          decision_id: string
+          event_type: string
+          from_status?: string | null
+          id?: string
+          metadata?: Json | null
+          org_id: string
+          to_status?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          decision_id?: string
+          event_type?: string
+          from_status?: string | null
+          id?: string
+          metadata?: Json | null
+          org_id?: string
+          to_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_events_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: false
+            referencedRelation: "decisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_events_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: false
+            referencedRelation: "decisions_computed"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_events_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       decisions: {
         Row: {
+          activated_at: string | null
+          actual_outcome_value: string | null
           blocked_dependency_owner: string | null
           blocked_reason: string | null
+          closure_note: string | null
           created_at: string
           created_by: string | null
           current_delta: string | null
           decision_health: Database["public"]["Enums"]["decision_health"] | null
           executive_attention_required: boolean
           expected_impact: string | null
+          exposure_value: string | null
           id: string
           impact_tier: Database["public"]["Enums"]["impact_tier"]
           measured_outcome_result: string | null
@@ -107,6 +169,7 @@ export type Database = {
           outcome_category:
             | Database["public"]["Enums"]["outcome_category"]
             | null
+          outcome_delta: string | null
           outcome_target: string | null
           owner: string
           revenue_at_risk: string | null
@@ -122,8 +185,11 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          activated_at?: string | null
+          actual_outcome_value?: string | null
           blocked_dependency_owner?: string | null
           blocked_reason?: string | null
+          closure_note?: string | null
           created_at?: string
           created_by?: string | null
           current_delta?: string | null
@@ -132,6 +198,7 @@ export type Database = {
             | null
           executive_attention_required?: boolean
           expected_impact?: string | null
+          exposure_value?: string | null
           id?: string
           impact_tier?: Database["public"]["Enums"]["impact_tier"]
           measured_outcome_result?: string | null
@@ -139,6 +206,7 @@ export type Database = {
           outcome_category?:
             | Database["public"]["Enums"]["outcome_category"]
             | null
+          outcome_delta?: string | null
           outcome_target?: string | null
           owner: string
           revenue_at_risk?: string | null
@@ -154,8 +222,11 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          activated_at?: string | null
+          actual_outcome_value?: string | null
           blocked_dependency_owner?: string | null
           blocked_reason?: string | null
+          closure_note?: string | null
           created_at?: string
           created_by?: string | null
           current_delta?: string | null
@@ -164,6 +235,7 @@ export type Database = {
             | null
           executive_attention_required?: boolean
           expected_impact?: string | null
+          exposure_value?: string | null
           id?: string
           impact_tier?: Database["public"]["Enums"]["impact_tier"]
           measured_outcome_result?: string | null
@@ -171,6 +243,7 @@ export type Database = {
           outcome_category?:
             | Database["public"]["Enums"]["outcome_category"]
             | null
+          outcome_delta?: string | null
           outcome_target?: string | null
           owner?: string
           revenue_at_risk?: string | null
@@ -426,15 +499,19 @@ export type Database = {
     Views: {
       decisions_computed: {
         Row: {
+          activated_at: string | null
+          actual_outcome_value: string | null
           age_days: number | null
           blocked_dependency_owner: string | null
           blocked_reason: string | null
+          closure_note: string | null
           created_at: string | null
           created_by: string | null
           current_delta: string | null
           decision_health: Database["public"]["Enums"]["decision_health"] | null
           executive_attention_required: boolean | null
           expected_impact: string | null
+          exposure_value: string | null
           id: string | null
           impact_tier: Database["public"]["Enums"]["impact_tier"] | null
           is_aging: boolean | null
@@ -442,10 +519,12 @@ export type Database = {
           is_unbound: boolean | null
           is_urgent: boolean | null
           measured_outcome_result: string | null
+          needs_exec_attention: boolean | null
           org_id: string | null
           outcome_category:
             | Database["public"]["Enums"]["outcome_category"]
             | null
+          outcome_delta: string | null
           outcome_target: string | null
           owner: string | null
           revenue_at_risk: string | null
@@ -462,9 +541,12 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          activated_at?: string | null
+          actual_outcome_value?: string | null
           age_days?: never
           blocked_dependency_owner?: string | null
           blocked_reason?: string | null
+          closure_note?: string | null
           created_at?: string | null
           created_by?: string | null
           current_delta?: string | null
@@ -473,6 +555,7 @@ export type Database = {
             | null
           executive_attention_required?: boolean | null
           expected_impact?: string | null
+          exposure_value?: string | null
           id?: string | null
           impact_tier?: Database["public"]["Enums"]["impact_tier"] | null
           is_aging?: never
@@ -480,10 +563,12 @@ export type Database = {
           is_unbound?: never
           is_urgent?: never
           measured_outcome_result?: string | null
+          needs_exec_attention?: never
           org_id?: string | null
           outcome_category?:
             | Database["public"]["Enums"]["outcome_category"]
             | null
+          outcome_delta?: string | null
           outcome_target?: string | null
           owner?: string | null
           revenue_at_risk?: string | null
@@ -502,9 +587,12 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          activated_at?: string | null
+          actual_outcome_value?: string | null
           age_days?: never
           blocked_dependency_owner?: string | null
           blocked_reason?: string | null
+          closure_note?: string | null
           created_at?: string | null
           created_by?: string | null
           current_delta?: string | null
@@ -513,6 +601,7 @@ export type Database = {
             | null
           executive_attention_required?: boolean | null
           expected_impact?: string | null
+          exposure_value?: string | null
           id?: string | null
           impact_tier?: Database["public"]["Enums"]["impact_tier"] | null
           is_aging?: never
@@ -520,10 +609,12 @@ export type Database = {
           is_unbound?: never
           is_urgent?: never
           measured_outcome_result?: string | null
+          needs_exec_attention?: never
           org_id?: string | null
           outcome_category?:
             | Database["public"]["Enums"]["outcome_category"]
             | null
+          outcome_delta?: string | null
           outcome_target?: string | null
           owner?: string | null
           revenue_at_risk?: string | null
