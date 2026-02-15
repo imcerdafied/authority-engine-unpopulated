@@ -9,7 +9,7 @@ function daysSince(dateStr: string): number {
   return Math.floor((Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24));
 }
 
-type SolutionType = "S1" | "S2" | "S3" | "Cross-Solution";
+type SolutionDomain = "S1" | "S2" | "S3" | "Cross";
 
 function computeOperatingFriction(decisions: any[], signals: any[], pods: any[]) {
   const activeDecisions = decisions.filter((d) => d.status === "Active");
@@ -39,8 +39,8 @@ function computeOperatingFriction(decisions: any[], signals: any[], pods: any[])
 
 function computeSolutionDrift(decisions: any[]) {
   const active = decisions.filter((d) => d.status === "Active");
-  const counts: Record<SolutionType, number> = { S1: 0, S2: 0, S3: 0, "Cross-Solution": 0 };
-  active.forEach((d) => { counts[d.solution_type as SolutionType]++; });
+  const counts: Record<SolutionDomain, number> = { S1: 0, S2: 0, S3: 0, "Cross": 0 };
+  active.forEach((d) => { counts[d.solution_domain as SolutionDomain]++; });
   const total = active.length || 1;
   const s1Pct = Math.round((counts.S1 / total) * 100);
   const s2Pct = Math.round((counts.S2 / total) * 100);
@@ -59,7 +59,7 @@ function computeBuilderVelocity(pods: any[]) {
       ? Math.round(withDemo.reduce((s: number, i: any) => s + daysSince(i.last_demo_date!), 0) / withDemo.length)
       : null;
     const resolved = total ? Math.round((shipped / total) * 100) : 0;
-    return { name: pod.name, solutionType: pod.solution_type, shipped, total, avgCycle, resolved };
+    return { name: pod.name, solutionDomain: pod.solution_domain, shipped, total, avgCycle, resolved };
   });
 }
 
@@ -153,7 +153,7 @@ export default function Overview() {
               <MetricCard label="ARR at Risk" value={totalRevenueAtRisk || "—"} alert={!!totalRevenueAtRisk} />
               <MetricCard label="Decision Latency" value={`${avgLatency}d`} alert={avgLatency > 7} sub="vs 10d target" />
               <MetricCard label="Operating Friction" value={friction.level} alert={friction.level !== "Low"} danger={friction.level === "High"} />
-              <MetricCard label="Agent Trust Delta" value={decisions.find((d) => d.solution_type === "S3" && d.current_delta)?.current_delta || "—"} alert />
+              <MetricCard label="Agent Trust Delta" value={decisions.find((d) => d.solution_domain === "S3" && d.current_delta)?.current_delta || "—"} alert />
             </div>
 
             <section className="mb-8">
@@ -167,7 +167,7 @@ export default function Overview() {
                   return (
                     <div key={d.id} className={cn("px-4 py-4", exceeded && "bg-signal-red/5")}>
                       <div className="flex items-center gap-3 mb-2">
-                        <StatusBadge status={d.solution_type} />
+                        <StatusBadge status={d.solution_domain} />
                         <StatusBadge status={d.impact_tier} />
                         {d.decision_health && <StatusBadge status={d.decision_health} />}
                         {exceeded && (
@@ -199,7 +199,7 @@ export default function Overview() {
                     return (
                       <div key={d.id} className="px-4 py-3">
                         <div className="flex items-center gap-3 mb-1">
-                          <StatusBadge status={d.solution_type} />
+                          <StatusBadge status={d.solution_domain} />
                           <StatusBadge status="Blocked" />
                           <span className="text-sm font-medium flex-1">{d.title}</span>
                           {age > 7 && (
@@ -353,7 +353,7 @@ export default function Overview() {
                 <div key={d.id} className={cn("px-4 py-3", exceeded && "bg-signal-red/5")}>
                   <div className="flex items-center gap-4">
                     <div className="flex gap-1.5 shrink-0">
-                      <StatusBadge status={d.solution_type} />
+                      <StatusBadge status={d.solution_domain} />
                       <StatusBadge status={d.impact_tier} />
                       {d.decision_health && <StatusBadge status={d.decision_health} />}
                     </div>
@@ -394,7 +394,7 @@ export default function Overview() {
               return (
                 <div key={d.id} className="px-4 py-3">
                   <div className="flex items-center gap-3 mb-1">
-                    <StatusBadge status={d.solution_type} />
+                    <StatusBadge status={d.solution_domain} />
                     <StatusBadge status="Blocked" />
                     <p className="text-sm font-medium flex-1">{d.title}</p>
                     <span className="text-xs text-mono font-semibold text-signal-red">{age}d</span>
@@ -430,7 +430,7 @@ export default function Overview() {
           <div className={cn("border rounded-md divide-y", unlinkedSignals.length > 3 && "border-signal-amber/30")}>
             {unlinkedSignals.slice(0, 5).map((s) => (
               <div key={s.id} className="px-4 py-3 flex items-center gap-4">
-                {s.solution_type && <StatusBadge status={s.solution_type} />}
+                {s.solution_domain && <StatusBadge status={s.solution_domain} />}
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-32 shrink-0">{s.type}</span>
                 <p className="text-sm flex-1">{s.description}</p>
                 <span className="text-xs text-muted-foreground shrink-0">{daysSince(s.created_at)}d ago</span>
@@ -451,7 +451,7 @@ export default function Overview() {
                 <div key={v.name} className={cn("px-4 py-3", zeroVelocity && "bg-signal-amber/5")}>
                   <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-2">
-                      <StatusBadge status={v.solutionType} />
+                      <StatusBadge status={v.solutionDomain} />
                       <p className="text-sm font-semibold">{v.name}</p>
                     </div>
                     {zeroVelocity && (

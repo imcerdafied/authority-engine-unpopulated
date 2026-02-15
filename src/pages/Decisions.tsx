@@ -101,7 +101,7 @@ export default function Decisions() {
                   return (
                     <div key={d.id} className={cn("border rounded-md p-4", d.is_exceeded ? "border-signal-red/40 bg-signal-red/5" : d.is_aging ? "border-signal-amber/40" : "")}>
                       <div className="flex items-start gap-2 mb-2 flex-wrap">
-                        <StatusBadge status={d.solution_type} />
+                        <StatusBadge status={d.solution_domain} />
                         <StatusBadge status={d.impact_tier} />
                         <StatusBadge status={d.status} />
                         {d.decision_health && <StatusBadge status={d.decision_health} />}

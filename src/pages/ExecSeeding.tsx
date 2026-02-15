@@ -7,16 +7,14 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { Database } from "@/integrations/supabase/types";
 
-type SolutionType = Database["public"]["Enums"]["solution_type"];
+type SolutionDomain = Database["public"]["Enums"]["solution_domain"];
 type ImpactTier = Database["public"]["Enums"]["impact_tier"];
 type OutcomeCategory = Database["public"]["Enums"]["outcome_category"];
 
-const solutionTypes: SolutionType[] = ["S1", "S2", "S3", "Cross-Solution"];
+const solutionDomains: SolutionDomain[] = ["S1", "S2", "S3", "Cross"];
 const impactTiers: ImpactTier[] = ["High", "Medium", "Low"];
 const outcomeCategories: OutcomeCategory[] = [
-  "Revenue", "Retention", "Conversion", "Trust", "Agent Performance",
-  "Efficiency", "Enterprise Renewal", "Platform Adoption", "Agent Trust",
-  "QoE Risk", "Executive Credibility",
+  "ARR", "NRR", "DPI_Adoption", "Agent_Trust", "Live_Event_Risk", "Operational_Efficiency",
 ];
 
 function CapacityMeter({ count }: { count: number }) {
@@ -54,7 +52,7 @@ function SeedingForm({ onCreated }: { onCreated: () => void }) {
   const [title, setTitle] = useState("");
   const [owner, setOwner] = useState("");
   const [surface, setSurface] = useState("");
-  const [solutionType, setSolutionType] = useState<SolutionType>("S1");
+  const [solutionDomain, setSolutionDomain] = useState<SolutionDomain>("S1");
   const [impactTier, setImpactTier] = useState<ImpactTier>("High");
   const [outcomeTarget, setOutcomeTarget] = useState("");
   const [outcomeCategory, setOutcomeCategory] = useState<OutcomeCategory | "">("");
@@ -70,7 +68,7 @@ function SeedingForm({ onCreated }: { onCreated: () => void }) {
         title,
         owner,
         surface,
-        solution_type: solutionType,
+        solution_domain: solutionDomain,
         impact_tier: impactTier,
         outcome_target: outcomeTarget || null,
         outcome_category: outcomeCategory || null,
@@ -82,7 +80,7 @@ function SeedingForm({ onCreated }: { onCreated: () => void }) {
       setTitle("");
       setOwner("");
       setSurface("");
-      setSolutionType("S1");
+      setSolutionDomain("S1");
       setImpactTier("High");
       setOutcomeTarget("");
       setOutcomeCategory("");
@@ -124,9 +122,9 @@ function SeedingForm({ onCreated }: { onCreated: () => void }) {
           <input required value={surface} onChange={(e) => setSurface(e.target.value)} placeholder="Streaming / DPI / Agent" className={inputClass} />
         </div>
         <div>
-          <label className={labelClass}>Solution</label>
-          <select value={solutionType} onChange={(e) => setSolutionType(e.target.value as SolutionType)} className={inputClass}>
-            {solutionTypes.map((s) => <option key={s} value={s}>{s}</option>)}
+          <label className={labelClass}>Domain</label>
+          <select value={solutionDomain} onChange={(e) => setSolutionDomain(e.target.value as SolutionDomain)} className={inputClass}>
+            {solutionDomains.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
         <div>
@@ -182,7 +180,7 @@ function SeededList({ decisions, onDelete }: { decisions: DecisionComputed[]; on
           <div key={d.id} className="px-4 py-3 flex items-center gap-4">
             <span className="text-sm font-bold text-muted-foreground w-6">{i + 1}</span>
             <div className="flex gap-1.5 shrink-0">
-              <StatusBadge status={d.solution_type} />
+              <StatusBadge status={d.solution_domain} />
               <StatusBadge status={d.impact_tier} />
               <StatusBadge status={d.status} />
             </div>

@@ -72,7 +72,7 @@ export default function Pods() {
                 <div className={cn("px-4 py-3 border-b", zeroVelocity ? "bg-signal-amber/5" : "bg-surface-elevated")}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <StatusBadge status={pod.solution_type} />
+                      <StatusBadge status={pod.solution_domain} />
                       <div>
                         <h2 className="text-sm font-semibold">{pod.name}</h2>
                         <p className="text-xs text-muted-foreground">{pod.owner}</p>

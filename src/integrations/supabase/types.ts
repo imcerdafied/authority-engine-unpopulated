@@ -29,7 +29,7 @@ export type Database = {
           prediction_accuracy: Database["public"]["Enums"]["prediction_accuracy"]
           renewal_impact: string | null
           segment_shift: string | null
-          solution_type: Database["public"]["Enums"]["solution_type"]
+          solution_domain: Database["public"]["Enums"]["solution_domain"]
           title: string
         }
         Insert: {
@@ -46,7 +46,7 @@ export type Database = {
           prediction_accuracy?: Database["public"]["Enums"]["prediction_accuracy"]
           renewal_impact?: string | null
           segment_shift?: string | null
-          solution_type: Database["public"]["Enums"]["solution_type"]
+          solution_domain: Database["public"]["Enums"]["solution_domain"]
           title: string
         }
         Update: {
@@ -63,7 +63,7 @@ export type Database = {
           prediction_accuracy?: Database["public"]["Enums"]["prediction_accuracy"]
           renewal_impact?: string | null
           segment_shift?: string | null
-          solution_type?: Database["public"]["Enums"]["solution_type"]
+          solution_domain?: Database["public"]["Enums"]["solution_domain"]
           title?: string
         }
         Relationships: [
@@ -98,6 +98,7 @@ export type Database = {
           created_by: string | null
           current_delta: string | null
           decision_health: Database["public"]["Enums"]["decision_health"] | null
+          executive_attention_required: boolean
           expected_impact: string | null
           id: string
           impact_tier: Database["public"]["Enums"]["impact_tier"]
@@ -112,7 +113,8 @@ export type Database = {
           segment_impact: string | null
           shipped_slice_date: string | null
           slice_deadline_days: number | null
-          solution_type: Database["public"]["Enums"]["solution_type"]
+          slice_due_at: string | null
+          solution_domain: Database["public"]["Enums"]["solution_domain"]
           status: Database["public"]["Enums"]["decision_status"]
           surface: string
           title: string
@@ -128,6 +130,7 @@ export type Database = {
           decision_health?:
             | Database["public"]["Enums"]["decision_health"]
             | null
+          executive_attention_required?: boolean
           expected_impact?: string | null
           id?: string
           impact_tier?: Database["public"]["Enums"]["impact_tier"]
@@ -142,7 +145,8 @@ export type Database = {
           segment_impact?: string | null
           shipped_slice_date?: string | null
           slice_deadline_days?: number | null
-          solution_type: Database["public"]["Enums"]["solution_type"]
+          slice_due_at?: string | null
+          solution_domain: Database["public"]["Enums"]["solution_domain"]
           status?: Database["public"]["Enums"]["decision_status"]
           surface: string
           title: string
@@ -158,6 +162,7 @@ export type Database = {
           decision_health?:
             | Database["public"]["Enums"]["decision_health"]
             | null
+          executive_attention_required?: boolean
           expected_impact?: string | null
           id?: string
           impact_tier?: Database["public"]["Enums"]["impact_tier"]
@@ -172,7 +177,8 @@ export type Database = {
           segment_impact?: string | null
           shipped_slice_date?: string | null
           slice_deadline_days?: number | null
-          solution_type?: Database["public"]["Enums"]["solution_type"]
+          slice_due_at?: string | null
+          solution_domain?: Database["public"]["Enums"]["solution_domain"]
           status?: Database["public"]["Enums"]["decision_status"]
           surface?: string
           title?: string
@@ -300,7 +306,7 @@ export type Database = {
           name: string
           org_id: string
           owner: string
-          solution_type: Database["public"]["Enums"]["solution_type"]
+          solution_domain: Database["public"]["Enums"]["solution_domain"]
         }
         Insert: {
           created_at?: string
@@ -309,7 +315,7 @@ export type Database = {
           name: string
           org_id: string
           owner: string
-          solution_type: Database["public"]["Enums"]["solution_type"]
+          solution_domain: Database["public"]["Enums"]["solution_domain"]
         }
         Update: {
           created_at?: string
@@ -318,7 +324,7 @@ export type Database = {
           name?: string
           org_id?: string
           owner?: string
-          solution_type?: Database["public"]["Enums"]["solution_type"]
+          solution_domain?: Database["public"]["Enums"]["solution_domain"]
         }
         Relationships: [
           {
@@ -362,7 +368,7 @@ export type Database = {
           description: string
           id: string
           org_id: string
-          solution_type: Database["public"]["Enums"]["solution_type"] | null
+          solution_domain: Database["public"]["Enums"]["solution_domain"] | null
           source: string
           type: Database["public"]["Enums"]["signal_type"]
         }
@@ -373,7 +379,9 @@ export type Database = {
           description: string
           id?: string
           org_id: string
-          solution_type?: Database["public"]["Enums"]["solution_type"] | null
+          solution_domain?:
+            | Database["public"]["Enums"]["solution_domain"]
+            | null
           source: string
           type: Database["public"]["Enums"]["signal_type"]
         }
@@ -384,7 +392,9 @@ export type Database = {
           description?: string
           id?: string
           org_id?: string
-          solution_type?: Database["public"]["Enums"]["solution_type"] | null
+          solution_domain?:
+            | Database["public"]["Enums"]["solution_domain"]
+            | null
           source?: string
           type?: Database["public"]["Enums"]["signal_type"]
         }
@@ -423,6 +433,7 @@ export type Database = {
           created_by: string | null
           current_delta: string | null
           decision_health: Database["public"]["Enums"]["decision_health"] | null
+          executive_attention_required: boolean | null
           expected_impact: string | null
           id: string | null
           impact_tier: Database["public"]["Enums"]["impact_tier"] | null
@@ -431,7 +442,6 @@ export type Database = {
           is_unbound: boolean | null
           is_urgent: boolean | null
           measured_outcome_result: string | null
-          needs_exec_attention: boolean | null
           org_id: string | null
           outcome_category:
             | Database["public"]["Enums"]["outcome_category"]
@@ -442,8 +452,9 @@ export type Database = {
           segment_impact: string | null
           shipped_slice_date: string | null
           slice_deadline_days: number | null
+          slice_due_at: string | null
           slice_remaining: number | null
-          solution_type: Database["public"]["Enums"]["solution_type"] | null
+          solution_domain: Database["public"]["Enums"]["solution_domain"] | null
           status: Database["public"]["Enums"]["decision_status"] | null
           surface: string | null
           title: string | null
@@ -460,6 +471,7 @@ export type Database = {
           decision_health?:
             | Database["public"]["Enums"]["decision_health"]
             | null
+          executive_attention_required?: boolean | null
           expected_impact?: string | null
           id?: string | null
           impact_tier?: Database["public"]["Enums"]["impact_tier"] | null
@@ -468,7 +480,6 @@ export type Database = {
           is_unbound?: never
           is_urgent?: never
           measured_outcome_result?: string | null
-          needs_exec_attention?: never
           org_id?: string | null
           outcome_category?:
             | Database["public"]["Enums"]["outcome_category"]
@@ -479,8 +490,11 @@ export type Database = {
           segment_impact?: string | null
           shipped_slice_date?: string | null
           slice_deadline_days?: number | null
+          slice_due_at?: string | null
           slice_remaining?: never
-          solution_type?: Database["public"]["Enums"]["solution_type"] | null
+          solution_domain?:
+            | Database["public"]["Enums"]["solution_domain"]
+            | null
           status?: Database["public"]["Enums"]["decision_status"] | null
           surface?: string | null
           title?: string | null
@@ -497,6 +511,7 @@ export type Database = {
           decision_health?:
             | Database["public"]["Enums"]["decision_health"]
             | null
+          executive_attention_required?: boolean | null
           expected_impact?: string | null
           id?: string | null
           impact_tier?: Database["public"]["Enums"]["impact_tier"] | null
@@ -505,7 +520,6 @@ export type Database = {
           is_unbound?: never
           is_urgent?: never
           measured_outcome_result?: string | null
-          needs_exec_attention?: never
           org_id?: string | null
           outcome_category?:
             | Database["public"]["Enums"]["outcome_category"]
@@ -516,8 +530,11 @@ export type Database = {
           segment_impact?: string | null
           shipped_slice_date?: string | null
           slice_deadline_days?: number | null
+          slice_due_at?: string | null
           slice_remaining?: never
-          solution_type?: Database["public"]["Enums"]["solution_type"] | null
+          solution_domain?:
+            | Database["public"]["Enums"]["solution_domain"]
+            | null
           status?: Database["public"]["Enums"]["decision_status"] | null
           surface?: string | null
           title?: string | null
@@ -555,17 +572,12 @@ export type Database = {
       decision_status: "Draft" | "Active" | "Blocked" | "Closed"
       impact_tier: "High" | "Medium" | "Low"
       outcome_category:
-        | "Revenue"
-        | "Retention"
-        | "Conversion"
-        | "Trust"
-        | "Agent Performance"
-        | "Efficiency"
-        | "Enterprise Renewal"
-        | "Platform Adoption"
-        | "Agent Trust"
-        | "QoE Risk"
-        | "Executive Credibility"
+        | "ARR"
+        | "NRR"
+        | "DPI_Adoption"
+        | "Agent_Trust"
+        | "Live_Event_Risk"
+        | "Operational_Efficiency"
       prediction_accuracy: "Accurate" | "Partial" | "Missed"
       signal_type:
         | "KPI Deviation"
@@ -575,7 +587,7 @@ export type Database = {
         | "Launch Milestone"
         | "Renewal Risk"
         | "Cross-Solution Conflict"
-      solution_type: "S1" | "S2" | "S3" | "Cross-Solution"
+      solution_domain: "S1" | "S2" | "S3" | "Cross"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -708,17 +720,12 @@ export const Constants = {
       decision_status: ["Draft", "Active", "Blocked", "Closed"],
       impact_tier: ["High", "Medium", "Low"],
       outcome_category: [
-        "Revenue",
-        "Retention",
-        "Conversion",
-        "Trust",
-        "Agent Performance",
-        "Efficiency",
-        "Enterprise Renewal",
-        "Platform Adoption",
-        "Agent Trust",
-        "QoE Risk",
-        "Executive Credibility",
+        "ARR",
+        "NRR",
+        "DPI_Adoption",
+        "Agent_Trust",
+        "Live_Event_Risk",
+        "Operational_Efficiency",
       ],
       prediction_accuracy: ["Accurate", "Partial", "Missed"],
       signal_type: [
@@ -730,7 +737,7 @@ export const Constants = {
         "Renewal Risk",
         "Cross-Solution Conflict",
       ],
-      solution_type: ["S1", "S2", "S3", "Cross-Solution"],
+      solution_domain: ["S1", "S2", "S3", "Cross"],
     },
   },
 } as const

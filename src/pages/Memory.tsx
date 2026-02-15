@@ -36,7 +36,7 @@ export default function Memory() {
             <div key={cd.id} className="border rounded-md p-5">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <StatusBadge status={cd.solution_type} />
+                  <StatusBadge status={cd.solution_domain} />
                   <StatusBadge status={cd.prediction_accuracy} />
                   <h3 className="text-sm font-semibold">{cd.title}</h3>
                 </div>
