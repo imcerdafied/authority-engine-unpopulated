@@ -6,9 +6,7 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 
 function daysSince(dateStr: string): number {
-  const d = new Date(dateStr);
-  const now = new Date();
-  return Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
+  return Math.floor((Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24));
 }
 
 type SolutionType = "S1" | "S2" | "S3" | "Cross-Solution";

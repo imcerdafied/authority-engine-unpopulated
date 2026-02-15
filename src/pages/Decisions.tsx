@@ -4,13 +4,10 @@ import { useOrg } from "@/contexts/OrgContext";
 import StatusBadge from "@/components/StatusBadge";
 import CreateDecisionForm from "@/components/CreateDecisionForm";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import type { Database } from "@/integrations/supabase/types";
 
 type DecisionStatus = Database["public"]["Enums"]["decision_status"];
-
-function daysSince(dateStr: string): number {
-  return Math.floor((Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24));
-}
 
 export default function Decisions() {
   const { data: decisions = [], isLoading } = useDecisions();
@@ -37,7 +34,23 @@ export default function Decisions() {
   const statusOptions: DecisionStatus[] = ["Draft", "Active", "Blocked", "Closed"];
 
   const handleStatusChange = (id: string, newStatus: DecisionStatus) => {
-    updateDecision.mutate({ id, status: newStatus });
+    updateDecision.mutate(
+      { id, status: newStatus },
+      {
+        onError: (err: any) => {
+          const msg = err?.message || String(err);
+          if (msg.includes("HIGH_IMPACT_CAP")) {
+            toast.error("Cannot exceed 5 active high-impact decisions. Close one first.");
+          } else if (msg.includes("OUTCOME_REQUIRED")) {
+            toast.error("Cannot activate without an Outcome Target.");
+          } else if (msg.includes("OWNER_REQUIRED")) {
+            toast.error("Cannot activate without an assigned Owner.");
+          } else {
+            toast.error("Failed to update status.");
+          }
+        },
+      }
+    );
   };
 
   return (
@@ -83,31 +96,23 @@ export default function Decisions() {
               <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">{status} ({items.length})</h2>
               <div className="space-y-2">
                 {items.map((d) => {
-                  const age = daysSince(d.created_at);
-                  const aging = age > 7;
-                  const sliceMax = d.slice_deadline_days || 10;
-                  const sliceRemaining = sliceMax - age;
-                  const exceeded = sliceRemaining < 0;
-                  const urgent = sliceRemaining >= 0 && sliceRemaining <= 3;
-                  const unboundOutcome = !d.outcome_category;
                   const isBlocked = d.status === "Blocked";
-                  const execAttention = isBlocked && age > 7;
 
                   return (
-                    <div key={d.id} className={cn("border rounded-md p-4", exceeded ? "border-signal-red/40 bg-signal-red/5" : aging ? "border-signal-amber/40" : "")}>
+                    <div key={d.id} className={cn("border rounded-md p-4", d.is_exceeded ? "border-signal-red/40 bg-signal-red/5" : d.is_aging ? "border-signal-amber/40" : "")}>
                       <div className="flex items-start gap-2 mb-2 flex-wrap">
                         <StatusBadge status={d.solution_type} />
                         <StatusBadge status={d.impact_tier} />
                         <StatusBadge status={d.status} />
                         {d.decision_health && <StatusBadge status={d.decision_health} />}
                         {d.status === "Active" && (
-                          <span className={cn("text-[11px] font-semibold uppercase tracking-wider", exceeded ? "text-signal-red" : urgent ? "text-signal-amber" : "text-muted-foreground")}>
-                            {exceeded ? `Exceeded ${sliceMax}d build window` : `Slice due in ${sliceRemaining}d`}
+                          <span className={cn("text-[11px] font-semibold uppercase tracking-wider", d.is_exceeded ? "text-signal-red" : d.is_urgent ? "text-signal-amber" : "text-muted-foreground")}>
+                            {d.is_exceeded ? `Exceeded ${d.slice_deadline_days || 10}d build window` : `Slice due in ${d.slice_remaining}d`}
                           </span>
                         )}
-                        {aging && <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider animate-pulse-slow">Aging</span>}
-                        {unboundOutcome && <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider ml-auto">Unbound — no authority</span>}
-                        {execAttention && <span className="text-[11px] font-semibold text-signal-red uppercase tracking-wider ml-auto animate-pulse-slow">Executive Attention Required</span>}
+                        {d.is_aging && <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider animate-pulse-slow">Aging</span>}
+                        {d.is_unbound && <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider ml-auto">Unbound — no authority</span>}
+                        {d.needs_exec_attention && <span className="text-[11px] font-semibold text-signal-red uppercase tracking-wider ml-auto animate-pulse-slow">Executive Attention Required</span>}
                       </div>
 
                       <h3 className="text-sm font-semibold mb-1">{d.title}</h3>
@@ -130,7 +135,7 @@ export default function Decisions() {
                       <div className="flex items-center gap-6 text-xs">
                         <div>
                           <span className="text-muted-foreground">Age</span>
-                          <p className={cn("font-semibold text-mono mt-0.5", aging && "text-signal-amber")}>{age} days</p>
+                          <p className={cn("font-semibold text-mono mt-0.5", d.is_aging && "text-signal-amber")}>{d.age_days} days</p>
                         </div>
                         {canWrite && (
                           <div>

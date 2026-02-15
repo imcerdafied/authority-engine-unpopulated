@@ -75,6 +75,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "closed_decisions_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: false
+            referencedRelation: "decisions_computed"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "closed_decisions_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
@@ -390,6 +397,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "signals_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: false
+            referencedRelation: "decisions_computed"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "signals_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
@@ -400,7 +414,126 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      decisions_computed: {
+        Row: {
+          age_days: number | null
+          blocked_dependency_owner: string | null
+          blocked_reason: string | null
+          created_at: string | null
+          created_by: string | null
+          current_delta: string | null
+          decision_health: Database["public"]["Enums"]["decision_health"] | null
+          expected_impact: string | null
+          id: string | null
+          impact_tier: Database["public"]["Enums"]["impact_tier"] | null
+          is_aging: boolean | null
+          is_exceeded: boolean | null
+          is_unbound: boolean | null
+          is_urgent: boolean | null
+          measured_outcome_result: string | null
+          needs_exec_attention: boolean | null
+          org_id: string | null
+          outcome_category:
+            | Database["public"]["Enums"]["outcome_category"]
+            | null
+          outcome_target: string | null
+          owner: string | null
+          revenue_at_risk: string | null
+          segment_impact: string | null
+          shipped_slice_date: string | null
+          slice_deadline_days: number | null
+          slice_remaining: number | null
+          solution_type: Database["public"]["Enums"]["solution_type"] | null
+          status: Database["public"]["Enums"]["decision_status"] | null
+          surface: string | null
+          title: string | null
+          trigger_signal: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          age_days?: never
+          blocked_dependency_owner?: string | null
+          blocked_reason?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          current_delta?: string | null
+          decision_health?:
+            | Database["public"]["Enums"]["decision_health"]
+            | null
+          expected_impact?: string | null
+          id?: string | null
+          impact_tier?: Database["public"]["Enums"]["impact_tier"] | null
+          is_aging?: never
+          is_exceeded?: never
+          is_unbound?: never
+          is_urgent?: never
+          measured_outcome_result?: string | null
+          needs_exec_attention?: never
+          org_id?: string | null
+          outcome_category?:
+            | Database["public"]["Enums"]["outcome_category"]
+            | null
+          outcome_target?: string | null
+          owner?: string | null
+          revenue_at_risk?: string | null
+          segment_impact?: string | null
+          shipped_slice_date?: string | null
+          slice_deadline_days?: number | null
+          slice_remaining?: never
+          solution_type?: Database["public"]["Enums"]["solution_type"] | null
+          status?: Database["public"]["Enums"]["decision_status"] | null
+          surface?: string | null
+          title?: string | null
+          trigger_signal?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          age_days?: never
+          blocked_dependency_owner?: string | null
+          blocked_reason?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          current_delta?: string | null
+          decision_health?:
+            | Database["public"]["Enums"]["decision_health"]
+            | null
+          expected_impact?: string | null
+          id?: string | null
+          impact_tier?: Database["public"]["Enums"]["impact_tier"] | null
+          is_aging?: never
+          is_exceeded?: never
+          is_unbound?: never
+          is_urgent?: never
+          measured_outcome_result?: string | null
+          needs_exec_attention?: never
+          org_id?: string | null
+          outcome_category?:
+            | Database["public"]["Enums"]["outcome_category"]
+            | null
+          outcome_target?: string | null
+          owner?: string | null
+          revenue_at_risk?: string | null
+          segment_impact?: string | null
+          shipped_slice_date?: string | null
+          slice_deadline_days?: number | null
+          slice_remaining?: never
+          solution_type?: Database["public"]["Enums"]["solution_type"] | null
+          status?: Database["public"]["Enums"]["decision_status"] | null
+          surface?: string | null
+          title?: string | null
+          trigger_signal?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decisions_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       get_user_role_in_org: {
