@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { useOrg } from "@/contexts/OrgContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function OrgSetup() {
   const { createOrg } = useOrg();
+  const { signOut } = useAuth();
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -53,6 +55,13 @@ export default function OrgSetup() {
             </button>
           </form>
         </div>
+
+        <button
+          onClick={signOut}
+          className="mt-4 w-full text-[10px] text-muted-foreground hover:text-foreground uppercase tracking-wider transition-colors py-2"
+        >
+          Sign Out
+        </button>
       </div>
     </div>
   );
