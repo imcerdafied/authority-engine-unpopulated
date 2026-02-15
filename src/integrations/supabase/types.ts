@@ -553,6 +553,7 @@ export type Database = {
       }
     }
     Functions: {
+      get_overview_metrics: { Args: { _org_id: string }; Returns: Json }
       get_user_role_in_org: {
         Args: { _org_id: string; _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
