@@ -12,6 +12,7 @@ export default function Decisions() {
 
   const highActive = grouped.Active.filter((d) => d.impactTier === "High").length;
   const atCapacity = highActive >= 5;
+  const isEmpty = decisions.length === 0;
 
   return (
     <div>
@@ -31,143 +32,157 @@ export default function Decisions() {
         </div>
       )}
 
-      {(["Active", "Blocked", "Draft"] as const).map((status) => {
-        const items = grouped[status];
-        if (items.length === 0) return null;
-        return (
-          <section key={status} className="mb-8">
-            <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-              {status} ({items.length})
-            </h2>
-            <div className="space-y-2">
-              {items.map((d) => {
-                const age = daysSince(d.createdDate);
-                const aging = age > 7;
-                const sliceMax = d.sliceDeadlineDays || 10;
-                const sliceRemaining = sliceMax - age;
-                const exceeded = sliceRemaining < 0;
-                const urgent = sliceRemaining >= 0 && sliceRemaining <= 3;
-                const unboundOutcome = !d.outcomeCategory;
-                const isBlocked = d.status === "Blocked";
-                const execAttention = isBlocked && age > 7;
+      {isEmpty ? (
+        <div className="border border-dashed rounded-md px-6 py-10 text-center">
+          <p className="text-sm font-medium text-muted-foreground">
+            No High-Impact Decisions Registered.
+          </p>
+          <p className="text-xs text-muted-foreground/70 mt-1.5">
+            Authority begins by defining the five decisions that matter most.
+          </p>
+          <div className="flex justify-center gap-6 mt-4 text-xs text-muted-foreground/50">
+            <span>Hard cap: 5</span>
+            <span>10-day slice rule</span>
+            <span>Outcome required</span>
+            <span>Owner required</span>
+          </div>
+        </div>
+      ) : (
+        (["Active", "Blocked", "Draft"] as const).map((status) => {
+          const items = grouped[status];
+          if (items.length === 0) return null;
+          return (
+            <section key={status} className="mb-8">
+              <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                {status} ({items.length})
+              </h2>
+              <div className="space-y-2">
+                {items.map((d) => {
+                  const age = daysSince(d.createdDate);
+                  const aging = age > 7;
+                  const sliceMax = d.sliceDeadlineDays || 10;
+                  const sliceRemaining = sliceMax - age;
+                  const exceeded = sliceRemaining < 0;
+                  const urgent = sliceRemaining >= 0 && sliceRemaining <= 3;
+                  const unboundOutcome = !d.outcomeCategory;
+                  const isBlocked = d.status === "Blocked";
+                  const execAttention = isBlocked && age > 7;
 
-                return (
-                  <div
-                    key={d.id}
-                    className={cn(
-                      "border rounded-md p-4",
-                      exceeded ? "border-signal-red/40 bg-signal-red/5" :
-                      aging ? "border-signal-amber/40" : ""
-                    )}
-                  >
-                    {/* Header row */}
-                    <div className="flex items-start gap-2 mb-2 flex-wrap">
-                      <StatusBadge status={d.solutionType} />
-                      <StatusBadge status={d.impactTier} />
-                      <StatusBadge status={d.status} />
-                      {d.decisionHealth && <StatusBadge status={d.decisionHealth} />}
-                      {d.status === "Active" && (
-                        <span className={cn(
-                          "text-[11px] font-semibold uppercase tracking-wider",
-                          exceeded ? "text-signal-red" : urgent ? "text-signal-amber" : "text-muted-foreground"
-                        )}>
-                          {exceeded ? `Exceeded ${sliceMax}d build window` : `Slice due in ${sliceRemaining}d`}
-                        </span>
+                  return (
+                    <div
+                      key={d.id}
+                      className={cn(
+                        "border rounded-md p-4",
+                        exceeded ? "border-signal-red/40 bg-signal-red/5" :
+                        aging ? "border-signal-amber/40" : ""
                       )}
-                      {aging && (
-                        <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider animate-pulse-slow">
-                          Aging
-                        </span>
-                      )}
-                      {unboundOutcome && (
-                        <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider ml-auto">
-                          Unbound — no authority
-                        </span>
-                      )}
-                      {execAttention && (
-                        <span className="text-[11px] font-semibold text-signal-red uppercase tracking-wider ml-auto animate-pulse-slow">
-                          Executive Attention Required
-                        </span>
-                      )}
-                    </div>
-
-                    <h3 className="text-sm font-semibold mb-1">{d.title}</h3>
-                    <p className="text-xs text-muted-foreground mb-3">{d.triggerSignal}</p>
-
-                    {/* Solution & Surface */}
-                    <div className="grid grid-cols-4 gap-4 text-xs mb-3">
-                      <div>
-                        <span className="text-muted-foreground">Surface</span>
-                        <p className="font-medium mt-0.5">{d.surface}</p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Outcome Target</span>
-                        <p className="font-medium mt-0.5">{d.outcomeTarget}</p>
-                      </div>
-                      {d.outcomeCategory && (
-                        <div>
-                          <span className="text-muted-foreground">Category</span>
-                          <p className="font-medium mt-0.5">{d.outcomeCategory}</p>
-                        </div>
-                      )}
-                      {d.expectedImpact && (
-                        <div>
-                          <span className="text-muted-foreground">Expected Impact</span>
-                          <p className="font-medium mt-0.5">{d.expectedImpact}</p>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-4 gap-4 text-xs mb-3">
-                      {d.currentDelta && (
-                        <div>
-                          <span className="text-muted-foreground">Current Delta</span>
-                          <p className="font-semibold mt-0.5 text-signal-amber">{d.currentDelta}</p>
-                        </div>
-                      )}
-                      {d.revenueAtRisk && (
-                        <div>
-                          <span className="text-muted-foreground">Enterprise Exposure</span>
-                          <p className="font-semibold mt-0.5 text-signal-red">{d.revenueAtRisk}</p>
-                        </div>
-                      )}
-                      {d.segmentImpact && (
-                        <div>
-                          <span className="text-muted-foreground">Segment</span>
-                          <p className="font-medium mt-0.5">{d.segmentImpact}</p>
-                        </div>
-                      )}
-                      <div>
-                        <span className="text-muted-foreground">Owner</span>
-                        <p className="font-medium mt-0.5">{d.owner}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-6 text-xs">
-                      <div>
-                        <span className="text-muted-foreground">Age</span>
-                        <p className={cn("font-semibold text-mono mt-0.5", aging && "text-signal-amber")}>
-                          {age} days
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Blocked details */}
-                    {isBlocked && d.blockedReason && (
-                      <div className="mt-3 pt-3 border-t text-xs">
-                        <p className="text-muted-foreground">Blocked: {d.blockedReason}</p>
-                        {d.blockedDependencyOwner && (
-                          <p className="text-muted-foreground mt-0.5">Dependency: {d.blockedDependencyOwner}</p>
+                    >
+                      <div className="flex items-start gap-2 mb-2 flex-wrap">
+                        <StatusBadge status={d.solutionType} />
+                        <StatusBadge status={d.impactTier} />
+                        <StatusBadge status={d.status} />
+                        {d.decisionHealth && <StatusBadge status={d.decisionHealth} />}
+                        {d.status === "Active" && (
+                          <span className={cn(
+                            "text-[11px] font-semibold uppercase tracking-wider",
+                            exceeded ? "text-signal-red" : urgent ? "text-signal-amber" : "text-muted-foreground"
+                          )}>
+                            {exceeded ? `Exceeded ${sliceMax}d build window` : `Slice due in ${sliceRemaining}d`}
+                          </span>
+                        )}
+                        {aging && (
+                          <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider animate-pulse-slow">
+                            Aging
+                          </span>
+                        )}
+                        {unboundOutcome && (
+                          <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider ml-auto">
+                            Unbound — no authority
+                          </span>
+                        )}
+                        {execAttention && (
+                          <span className="text-[11px] font-semibold text-signal-red uppercase tracking-wider ml-auto animate-pulse-slow">
+                            Executive Attention Required
+                          </span>
                         )}
                       </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        );
-      })}
+
+                      <h3 className="text-sm font-semibold mb-1">{d.title}</h3>
+                      <p className="text-xs text-muted-foreground mb-3">{d.triggerSignal}</p>
+
+                      <div className="grid grid-cols-4 gap-4 text-xs mb-3">
+                        <div>
+                          <span className="text-muted-foreground">Surface</span>
+                          <p className="font-medium mt-0.5">{d.surface}</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Outcome Target</span>
+                          <p className="font-medium mt-0.5">{d.outcomeTarget}</p>
+                        </div>
+                        {d.outcomeCategory && (
+                          <div>
+                            <span className="text-muted-foreground">Category</span>
+                            <p className="font-medium mt-0.5">{d.outcomeCategory}</p>
+                          </div>
+                        )}
+                        {d.expectedImpact && (
+                          <div>
+                            <span className="text-muted-foreground">Expected Impact</span>
+                            <p className="font-medium mt-0.5">{d.expectedImpact}</p>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-4 gap-4 text-xs mb-3">
+                        {d.currentDelta && (
+                          <div>
+                            <span className="text-muted-foreground">Current Delta</span>
+                            <p className="font-semibold mt-0.5 text-signal-amber">{d.currentDelta}</p>
+                          </div>
+                        )}
+                        {d.revenueAtRisk && (
+                          <div>
+                            <span className="text-muted-foreground">Enterprise Exposure</span>
+                            <p className="font-semibold mt-0.5 text-signal-red">{d.revenueAtRisk}</p>
+                          </div>
+                        )}
+                        {d.segmentImpact && (
+                          <div>
+                            <span className="text-muted-foreground">Segment</span>
+                            <p className="font-medium mt-0.5">{d.segmentImpact}</p>
+                          </div>
+                        )}
+                        <div>
+                          <span className="text-muted-foreground">Owner</span>
+                          <p className="font-medium mt-0.5">{d.owner}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-6 text-xs">
+                        <div>
+                          <span className="text-muted-foreground">Age</span>
+                          <p className={cn("font-semibold text-mono mt-0.5", aging && "text-signal-amber")}>
+                            {age} days
+                          </p>
+                        </div>
+                      </div>
+
+                      {isBlocked && d.blockedReason && (
+                        <div className="mt-3 pt-3 border-t text-xs">
+                          <p className="text-muted-foreground">Blocked: {d.blockedReason}</p>
+                          {d.blockedDependencyOwner && (
+                            <p className="text-muted-foreground mt-0.5">Dependency: {d.blockedDependencyOwner}</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })
+      )}
     </div>
   );
 }

@@ -88,7 +88,7 @@ function computeAnswer(question: string): Answer {
       return {
         question,
         items: aging.map((d) => ({
-          label: `${d.title}`,
+          label: d.title,
           detail: `${daysSince(d.createdDate)} days · ${d.owner} · ${d.surface} · ${d.decisionHealth || "Unknown health"}`,
           solution: d.solutionType,
         })),
@@ -166,7 +166,9 @@ export default function Ask() {
             {answer.question}
           </h2>
           {answer.items.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nothing found.</p>
+            <div className="border border-dashed rounded-md px-6 py-8 text-center">
+              <p className="text-sm text-muted-foreground">No data. Seed decisions and signals to activate queries.</p>
+            </div>
           ) : (
             <div className="border rounded-md divide-y">
               {answer.items.map((item, i) => (

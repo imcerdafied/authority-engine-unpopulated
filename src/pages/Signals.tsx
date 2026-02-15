@@ -16,6 +16,7 @@ const signalTypeLabels: SignalType[] = [
 export default function Signals() {
   const unlinked = signals.filter((s) => !s.decisionId);
   const severe = unlinked.length > 3;
+  const isEmpty = signals.length === 0;
 
   return (
     <div>
@@ -58,38 +59,48 @@ export default function Signals() {
         ))}
       </div>
 
-      {/* Signals list */}
-      <div className="border rounded-md divide-y">
-        {signals.map((s) => (
-          <div key={s.id} className="p-4">
-            <div className="flex items-center gap-3 mb-2">
-              {s.solutionType && <StatusBadge status={s.solutionType} />}
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground bg-muted px-2 py-0.5 rounded-sm">
-                {s.type}
-              </span>
-              <span className="text-[11px] text-muted-foreground">
-                {daysSince(s.createdDate)}d ago · {s.source}
-              </span>
+      {isEmpty ? (
+        <div className="border border-dashed rounded-md px-6 py-10 text-center">
+          <p className="text-sm font-medium text-muted-foreground">
+            No signals awaiting authority.
+          </p>
+          <p className="text-xs text-muted-foreground/70 mt-1.5">
+            Signals can be added manually or via integration.
+          </p>
+        </div>
+      ) : (
+        <div className="border rounded-md divide-y">
+          {signals.map((s) => (
+            <div key={s.id} className="p-4">
+              <div className="flex items-center gap-3 mb-2">
+                {s.solutionType && <StatusBadge status={s.solutionType} />}
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground bg-muted px-2 py-0.5 rounded-sm">
+                  {s.type}
+                </span>
+                <span className="text-[11px] text-muted-foreground">
+                  {daysSince(s.createdDate)}d ago · {s.source}
+                </span>
+                {!s.decisionId && (
+                  <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider ml-auto">
+                    Needs Decision
+                  </span>
+                )}
+                {s.decisionId && (
+                  <span className="text-[11px] text-signal-green font-semibold uppercase tracking-wider ml-auto">
+                    Linked
+                  </span>
+                )}
+              </div>
+              <p className="text-sm">{s.description}</p>
               {!s.decisionId && (
-                <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider ml-auto">
-                  Needs Decision
-                </span>
-              )}
-              {s.decisionId && (
-                <span className="text-[11px] text-signal-green font-semibold uppercase tracking-wider ml-auto">
-                  Linked
-                </span>
+                <button className="mt-2 text-[11px] font-semibold uppercase tracking-wider text-foreground border border-foreground px-2 py-1 rounded-sm hover:bg-foreground hover:text-background transition-colors">
+                  Spawn Decision →
+                </button>
               )}
             </div>
-            <p className="text-sm">{s.description}</p>
-            {!s.decisionId && (
-              <button className="mt-2 text-[11px] font-semibold uppercase tracking-wider text-foreground border border-foreground px-2 py-1 rounded-sm hover:bg-foreground hover:text-background transition-colors">
-                Spawn Decision →
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
