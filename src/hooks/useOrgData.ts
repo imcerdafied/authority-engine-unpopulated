@@ -12,7 +12,7 @@ export interface DecisionComputed {
   owner: string;
   status: string;
   impact_tier: string;
-  solution_type: string;
+  solution_domain: string;
   trigger_signal: string | null;
   outcome_target: string | null;
   outcome_category: string | null;

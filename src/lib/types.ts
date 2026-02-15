@@ -1,8 +1,8 @@
 export type ImpactTier = "High" | "Medium" | "Low";
 export type DecisionStatus = "Draft" | "Active" | "Blocked" | "Closed";
 export type SignalType = "KPI Deviation" | "Segment Variance" | "Agent Drift" | "Exec Escalation" | "Launch Milestone" | "Renewal Risk" | "Cross-Solution Conflict";
-export type OutcomeCategory = "Revenue" | "Retention" | "Conversion" | "Trust" | "Agent Performance" | "Efficiency" | "Enterprise Renewal" | "Platform Adoption" | "Agent Trust" | "QoE Risk" | "Executive Credibility";
-export type SolutionType = "S1" | "S2" | "S3" | "Cross-Solution";
+export type OutcomeCategory = "ARR" | "NRR" | "DPI_Adoption" | "Agent_Trust" | "Live_Event_Risk" | "Operational_Efficiency";
+export type SolutionDomain = "S1" | "S2" | "S3" | "Cross";
 export type DecisionHealth = "On Track" | "At Risk" | "Degrading";
 
 export interface Decision {
@@ -24,7 +24,7 @@ export interface Decision {
   measuredOutcomeResult?: string;
   blockedReason?: string;
   blockedDependencyOwner?: string;
-  solutionType: SolutionType;
+  solutionDomain: SolutionDomain;
   surface: string;
   decisionHealth?: DecisionHealth;
 }
@@ -36,14 +36,14 @@ export interface Signal {
   source: string;
   createdDate: string;
   decisionId?: string;
-  solutionType?: SolutionType;
+  solutionDomain?: SolutionDomain;
 }
 
 export interface Pod {
   id: string;
   name: string;
   owner: string;
-  solutionType: SolutionType;
+  solutionDomain: SolutionDomain;
   initiatives: PodInitiative[];
 }
 
@@ -69,7 +69,7 @@ export interface ClosedDecision {
   agentImpact?: string;
   notes: string;
   closedDate: string;
-  solutionType: SolutionType;
+  solutionDomain: SolutionDomain;
   renewalImpact?: string;
   predictionAccuracy: "Accurate" | "Partial" | "Missed";
 }

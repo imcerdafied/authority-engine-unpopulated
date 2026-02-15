@@ -4,16 +4,14 @@ import { useOrg } from "@/contexts/OrgContext";
 import { cn } from "@/lib/utils";
 import type { Database } from "@/integrations/supabase/types";
 
-type SolutionType = Database["public"]["Enums"]["solution_type"];
+type SolutionDomain = Database["public"]["Enums"]["solution_domain"];
 type ImpactTier = Database["public"]["Enums"]["impact_tier"];
 type OutcomeCategory = Database["public"]["Enums"]["outcome_category"];
 
-const solutionTypes: SolutionType[] = ["S1", "S2", "S3", "Cross-Solution"];
+const solutionDomains: SolutionDomain[] = ["S1", "S2", "S3", "Cross"];
 const impactTiers: ImpactTier[] = ["High", "Medium", "Low"];
 const outcomeCategories: OutcomeCategory[] = [
-  "Revenue", "Retention", "Conversion", "Trust", "Agent Performance",
-  "Efficiency", "Enterprise Renewal", "Platform Adoption", "Agent Trust",
-  "QoE Risk", "Executive Credibility",
+  "ARR", "NRR", "DPI_Adoption", "Agent_Trust", "Live_Event_Risk", "Operational_Efficiency",
 ];
 
 export default function CreateDecisionForm({ onClose }: { onClose: () => void }) {
@@ -24,7 +22,7 @@ export default function CreateDecisionForm({ onClose }: { onClose: () => void })
   const [title, setTitle] = useState("");
   const [owner, setOwner] = useState("");
   const [surface, setSurface] = useState("");
-  const [solutionType, setSolutionType] = useState<SolutionType>("S1");
+  const [solutionDomain, setSolutionDomain] = useState<SolutionDomain>("S1");
   const [impactTier, setImpactTier] = useState<ImpactTier>("Medium");
   const [outcomeTarget, setOutcomeTarget] = useState("");
   const [outcomeCategory, setOutcomeCategory] = useState<OutcomeCategory | "">("");
@@ -41,7 +39,7 @@ export default function CreateDecisionForm({ onClose }: { onClose: () => void })
       title,
       owner,
       surface,
-      solution_type: solutionType,
+      solution_domain: solutionDomain,
       impact_tier: impactTier,
       outcome_target: outcomeTarget || null,
       outcome_category: outcomeCategory || null,
@@ -77,10 +75,10 @@ export default function CreateDecisionForm({ onClose }: { onClose: () => void })
               className="w-full border rounded-sm px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-foreground" />
           </div>
           <div>
-            <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">Solution</label>
-            <select value={solutionType} onChange={(e) => setSolutionType(e.target.value as SolutionType)}
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">Domain</label>
+            <select value={solutionDomain} onChange={(e) => setSolutionDomain(e.target.value as SolutionDomain)}
               className="w-full border rounded-sm px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-foreground">
-              {solutionTypes.map((s) => <option key={s} value={s}>{s}</option>)}
+              {solutionDomains.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
           <div>
