@@ -309,10 +309,14 @@ export default function Overview() {
 
   const execAttentionDecisions = decisions.filter((d) => d.needs_exec_attention);
 
+  const validIndicators = ["Green", "Yellow", "Red"] as const;
   const riskByDecision = risks.reduce<Record<string, { risk_indicator: "Green" | "Yellow" | "Red"; risk_score: number }>>(
     (acc, r) => {
+      const indicator = validIndicators.includes(r.risk_indicator as any)
+        ? (r.risk_indicator as "Green" | "Yellow" | "Red")
+        : "Green";
       acc[r.decision_id] = {
-        risk_indicator: r.risk_indicator ?? "Green",
+        risk_indicator: indicator,
         risk_score: r.risk_score ?? 0,
       };
       return acc;

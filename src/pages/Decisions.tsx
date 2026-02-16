@@ -105,8 +105,8 @@ function getReadinessIssues(d: DecisionComputed): string[] {
 }
 
 export default function Decisions() {
-  const { data: decisions = [], isLoading } = useDecisions();
-  const { data: risks = [] } = useDecisionRisks();
+  const { data: decisions = [], isLoading: decisionsLoading } = useDecisions();
+  const { data: risks = [], isLoading: risksLoading } = useDecisionRisks();
   const updateDecision = useUpdateDecision();
   const deleteDecision = useDeleteDecision();
   const { currentRole } = useOrg();
@@ -115,9 +115,13 @@ export default function Decisions() {
 
   const riskByDecision = useMemo(() => {
     const m: Record<string, { risk_indicator: "Green" | "Yellow" | "Red"; risk_score: number }> = {};
+    const validIndicators = ["Green", "Yellow", "Red"] as const;
     for (const r of risks) {
+      const indicator = validIndicators.includes(r.risk_indicator as any)
+        ? (r.risk_indicator as "Green" | "Yellow" | "Red")
+        : "Green";
       m[r.decision_id] = {
-        risk_indicator: r.risk_indicator ?? "Green",
+        risk_indicator: indicator,
         risk_score: r.risk_score ?? 0,
       };
     }
@@ -130,7 +134,7 @@ export default function Decisions() {
   const canWrite = currentRole === "admin" || currentRole === "pod_lead";
   const canDelete = currentRole === "admin";
 
-  if (isLoading) return <p className="text-xs text-muted-foreground uppercase tracking-widest">Loading...</p>;
+  if (decisionsLoading || risksLoading) return <p className="text-xs text-muted-foreground uppercase tracking-widest">Loading...</p>;
 
   const grouped = {
     Active: decisions.filter((d) => d.status === "Active"),

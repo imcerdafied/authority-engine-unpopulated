@@ -274,9 +274,6 @@ export interface DecisionRisk {
   org_id: string;
   risk_score: number;
   risk_indicator: "Green" | "Yellow" | "Red";
-  risk_reason: string | null;
-  risk_source: string | null;
-  updated_at: string;
 }
 
 export function useDecisionRisks() {
@@ -287,7 +284,7 @@ export function useDecisionRisks() {
       if (!currentOrg) return [];
       const { data, error } = await supabase
         .from("decision_risk" as any)
-        .select("decision_id, org_id, risk_score, risk_indicator, risk_reason, risk_source, updated_at")
+        .select("org_id, decision_id, risk_score, risk_indicator")
         .eq("org_id", currentOrg.id);
       if (error) return [];
       return (data || []) as unknown as DecisionRisk[];
