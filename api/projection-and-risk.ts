@@ -118,7 +118,7 @@ Return JSON exactly:
       risk_reason: "AI projection + deterministic rules",
     };
 
-    const { error: insertError } = await supabase
+    const { error: projErr } = await supabase
       .from("decision_projections")
       .insert({
         org_id: body.org_id,
@@ -127,14 +127,14 @@ Return JSON exactly:
         projection,
       });
 
-    if (insertError) {
+    if (projErr) {
       return res.status(500).json({
         error: "decision_projections insert failed",
-        detail: insertError.message,
+        detail: projErr.message,
       });
     }
 
-    await supabase.from("decision_risk").upsert({
+    const { error: riskErr } = await supabase.from("decision_risk").upsert({
       org_id: body.org_id,
       decision_id: body.decision_id,
       risk_score: risk.risk_score,
@@ -143,6 +143,13 @@ Return JSON exactly:
       risk_source: "AI projection + deterministic rules",
       updated_at: new Date().toISOString(),
     });
+
+    if (riskErr) {
+      return res.status(500).json({
+        error: "decision_risk upsert failed",
+        detail: riskErr.message,
+      });
+    }
 
     return res.status(200).json({ projection, risk });
   } catch (err: unknown) {
