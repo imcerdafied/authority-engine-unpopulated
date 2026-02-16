@@ -228,9 +228,7 @@ export default function Decisions() {
                         <StatusBadge status={d.impact_tier} />
                         <StatusBadge status={d.status} />
                         {d.decision_health && <StatusBadge status={d.decision_health} />}
-                        {riskByDecision[d.id] && (
-                          <RiskBadge indicator={riskByDecision[d.id].risk_indicator} />
-                        )}
+                        <RiskBadge indicator={riskByDecision[d.id]?.risk_indicator ?? "Green"} />
 
                         {isDraft && readinessIssues.length === 0 && (
                           <WorkflowBadge label="Ready to Activate" type="success" />
