@@ -1,6 +1,6 @@
 import { useDecisions, useUpdateDecision, useSignals, usePods, useOverviewMetrics, useDecisionRisks } from "@/hooks/useOrgData";
 import StatusBadge from "@/components/StatusBadge";
-import RiskBadge from "@/components/RiskBadge";
+import RiskChip from "@/components/RiskChip";
 import MetricCard from "@/components/MetricCard";
 import DataExport from "@/components/DataExport";
 import { Link, useNavigate } from "react-router-dom";
@@ -155,9 +155,7 @@ function SeededDecisionsList({
                   <StatusBadge status={d.solution_domain} />
                   <StatusBadge status={d.impact_tier} />
                   <StatusBadge status={d.status} />
-                  {riskByDecision[d.id] && (
-                    <RiskBadge indicator={riskByDecision[d.id].risk_indicator} showSubtext={false} />
-                  )}
+                  <RiskChip indicator={riskByDecision[d.id]?.risk_indicator ?? "Green"} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{d.title}</p>
@@ -313,11 +311,17 @@ export default function Overview() {
 
   const riskByDecision = risks.reduce<Record<string, { risk_indicator: "Green" | "Yellow" | "Red"; risk_score: number }>>(
     (acc, r) => {
-      acc[r.decision_id] = { risk_indicator: r.risk_indicator, risk_score: r.risk_score };
+      acc[r.decision_id] = {
+        risk_indicator: r.risk_indicator ?? "Green",
+        risk_score: r.risk_score ?? 0,
+      };
       return acc;
     },
     {}
   );
+
+  const getRisk = (decisionId: string) =>
+    riskByDecision[decisionId] ?? { risk_indicator: "Green" as const, risk_score: 0 };
   const riskCounts = risks.reduce(
     (acc, r) => {
       acc[r.risk_indicator] = (acc[r.risk_indicator] ?? 0) + 1;
@@ -337,10 +341,17 @@ export default function Overview() {
   // ==================== EXECUTIVE MODE ====================
   if (executiveMode) {
     const hasData = decisions.length > 0 || signals.length > 0;
+    const impactTierOrder: Record<string, number> = { High: 3, Medium: 2, Low: 1 };
     const sortedActiveHighImpact = [...activeHighImpact].sort((a, b) => {
-      const scoreA = riskByDecision[a.id]?.risk_score ?? -1;
-      const scoreB = riskByDecision[b.id]?.risk_score ?? -1;
-      return scoreB - scoreA;
+      const scoreA = getRisk(a.id).risk_score;
+      const scoreB = getRisk(b.id).risk_score;
+      if (scoreB !== scoreA) return scoreB - scoreA;
+      const tierA = impactTierOrder[a.impact_tier] ?? 0;
+      const tierB = impactTierOrder[b.impact_tier] ?? 0;
+      if (tierB !== tierA) return tierB - tierA;
+      const expA = String((a as { exposure_value?: string }).exposure_value ?? "");
+      const expB = String((b as { exposure_value?: string }).exposure_value ?? "");
+      return expB.localeCompare(expA);
     });
 
     return (
@@ -458,14 +469,13 @@ export default function Overview() {
                   {sortedActiveHighImpact.map((d) => {
                     const age = daysSince(d.created_at);
                     const exceeded = age > (d.slice_deadline_days || 10);
-                    const risk = riskByDecision[d.id];
                     return (
                       <div key={d.id} className={cn("px-4 py-4", exceeded && "bg-signal-red/5")}>
                         <div className="flex items-center gap-3 mb-2">
                           <StatusBadge status={d.solution_domain} />
                           <StatusBadge status={d.impact_tier} />
                           {d.decision_health && <StatusBadge status={d.decision_health} />}
-                          {risk && <RiskBadge indicator={risk.risk_indicator} />}
+                          <RiskChip indicator={getRisk(d.id).risk_indicator} />
                           {exceeded && (
                             <span className="text-[11px] font-semibold text-signal-red uppercase tracking-wider">
                               Exceeded {d.slice_deadline_days || 10}d window

@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { usePods, useDeletePod, useDecisions, useOverviewMetrics, useDecisionRisks } from "@/hooks/useOrgData";
 import { useOrg } from "@/contexts/OrgContext";
 import StatusBadge from "@/components/StatusBadge";
-import RiskBadge from "@/components/RiskBadge";
+import RiskChip from "@/components/RiskChip";
 import CreatePodForm from "@/components/CreatePodForm";
 import { cn } from "@/lib/utils";
 
@@ -174,9 +174,7 @@ export default function Pods() {
                               <div className="flex gap-1.5 shrink-0 items-center">
                                 <StatusBadge status={d.solution_domain} />
                                 {d.decision_health && <StatusBadge status={d.decision_health} />}
-                                {riskByDecision[d.id] && (
-                                  <RiskBadge indicator={riskByDecision[d.id].risk_indicator} showSubtext={false} />
-                                )}
+                                <RiskChip indicator={riskByDecision[d.id]?.risk_indicator ?? "Green"} />
                               </div>
                               <p className="text-sm font-medium flex-1 truncate">{d.title}</p>
                             </div>

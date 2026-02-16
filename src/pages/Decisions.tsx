@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useDecisions, useUpdateDecision, useDeleteDecision, useDecisionRisks } from "@/hooks/useOrgData";
 import { useOrg } from "@/contexts/OrgContext";
 import StatusBadge from "@/components/StatusBadge";
-import RiskBadge from "@/components/RiskBadge";
+import RiskChip from "@/components/RiskChip";
 import CreateDecisionForm from "@/components/CreateDecisionForm";
 import ProjectionPanel from "@/components/ProjectionPanel";
 import { cn } from "@/lib/utils";
@@ -114,12 +114,18 @@ export default function Decisions() {
   const [closingDecision, setClosingDecision] = useState<DecisionComputed | null>(null);
 
   const riskByDecision = useMemo(() => {
-    const m: Record<string, { risk_indicator: "Green" | "Yellow" | "Red" }> = {};
+    const m: Record<string, { risk_indicator: "Green" | "Yellow" | "Red"; risk_score: number }> = {};
     for (const r of risks) {
-      m[r.decision_id] = { risk_indicator: r.risk_indicator };
+      m[r.decision_id] = {
+        risk_indicator: r.risk_indicator ?? "Green",
+        risk_score: r.risk_score ?? 0,
+      };
     }
     return m;
   }, [risks]);
+
+  const getRisk = (decisionId: string) =>
+    riskByDecision[decisionId] ?? { risk_indicator: "Green" as const, risk_score: 0 };
 
   const canWrite = currentRole === "admin" || currentRole === "pod_lead";
   const canDelete = currentRole === "admin";
@@ -228,7 +234,7 @@ export default function Decisions() {
                         <StatusBadge status={d.impact_tier} />
                         <StatusBadge status={d.status} />
                         {d.decision_health && <StatusBadge status={d.decision_health} />}
-                        <RiskBadge indicator={riskByDecision[d.id]?.risk_indicator ?? "Green"} />
+                        <RiskChip indicator={getRisk(d.id).risk_indicator} />
 
                         {isDraft && readinessIssues.length === 0 && (
                           <WorkflowBadge label="Ready to Activate" type="success" />
