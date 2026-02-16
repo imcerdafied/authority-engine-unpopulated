@@ -43,6 +43,10 @@ Rules:
 - Use only provided data.
 - impact_summary <= 35 words.
 - confidence must be Low, Medium, or High.
+- exposure_shift must be exactly one of: "Higher", "Lower", or "Unchanged" followed by a short explanation (e.g. "Higher - delayed delivery increases customer churn risk").
+- Do not generate any dollar figures.
+- Do not generate any percentages unless explicitly present in the input.
+- Do not include numeric exposure calculations.
 - Return raw JSON only.
 
 Decision:
