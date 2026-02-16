@@ -64,10 +64,23 @@ export default function ProjectionPanel({ decision }: { decision: DecisionComput
 
       if (!fetchErr && data && data.length > 0) {
         const row = data[0] as any;
+        const raw = row.projection ?? row.scenarios;
+        let scenarios: Scenario[];
+        if (Array.isArray(raw)) {
+          scenarios = raw as Scenario[];
+        } else if (raw && typeof raw === "object") {
+          scenarios = [
+            { label: "On-Time Delivery", impact_summary: raw.on_time?.impact_summary ?? "", exposure_shift: raw.on_time?.exposure_shift ?? "", confidence: raw.on_time?.confidence ?? "" },
+            { label: "Delayed by 10 Days", impact_summary: raw.delayed_10_days?.impact_summary ?? "", exposure_shift: raw.delayed_10_days?.exposure_shift ?? "", confidence: raw.delayed_10_days?.confidence ?? "" },
+            { label: "Deprioritized", impact_summary: raw.deprioritized?.impact_summary ?? "", exposure_shift: raw.deprioritized?.exposure_shift ?? "", confidence: raw.deprioritized?.confidence ?? "" },
+          ];
+        } else {
+          scenarios = [];
+        }
         setProjection({
-          scenarios: row.scenarios as Scenario[],
-          generated_at: row.generated_at,
-          metadata_hash: row.decision_metadata_hash,
+          scenarios,
+          generated_at: row.generated_at ?? row.created_at ?? new Date().toISOString(),
+          metadata_hash: row.decision_metadata_hash ?? row.metadata_hash ?? "",
         });
       }
       setLoadingExisting(false);
@@ -79,22 +92,43 @@ export default function ProjectionPanel({ decision }: { decision: DecisionComput
     setLoading(true);
     setError(null);
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
-
-      const response = await supabase.functions.invoke("projection", {
-        body: { decision: { ...decision, exposure_value: (decision as any).exposure_value } },
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      const res = await fetch("/api/projection-and-risk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          org_id: decision.org_id,
+          decision_id: decision.id,
+          title: decision.title,
+          domain: decision.solution_domain,
+          surface: decision.surface,
+          outcome_category: decision.outcome_category ?? "",
+          expected_impact: decision.expected_impact ?? "",
+          exposure_value: (decision as { exposure_value?: string }).exposure_value ?? "",
+          slice_overdue: decision.is_exceeded ?? false,
+          blocked_days: decision.status === "Blocked" ? (decision.age_days ?? 0) : 0,
+        }),
       });
 
-      if (response.error) {
-        throw new Error(response.error.message || "Projection failed");
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.detail ?? data.error ?? "Projection failed");
       }
 
-      const result = response.data as ProjectionData;
-      setProjection(result);
-    } catch (err: any) {
-      setError(err.message || "Failed to generate projection.");
+      const raw = data.projection as Record<string, { impact_summary?: string; exposure_shift?: string; confidence?: string }>;
+      const scenarios: Scenario[] = [
+        { label: "On-Time Delivery", impact_summary: raw.on_time?.impact_summary ?? "", exposure_shift: raw.on_time?.exposure_shift ?? "", confidence: raw.on_time?.confidence ?? "" },
+        { label: "Delayed by 10 Days", impact_summary: raw.delayed_10_days?.impact_summary ?? "", exposure_shift: raw.delayed_10_days?.exposure_shift ?? "", confidence: raw.delayed_10_days?.confidence ?? "" },
+        { label: "Deprioritized", impact_summary: raw.deprioritized?.impact_summary ?? "", exposure_shift: raw.deprioritized?.exposure_shift ?? "", confidence: raw.deprioritized?.confidence ?? "" },
+      ];
+
+      setProjection({
+        scenarios,
+        generated_at: new Date().toISOString(),
+        metadata_hash: currentHash,
+      });
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to generate projection.");
     } finally {
       setLoading(false);
     }
