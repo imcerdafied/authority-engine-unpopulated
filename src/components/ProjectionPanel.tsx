@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { safeBtoaUnicode } from "@/lib/base64";
 import type { DecisionComputed } from "@/hooks/useOrgData";
 
 interface Scenario {
@@ -17,7 +18,7 @@ interface ProjectionData {
 }
 
 function computeHash(d: DecisionComputed): string {
-  return btoa(
+  return safeBtoaUnicode(
     `${d.outcome_category || ""}|${d.expected_impact || ""}|${(d as any).exposure_value || ""}|${d.outcome_target || ""}|${d.current_delta || ""}`
   );
 }
