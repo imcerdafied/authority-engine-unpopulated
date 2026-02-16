@@ -1,4 +1,4 @@
-project_id = "pizxxtkgnudyotqlkzwe"
+project_id = "YOUR_PROJECT_REF"
 
 [functions.nightly-backup]
 verify_jwt = false

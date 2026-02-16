@@ -5,8 +5,7 @@
 | Variable | Required | Description |
 |---|---|---|
 | `VITE_SUPABASE_URL` | Yes | Backend API endpoint |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | Yes | Backend public/anon key |
-| `VITE_SUPABASE_PROJECT_ID` | Yes | Backend project identifier |
+| `VITE_SUPABASE_ANON_KEY` | Yes | Supabase anon/public key |
 
 ## Backend (Edge Functions / Secrets)
 
