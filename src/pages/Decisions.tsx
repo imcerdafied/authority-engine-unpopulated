@@ -1,7 +1,8 @@
-import { useState } from "react";
-import { useDecisions, useUpdateDecision, useDeleteDecision } from "@/hooks/useOrgData";
+import { useMemo, useState } from "react";
+import { useDecisions, useUpdateDecision, useDeleteDecision, useDecisionRisks } from "@/hooks/useOrgData";
 import { useOrg } from "@/contexts/OrgContext";
 import StatusBadge from "@/components/StatusBadge";
+import RiskBadge from "@/components/RiskBadge";
 import CreateDecisionForm from "@/components/CreateDecisionForm";
 import ProjectionPanel from "@/components/ProjectionPanel";
 import { cn } from "@/lib/utils";
@@ -105,11 +106,20 @@ function getReadinessIssues(d: DecisionComputed): string[] {
 
 export default function Decisions() {
   const { data: decisions = [], isLoading } = useDecisions();
+  const { data: risks = [] } = useDecisionRisks();
   const updateDecision = useUpdateDecision();
   const deleteDecision = useDeleteDecision();
   const { currentRole } = useOrg();
   const [showCreate, setShowCreate] = useState(false);
   const [closingDecision, setClosingDecision] = useState<DecisionComputed | null>(null);
+
+  const riskByDecision = useMemo(() => {
+    const m: Record<string, { risk_indicator: "Green" | "Yellow" | "Red" }> = {};
+    for (const r of risks) {
+      m[r.decision_id] = { risk_indicator: r.risk_indicator };
+    }
+    return m;
+  }, [risks]);
 
   const canWrite = currentRole === "admin" || currentRole === "pod_lead";
   const canDelete = currentRole === "admin";
@@ -218,6 +228,9 @@ export default function Decisions() {
                         <StatusBadge status={d.impact_tier} />
                         <StatusBadge status={d.status} />
                         {d.decision_health && <StatusBadge status={d.decision_health} />}
+                        {riskByDecision[d.id] && (
+                          <RiskBadge indicator={riskByDecision[d.id].risk_indicator} />
+                        )}
 
                         {isDraft && readinessIssues.length === 0 && (
                           <WorkflowBadge label="Ready to Activate" type="success" />

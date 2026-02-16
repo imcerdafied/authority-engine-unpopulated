@@ -1,7 +1,8 @@
-import { useState } from "react";
-import { usePods, useDeletePod, useDecisions, useOverviewMetrics } from "@/hooks/useOrgData";
+import { useMemo, useState } from "react";
+import { usePods, useDeletePod, useDecisions, useOverviewMetrics, useDecisionRisks } from "@/hooks/useOrgData";
 import { useOrg } from "@/contexts/OrgContext";
 import StatusBadge from "@/components/StatusBadge";
+import RiskBadge from "@/components/RiskBadge";
 import CreatePodForm from "@/components/CreatePodForm";
 import { cn } from "@/lib/utils";
 
@@ -12,7 +13,16 @@ function daysSince(dateStr: string): number {
 export default function Pods() {
   const { data: pods = [], isLoading: pLoading } = usePods();
   const { data: decisions = [], isLoading: dLoading } = useDecisions();
+  const { data: risks = [] } = useDecisionRisks();
   const { data: metrics } = useOverviewMetrics();
+
+  const riskByDecision = useMemo(() => {
+    const m: Record<string, { risk_indicator: "Green" | "Yellow" | "Red" }> = {};
+    for (const r of risks) {
+      m[r.decision_id] = { risk_indicator: r.risk_indicator };
+    }
+    return m;
+  }, [risks]);
   const deletePod = useDeletePod();
   const { currentRole } = useOrg();
   const [showCreate, setShowCreate] = useState(false);
@@ -161,9 +171,12 @@ export default function Pods() {
                             d.decision_health === "At Risk" && "bg-signal-amber/5"
                           )}>
                             <div className="flex items-center gap-3 mb-1">
-                              <div className="flex gap-1.5 shrink-0">
+                              <div className="flex gap-1.5 shrink-0 items-center">
                                 <StatusBadge status={d.solution_domain} />
                                 {d.decision_health && <StatusBadge status={d.decision_health} />}
+                                {riskByDecision[d.id] && (
+                                  <RiskBadge indicator={riskByDecision[d.id].risk_indicator} showSubtext={false} />
+                                )}
                               </div>
                               <p className="text-sm font-medium flex-1 truncate">{d.title}</p>
                             </div>

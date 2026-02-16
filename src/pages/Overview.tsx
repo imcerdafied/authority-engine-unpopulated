@@ -1,5 +1,6 @@
-import { useDecisions, useUpdateDecision, useSignals, usePods, useOverviewMetrics } from "@/hooks/useOrgData";
+import { useDecisions, useUpdateDecision, useSignals, usePods, useOverviewMetrics, useDecisionRisks } from "@/hooks/useOrgData";
 import StatusBadge from "@/components/StatusBadge";
+import RiskBadge from "@/components/RiskBadge";
 import MetricCard from "@/components/MetricCard";
 import DataExport from "@/components/DataExport";
 import { Link, useNavigate } from "react-router-dom";
@@ -59,12 +60,14 @@ function AuthorityOverlay({ onDone }: { onDone: () => void }) {
 
 function SeededDecisionsList({
   decisions,
+  riskByDecision,
   canWrite,
   updateDecision,
   navigate,
   onAuthorityEngaged,
 }: {
   decisions: DecisionComputed[];
+  riskByDecision: Record<string, { risk_indicator: "Green" | "Yellow" | "Red" }>;
   canWrite: boolean;
   updateDecision: ReturnType<typeof useUpdateDecision>;
   navigate: ReturnType<typeof useNavigate>;
@@ -148,10 +151,13 @@ function SeededDecisionsList({
                 className="px-4 py-3 flex items-center gap-4 cursor-pointer hover:bg-accent/30 transition-colors"
                 onClick={() => navigate("/decisions")}
               >
-                <div className="flex gap-1.5 shrink-0">
+                <div className="flex gap-1.5 shrink-0 items-center">
                   <StatusBadge status={d.solution_domain} />
                   <StatusBadge status={d.impact_tier} />
                   <StatusBadge status={d.status} />
+                  {riskByDecision[d.id] && (
+                    <RiskBadge indicator={riskByDecision[d.id].risk_indicator} showSubtext={false} />
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{d.title}</p>
@@ -253,6 +259,7 @@ export default function Overview() {
   const [showRegister, setShowRegister] = useState(false);
   const [showAuthorityOverlay, setShowAuthorityOverlay] = useState(false);
   const { data: decisions = [], isLoading: dLoading } = useDecisions();
+  const { data: risks = [] } = useDecisionRisks();
   const { data: signals = [], isLoading: sLoading } = useSignals();
   const { data: pods = [], isLoading: pLoading } = usePods();
   const { data: metrics, isLoading: mLoading } = useOverviewMetrics();
@@ -304,6 +311,21 @@ export default function Overview() {
 
   const execAttentionDecisions = decisions.filter((d) => d.needs_exec_attention);
 
+  const riskByDecision = risks.reduce<Record<string, { risk_indicator: "Green" | "Yellow" | "Red"; risk_score: number }>>(
+    (acc, r) => {
+      acc[r.decision_id] = { risk_indicator: r.risk_indicator, risk_score: r.risk_score };
+      return acc;
+    },
+    {}
+  );
+  const riskCounts = risks.reduce(
+    (acc, r) => {
+      acc[r.risk_indicator] = (acc[r.risk_indicator] ?? 0) + 1;
+      return acc;
+    },
+    {} as Record<string, number>
+  );
+
   const sliceCompliant = m.total_active > 0 ? m.total_active - m.overdue_slices : 0;
   const slicePercent = m.total_active > 0 ? Math.round((sliceCompliant / m.total_active) * 100) : 100;
 
@@ -315,6 +337,11 @@ export default function Overview() {
   // ==================== EXECUTIVE MODE ====================
   if (executiveMode) {
     const hasData = decisions.length > 0 || signals.length > 0;
+    const sortedActiveHighImpact = [...activeHighImpact].sort((a, b) => {
+      const scoreA = riskByDecision[a.id]?.risk_score ?? -1;
+      const scoreB = riskByDecision[b.id]?.risk_score ?? -1;
+      return scoreB - scoreA;
+    });
 
     return (
       <div>
@@ -376,6 +403,30 @@ export default function Overview() {
               />
             </div>
 
+            <div className="mb-8 border rounded-md px-4 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Executive Overview</p>
+              <div className="flex gap-6">
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider rounded-sm bg-signal-red/10 text-signal-red border border-signal-red/30">
+                    Red
+                  </span>
+                  <span className="text-sm font-mono">{riskCounts.Red ?? 0}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider rounded-sm bg-signal-amber/10 text-signal-amber border border-signal-amber/30">
+                    Yellow
+                  </span>
+                  <span className="text-sm font-mono">{riskCounts.Yellow ?? 0}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider rounded-sm bg-signal-green/10 text-signal-green border border-signal-green/30">
+                    Green
+                  </span>
+                  <span className="text-sm font-mono">{riskCounts.Green ?? 0}</span>
+                </div>
+              </div>
+            </div>
+
             {totalRevenueAtRisk && (
               <div className="mb-6 border border-signal-amber/40 bg-signal-amber/5 rounded-md px-4 py-3">
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">ARR / Renewal Exposure</p>
@@ -402,17 +453,19 @@ export default function Overview() {
               <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
                 Active High-Impact Decisions
               </h2>
-              {activeHighImpact.length > 0 ? (
+              {sortedActiveHighImpact.length > 0 ? (
                 <div className="border rounded-md divide-y">
-                  {activeHighImpact.map((d) => {
+                  {sortedActiveHighImpact.map((d) => {
                     const age = daysSince(d.created_at);
                     const exceeded = age > (d.slice_deadline_days || 10);
+                    const risk = riskByDecision[d.id];
                     return (
                       <div key={d.id} className={cn("px-4 py-4", exceeded && "bg-signal-red/5")}>
                         <div className="flex items-center gap-3 mb-2">
                           <StatusBadge status={d.solution_domain} />
                           <StatusBadge status={d.impact_tier} />
                           {d.decision_health && <StatusBadge status={d.decision_health} />}
+                          {risk && <RiskBadge indicator={risk.risk_indicator} />}
                           {exceeded && (
                             <span className="text-[11px] font-semibold text-signal-red uppercase tracking-wider">
                               Exceeded {d.slice_deadline_days || 10}d window
@@ -529,6 +582,7 @@ export default function Overview() {
 
         <SeededDecisionsList
           decisions={decisions}
+          riskByDecision={riskByDecision}
           canWrite={canWrite}
           updateDecision={updateDecision}
           navigate={navigate}

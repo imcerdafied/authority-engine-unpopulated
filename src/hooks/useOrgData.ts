@@ -268,3 +268,30 @@ export function useOverviewMetrics() {
     enabled: !!currentOrg,
   });
 }
+
+export interface DecisionRisk {
+  decision_id: string;
+  org_id: string;
+  risk_score: number;
+  risk_indicator: "Green" | "Yellow" | "Red";
+  risk_reason: string | null;
+  risk_source: string | null;
+  updated_at: string;
+}
+
+export function useDecisionRisks() {
+  const { currentOrg } = useOrg();
+  return useQuery<DecisionRisk[]>({
+    queryKey: ["decision_risks", currentOrg?.id],
+    queryFn: async () => {
+      if (!currentOrg) return [];
+      const { data, error } = await supabase
+        .from("decision_risk" as any)
+        .select("decision_id, org_id, risk_score, risk_indicator, risk_reason, risk_source, updated_at")
+        .eq("org_id", currentOrg.id);
+      if (error) return [];
+      return (data || []) as unknown as DecisionRisk[];
+    },
+    enabled: !!currentOrg,
+  });
+}
