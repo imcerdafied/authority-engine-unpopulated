@@ -233,7 +233,7 @@ function LogInterruptionForm({
         <input
           value={logDesc}
           onChange={(e) => setLogDesc(e.target.value)}
-          placeholder="Required"
+          placeholder="What happened?"
           className="w-full text-xs border rounded px-2 py-1.5 bg-background"
         />
       </div>
@@ -248,16 +248,16 @@ function LogInterruptionForm({
       <div className="grid grid-cols-2 gap-2">
         <div>
           <label className="text-[11px] uppercase tracking-wider text-muted-foreground block mb-1">Engineers Diverted</label>
-          <input type="number" min={0} value={logEngineers} onChange={(e) => setLogEngineers(parseInt(e.target.value, 10) || 0)} className="w-full text-xs border rounded px-2 py-1.5 bg-background" />
+          <input type="number" min={0} value={logEngineers || ""} onChange={(e) => setLogEngineers(parseInt(e.target.value, 10) || 0)} placeholder="0" className="w-full text-xs border rounded px-2 py-1.5 bg-background" />
         </div>
         <div>
           <label className="text-[11px] uppercase tracking-wider text-muted-foreground block mb-1">Estimated Days</label>
-          <input type="number" min={0} value={logDays} onChange={(e) => setLogDays(parseInt(e.target.value, 10) || 0)} className="w-full text-xs border rounded px-2 py-1.5 bg-background" />
+          <input type="number" min={0} value={logDays || ""} onChange={(e) => setLogDays(parseInt(e.target.value, 10) || 0)} placeholder="0" className="w-full text-xs border rounded px-2 py-1.5 bg-background" />
         </div>
       </div>
       <div>
         <label className="text-[11px] uppercase tracking-wider text-muted-foreground block mb-1">Impact Note (optional)</label>
-        <input value={logImpact} onChange={(e) => setLogImpact(e.target.value)} className="w-full text-xs border rounded px-2 py-1.5 bg-background" />
+        <input value={logImpact} onChange={(e) => setLogImpact(e.target.value)} placeholder="What does this cost?" className="w-full text-xs border rounded px-2 py-1.5 bg-background" />
       </div>
       <div className="flex items-center gap-3">
         <button onClick={handleLogInterruption} disabled={!logDesc.trim()} className="text-[11px] font-semibold uppercase tracking-wider px-3 py-1 rounded bg-foreground text-background disabled:opacity-50">
@@ -299,7 +299,7 @@ function ResourceRealitySection({
   const escalationCount = (d.escalation_count ?? 0) as number;
   const netCapacity = Math.max(0, capacityAllocated - capacityDiverted);
 
-  const hasContent = capacityDiverted > 0 || unplannedInterrupts > 0 || interruptions.length > 0;
+  const hasContent = capacityDiverted > 0 || unplannedInterrupts > 0;
   if (!hasContent) return null;
 
   const netCapacityClass =
@@ -405,7 +405,7 @@ function DecisionActivityFeed({
 
   return (
     <div className="mt-3 pt-3 border-t">
-      <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex items-center gap-2 flex-wrap">
         <button
           onClick={() => setExpanded(!expanded)}
           className="text-[11px] uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
@@ -413,12 +413,15 @@ function DecisionActivityFeed({
           Activity ({activity.length})
         </button>
         {canWrite && logInterruptionOnClick && (
-          <button
-            onClick={logInterruptionOnClick}
-            className="text-[11px] uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Log Interruption
-          </button>
+          <>
+            <span className="text-muted-foreground/50">·</span>
+            <button
+              onClick={logInterruptionOnClick}
+              className="text-[11px] uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            >
+              Log Interruption
+            </button>
+          </>
         )}
       </div>
       {expanded && (
@@ -478,11 +481,10 @@ function BetCard({
   handleStatusConfirm: () => void;
 }) {
   const [logFormExpanded, setLogFormExpanded] = useState(false);
-  const { data: interruptions = [] } = useInterruptions(d.id);
 
   const capacityDiverted = (d.capacity_diverted ?? 0) as number;
   const unplannedInterrupts = (d.unplanned_interrupts ?? 0) as number;
-  const hasResourceReality = capacityDiverted > 0 || unplannedInterrupts > 0 || interruptions.length > 0;
+  const hasResourceReality = capacityDiverted > 0 || unplannedInterrupts > 0;
 
   const isActive = d.status !== "closed";
 
@@ -561,7 +563,7 @@ function BetCard({
                 setPendingStatus({ decisionId: d.id, newStatus, oldStatus: d.status });
                 setStatusNote("");
               }}
-              className="text-xs border rounded px-2 py-1 bg-background min-h-[44px] w-full"
+              className="text-xs border rounded px-2 py-1 bg-background min-h-[44px] w-48 max-w-48"
             >
               {statusOptions.map((s) => (
                 <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1).replace("_", " ")}</option>
