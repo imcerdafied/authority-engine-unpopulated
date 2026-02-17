@@ -713,7 +713,7 @@ export type Database = {
     Enums: {
       app_role: "admin" | "pod_lead" | "viewer"
       decision_health: "On Track" | "At Risk" | "Degrading"
-      decision_status: "Draft" | "Active" | "Blocked" | "Closed"
+      decision_status: "Draft" | "Active" | "Blocked" | "Closed" | "active" | "accepted" | "rejected" | "archived"
       impact_tier: "High" | "Medium" | "Low"
       outcome_category:
         | "ARR"
@@ -861,7 +861,7 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "pod_lead", "viewer"],
       decision_health: ["On Track", "At Risk", "Degrading"],
-      decision_status: ["Draft", "Active", "Blocked", "Closed"],
+      decision_status: ["Draft", "Active", "Blocked", "Closed", "active", "accepted", "rejected", "archived"],
       impact_tier: ["High", "Medium", "Low"],
       outcome_category: [
         "ARR",

@@ -6,6 +6,10 @@ interface StatusBadgeProps {
 }
 
 const statusStyles: Record<string, string> = {
+  active: "bg-signal-green/10 text-signal-green border border-signal-green/30",
+  accepted: "bg-signal-green/10 text-signal-green border border-signal-green/30",
+  rejected: "bg-signal-red/10 text-signal-red border border-signal-red/30",
+  archived: "bg-muted text-muted-foreground",
   Active: "bg-foreground text-primary-foreground",
   Blocked: "bg-signal-red text-signal-red-foreground",
   Draft: "bg-muted text-muted-foreground",
@@ -29,6 +33,10 @@ const labelOverrides: Record<string, string> = {
   "S1": "S1 · Video",
   "S2": "S2 · DPI",
   "S3": "S3 · Agent",
+  active: "Active",
+  accepted: "Accepted",
+  rejected: "Rejected",
+  archived: "Archived",
 };
 
 export default function StatusBadge({ status, className }: StatusBadgeProps) {

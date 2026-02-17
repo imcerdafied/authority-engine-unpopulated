@@ -1,20 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useCreateDecision } from "@/hooks/useOrgData";
 import { useOrg } from "@/contexts/OrgContext";
-import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import type { Database } from "@/integrations/supabase/types";
+import { fetchOutcomeCategories, type OutcomeCategoryItem } from "@/lib/taxonomy";
 
 type SolutionDomain = Database["public"]["Enums"]["solution_domain"];
 type ImpactTier = Database["public"]["Enums"]["impact_tier"];
-type OutcomeCategory = Database["public"]["Enums"]["outcome_category"];
 
 const solutionDomains: SolutionDomain[] = ["S1", "S2", "S3", "Cross"];
 const impactTiers: ImpactTier[] = ["High", "Medium", "Low"];
-const outcomeCategories: OutcomeCategory[] = [
-  "ARR", "NRR", "DPI_Adoption", "Agent_Trust", "Live_Event_Risk", "Operational_Efficiency",
-];
 
 export default function CreateDecisionForm({ onClose, navigateAfter = false }: { onClose: () => void; navigateAfter?: boolean }) {
   const createDecision = useCreateDecision();
@@ -28,9 +24,20 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
   const [solutionDomain, setSolutionDomain] = useState<SolutionDomain>("S1");
   const [impactTier, setImpactTier] = useState<ImpactTier>("Medium");
   const [outcomeTarget, setOutcomeTarget] = useState("");
-  const [outcomeCategory, setOutcomeCategory] = useState<OutcomeCategory | "">("");
+  const [outcomeCategories, setOutcomeCategories] = useState<OutcomeCategoryItem[]>([]);
+  const [outcomeCategoryKey, setOutcomeCategoryKey] = useState("");
+  const [outcomeCategoriesError, setOutcomeCategoriesError] = useState<string | null>(null);
   const [expectedImpact, setExpectedImpact] = useState("");
   const [exposureValue, setExposureValue] = useState("");
+
+  useEffect(() => {
+    fetchOutcomeCategories()
+      .then(setOutcomeCategories)
+      .catch((err) => {
+        console.error("Failed to fetch outcome categories:", err);
+        setOutcomeCategoriesError("Could not load categories");
+      });
+  }, []);
   const [triggerSignal, setTriggerSignal] = useState("");
   const [revenueAtRisk, setRevenueAtRisk] = useState("");
 
@@ -39,6 +46,7 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !owner || !surface) return;
+    if (!outcomeCategoryKey) return;
 
     await createDecision.mutateAsync({
       title,
@@ -46,13 +54,14 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
       surface,
       solution_domain: solutionDomain,
       impact_tier: impactTier,
+      status: "active",
       outcome_target: outcomeTarget || null,
-      outcome_category: outcomeCategory || null,
+      outcome_category_key: outcomeCategoryKey || null,
       expected_impact: expectedImpact || null,
       exposure_value: exposureValue || null,
       trigger_signal: triggerSignal || null,
       revenue_at_risk: revenueAtRisk || null,
-    });
+    } as any);
     toast.success(`Draft created — "${title}"`, {
       description: "Complete required fields to activate.",
       action: {
@@ -114,11 +123,16 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
           </div>
           <div>
             <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">Outcome Category</label>
-            <select value={outcomeCategory} onChange={(e) => setOutcomeCategory(e.target.value as OutcomeCategory)}
+            <select value={outcomeCategoryKey} onChange={(e) => setOutcomeCategoryKey(e.target.value)}
               className="w-full border rounded-sm px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-foreground">
-              <option value="">—</option>
-              {outcomeCategories.map((c) => <option key={c} value={c}>{c}</option>)}
+              <option value="" disabled>Select…</option>
+              {outcomeCategories.map((c) => (
+                <option key={c.key} value={c.key}>{c.label}</option>
+              ))}
             </select>
+            {outcomeCategoriesError && (
+              <p className="text-[10px] text-signal-amber mt-0.5">{outcomeCategoriesError}</p>
+            )}
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -146,7 +160,7 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
           </div>
         </div>
         <div className="flex justify-end pt-2">
-          <button type="submit" disabled={createDecision.isPending}
+          <button type="submit" disabled={createDecision.isPending || !outcomeCategoryKey}
             className="text-[11px] font-semibold uppercase tracking-wider text-background bg-foreground px-4 py-2 rounded-sm hover:bg-foreground/90 transition-colors disabled:opacity-50">
             {createDecision.isPending ? "Registering..." : "Register Decision"}
           </button>
