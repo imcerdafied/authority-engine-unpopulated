@@ -561,34 +561,16 @@ export default function Overview() {
           <MetricCard label="Unlinked Signals" value={m.unlinked_signals} />
         </div>
 
-        <div className="mb-8 border rounded-md px-6 py-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-sm font-bold">Authority Initialization in Progress</h2>
-              <p className="text-xs text-muted-foreground mt-1">
-                {m.active_high_impact} of 5 active decisions registered. Activate remaining to engage operating constraint.
-              </p>
-            </div>
-            {canWrite && (
-              <button
-                onClick={() => setShowRegister(true)}
-                className="text-[11px] font-semibold uppercase tracking-wider text-background bg-foreground px-4 py-2 rounded-sm hover:bg-foreground/90 transition-colors shrink-0"
-              >
-                + Register Decision
-              </button>
-            )}
+        {canWrite && (
+          <div className="mb-8">
+            <button
+              onClick={() => setShowRegister(true)}
+              className="text-[11px] font-semibold uppercase tracking-wider text-background bg-foreground px-4 py-2 rounded-sm hover:bg-foreground/90 transition-colors"
+            >
+              + Register Decision
+            </button>
           </div>
-          <div className="w-full bg-secondary rounded-full h-1.5">
-            <div
-              className="bg-foreground h-1.5 rounded-full transition-all duration-500"
-              style={{ width: `${(m.active_high_impact / 5) * 100}%` }}
-            />
-          </div>
-          <div className="flex justify-between mt-1.5 text-[10px] text-muted-foreground font-mono">
-            <span>{m.active_high_impact}/5 Active</span>
-            <span>Authority Mode at 5</span>
-          </div>
-        </div>
+        )}
 
         {showRegister && (
           <CreateDecisionForm onClose={() => setShowRegister(false)} />
@@ -668,20 +650,12 @@ export default function Overview() {
         </div>
       </div>
 
-      <div
-        className="mb-6 border border-foreground rounded-md px-4 py-3 cursor-pointer hover:bg-accent/50 transition-colors"
-        onClick={() => navigate("/decisions")}
-      >
-        <p className="text-sm font-bold">Authority Mode Active</p>
-        <p className="text-xs text-muted-foreground mt-0.5">High-impact capacity full. Close 1 decision to open 1.</p>
-      </div>
-
       <div className="grid grid-cols-5 gap-3 mb-8">
         <MetricCard
           label="Active High-Impact"
           value={`${m.active_high_impact}/5`}
           danger
-          sub="Authority Mode Active"
+          sub="At capacity"
         />
         <MetricCard label="Blocked > 5 days" value={m.blocked_gt5_days} alert={m.blocked_gt5_days > 0} />
         <MetricCard label="Unlinked Signals" value={m.unlinked_signals} alert={m.unlinked_signals > 0} />
@@ -700,40 +674,6 @@ export default function Overview() {
 
       {showRegister && (
         <CreateDecisionForm onClose={() => setShowRegister(false)} />
-      )}
-
-      {(activeDecisions.length > 0 || blockedDecisions.length > 0) && (
-        <div className={cn(
-          "mb-6 border rounded-md px-4 py-3",
-          m.friction_level === "High" ? "border-signal-red/40 bg-signal-red/5" :
-          m.friction_level === "Moderate" ? "border-signal-amber/40 bg-signal-amber/5" : ""
-        )}>
-          <div className="flex items-center justify-between mb-2">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Operating Friction</p>
-              <p className={cn(
-                "text-lg font-bold mt-0.5",
-                m.friction_level === "High" && "text-signal-red",
-                m.friction_level === "Moderate" && "text-signal-amber"
-              )}>
-                {m.friction_level}
-              </p>
-            </div>
-            <span className="text-xs text-muted-foreground font-mono">score: {m.friction_score}</span>
-          </div>
-          {m.friction_drivers.length > 0 ? (
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Primary Drivers</p>
-              <div className="space-y-0.5">
-                {m.friction_drivers.map((d, i) => (
-                  <p key={i} className="text-xs text-muted-foreground">• {d}</p>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <p className="text-xs text-muted-foreground">No friction drivers detected.</p>
-          )}
-        </div>
       )}
 
       {activeDecisions.length > 0 && (
