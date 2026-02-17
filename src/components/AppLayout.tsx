@@ -18,6 +18,7 @@ const navLinkClass = "text-[10px] uppercase tracking-wider text-muted-foreground
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const { user, signOut } = useAuth();
   const { currentOrg, currentRole } = useOrg();
 
@@ -89,13 +90,13 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <main className="flex-1 overflow-auto">
+      <main className={cn("flex-1 overflow-auto transition-all duration-300", chatOpen && "md:mr-96")}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 w-full">
           {children}
         </div>
       </main>
 
-      <ChatAdvisor />
+      <ChatAdvisor chatOpen={chatOpen} setChatOpen={setChatOpen} />
     </div>
   );
 }

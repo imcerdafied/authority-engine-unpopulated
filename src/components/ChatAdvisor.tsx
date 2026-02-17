@@ -3,11 +3,10 @@ import { useOrg } from "@/contexts/OrgContext";
 import { supabase } from "@/integrations/supabase/client";
 
 const WELCOME_MESSAGE =
-  "I'm the Build Authority Advisor. I have full context on your 5 active bets — their exposure, activity, and interruptions. Ask me anything: which bet is most at risk, what a field means, why the constraint exists, or what a stale bet costs you.";
+  "I'm the Build Authority Agent. I have full context on your 5 active bets — their exposure, activity, and interruptions. Ask me anything: which bet is most at risk, what a field means, why the constraint exists, or what a stale bet costs you.";
 
-export default function ChatAdvisor() {
+export default function ChatAdvisor({ chatOpen, setChatOpen }: { chatOpen: boolean; setChatOpen: (open: boolean) => void }) {
   const { currentOrg } = useOrg();
-  const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([
     { role: "assistant", content: WELCOME_MESSAGE },
   ]);
@@ -59,18 +58,18 @@ export default function ChatAdvisor() {
     <>
       {/* Trigger button */}
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => setChatOpen(!chatOpen)}
         className="fixed bottom-6 right-6 z-50 w-12 h-12 rounded-full bg-foreground text-background shadow-lg hover:shadow-xl transition-all flex items-center justify-center"
-        aria-label={isOpen ? "Close advisor" : "Open advisor"}
+        aria-label={chatOpen ? "Close advisor" : "Open advisor"}
       >
-        <span className="font-bold text-sm">{isOpen ? "✕" : "AI"}</span>
+        <span className="font-bold text-sm">{chatOpen ? "✕" : "Ask"}</span>
       </button>
 
       {/* Overlay (mobile only) */}
-      {isOpen && (
+      {chatOpen && (
         <div
           className="fixed inset-0 bg-black/20 z-40 sm:hidden"
-          onClick={() => setIsOpen(false)}
+          onClick={() => setChatOpen(false)}
           aria-hidden="true"
         />
       )}
@@ -79,20 +78,20 @@ export default function ChatAdvisor() {
       <div
         className={[
           "fixed right-0 top-0 h-full w-full sm:w-96 bg-background border-l shadow-2xl z-50 flex flex-col transition-transform duration-300",
-          isOpen ? "translate-x-0" : "translate-x-full",
+          chatOpen ? "translate-x-0" : "translate-x-full",
         ].join(" ")}
       >
         {/* Header */}
         <div className="px-4 py-3 border-b flex-shrink-0 flex flex-col">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
-              <h2 className="text-sm font-semibold">Build Authority Advisor</h2>
+              <h2 className="text-sm font-semibold">Build Authority Agent</h2>
               <p className="text-[10px] text-muted-foreground mt-0.5">
                 Ask about your bets, the program, or tradeoffs
               </p>
             </div>
             <button
-              onClick={() => setIsOpen(false)}
+              onClick={() => setChatOpen(false)}
               className="text-muted-foreground hover:text-foreground text-lg cursor-pointer p-1 shrink-0"
               aria-label="Close"
             >
