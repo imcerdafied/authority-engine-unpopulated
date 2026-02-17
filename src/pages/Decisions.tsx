@@ -492,7 +492,7 @@ function BetCard({
     <div key={d.id} className={cn("border rounded-md p-4 md:p-6", d.is_exceeded ? "border-signal-red/40 bg-signal-red/5" : d.is_aging ? "border-signal-amber/40" : "")}>
       <div className="flex items-start justify-between gap-2 mb-2 flex-wrap">
         <div className="flex items-start gap-2 flex-wrap">
-          <StatusBadge status={d.solution_domain} />
+          <StatusBadge status={d.solution_domain} className="text-[10px]" />
           {d.is_aging && <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider">Aging</span>}
           {d.is_unbound && <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider">Unbound — no authority</span>}
           {d.needs_exec_attention && <span className="text-[11px] font-semibold text-signal-red uppercase tracking-wider">Executive Attention Required</span>}
@@ -532,6 +532,7 @@ function BetCard({
           logActivity={logActivity}
           variant="title"
           placeholder="Untitled"
+          className="text-lg font-semibold leading-snug block"
         />
       </div>
       <div className="mb-3">
@@ -542,14 +543,14 @@ function BetCard({
           canEdit={canWrite}
           onSave={handleInlineSave}
           logActivity={logActivity}
-          className="text-xs text-muted-foreground block"
+          className="text-sm text-muted-foreground block"
           placeholder="Add trigger signal…"
         />
       </div>
 
       {canWrite && (
         <div className="mb-3">
-          <span className="text-muted-foreground text-xs">Status</span>
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Status</span>
           <div className="mt-0.5">
             <select
               value={pendingStatus?.decisionId === d.id ? pendingStatus.newStatus : (d.status === "active" ? "piloting" : d.status)}
@@ -597,17 +598,17 @@ function BetCard({
         </div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4 text-xs mb-3">
-        <div><span className="text-muted-foreground">Surface</span><p className="font-medium mt-0.5">{d.surface}</p></div>
-        <div><span className="text-muted-foreground">Outcome Target</span><div className="font-medium mt-0.5"><InlineEdit value={d.outcome_target ?? ""} field="outcome_target" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" /></div></div>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4 mb-3">
+        <div><span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Surface</span><p className="text-sm font-medium mt-0.5">{d.surface}</p></div>
+        <div><span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Outcome Target</span><div className="text-sm font-medium mt-0.5"><InlineEdit value={d.outcome_target ?? ""} field="outcome_target" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" /></div></div>
         {(d.outcome_category_key || d.outcome_category) && (
-          <div><span className="text-muted-foreground">Category</span><p className="font-medium mt-0.5">{categoryLabels[(d.outcome_category_key ?? d.outcome_category) as string] ?? (d.outcome_category_key ?? d.outcome_category)}</p></div>
+          <div><span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Category</span><p className="text-sm font-medium mt-0.5">{categoryLabels[(d.outcome_category_key ?? d.outcome_category) as string] ?? (d.outcome_category_key ?? d.outcome_category)}</p></div>
         )}
-        <div><span className="text-muted-foreground">Expected Impact</span><div className="font-medium mt-0.5"><InlineEdit value={d.expected_impact ?? ""} field="expected_impact" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" /></div></div>
+        <div><span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Expected Impact</span><div className="text-sm font-medium mt-0.5"><InlineEdit value={d.expected_impact ?? ""} field="expected_impact" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" /></div></div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 text-xs mb-3">
-        <div><span className="text-muted-foreground">Exposure</span><div className="font-semibold mt-0.5 text-signal-amber">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 mb-3">
+        <div><span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Exposure</span><div className="text-sm font-medium mt-0.5 text-signal-amber">
           <InlineEdit value={d.exposure_value ?? ""} field="exposure_value" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" />
           {(() => {
             const prev = (d as any).previous_exposure_value;
@@ -621,8 +622,8 @@ function BetCard({
             );
           })()}
         </div></div>
-        <div><span className="text-muted-foreground">Enterprise Exposure</span><div className="font-semibold mt-0.5 text-signal-red"><InlineEdit value={d.revenue_at_risk ?? ""} field="revenue_at_risk" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" /></div></div>
-        <div><span className="text-muted-foreground">Owner</span><div className="font-medium mt-0.5"><InlineEdit value={d.owner ?? ""} field="owner" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" /></div></div>
+        <div><span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Enterprise Exposure</span><div className="text-sm font-medium mt-0.5 text-signal-red"><InlineEdit value={d.revenue_at_risk ?? ""} field="revenue_at_risk" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" /></div></div>
+        <div><span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Owner</span><div className="text-sm font-medium mt-0.5"><InlineEdit value={d.owner ?? ""} field="owner" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" /></div></div>
       </div>
 
       {hasResourceReality && (
