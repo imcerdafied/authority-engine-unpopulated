@@ -1,37 +1,23 @@
 import { useState } from "react";
-import { useDecisions, useUpdateDecision, useDecisionRisks } from "@/hooks/useOrgData";
+import { useDecisions, useDecisionRisks } from "@/hooks/useOrgData";
 import { useOrg } from "@/contexts/OrgContext";
 import StatusBadge from "@/components/StatusBadge";
 import CreateDecisionForm from "@/components/CreateDecisionForm";
 import ProjectionPanel from "@/components/ProjectionPanel";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
-import type { DecisionComputed } from "@/hooks/useOrgData";
-
-type DecisionStatus = "active" | "accepted" | "rejected" | "archived";
-
-function parseWorkflowError(msg: string): string | null {
-  const map: Record<string, string> = {
-    HIGH_IMPACT_CAP: "Cannot exceed 5 active high-impact decisions.",
-    OUTCOME_REQUIRED: "Outcome Target required to activate.",
-    OWNER_REQUIRED: "Owner required to activate.",
-    OUTCOME_CATEGORY_REQUIRED: "Outcome Category required to activate.",
-    EXPECTED_IMPACT_REQUIRED: "Expected Impact required to activate.",
-    EXPOSURE_REQUIRED: "Exposure Value required to activate.",
-    ACTUAL_OUTCOME_REQUIRED: "Actual Outcome Value required to close.",
-    OUTCOME_DELTA_REQUIRED: "Outcome Delta required to close.",
-    CLOSURE_NOTE_REQUIRED: "Closure Note required to close.",
-  };
-  for (const [key, label] of Object.entries(map)) {
-    if (msg.includes(key)) return label;
-  }
-  return null;
-}
+const categoryLabels: Record<string, string> = {
+  arr: "ARR",
+  renewal_retention: "Renewal & Retention",
+  strategic_positioning: "Strategic Positioning",
+  dpi_adoption: "DPI Adoption",
+  agent_trust: "Agent Trust",
+  live_event_risk: "Live Event Risk",
+  operational_efficiency: "Operational Efficiency",
+};
 
 export default function Decisions() {
   const { data: decisions = [], isLoading: decisionsLoading } = useDecisions();
   const { isLoading: risksLoading } = useDecisionRisks();
-  const updateDecision = useUpdateDecision();
   const { currentRole } = useOrg();
   const [showCreate, setShowCreate] = useState(false);
 
@@ -43,21 +29,6 @@ export default function Decisions() {
   const activeHighImpact = activeDecisions.filter((d) => d.impact_tier === "High");
   const atCapacity = activeHighImpact.length >= 5;
   const isEmpty = decisions.length === 0;
-
-  const statusOptions: DecisionStatus[] = ["active", "accepted", "rejected", "archived"];
-
-  const handleStatusChange = (d: DecisionComputed, newStatus: DecisionStatus) => {
-    updateDecision.mutate(
-      { id: d.id, status: newStatus as any },
-      {
-        onError: (err: any) => {
-          const msg = err?.message || String(err);
-          const parsed = parseWorkflowError(msg);
-          toast.error(parsed || "Failed to update status.");
-        },
-      }
-    );
-  };
 
   return (
     <div>
@@ -73,7 +44,7 @@ export default function Decisions() {
             {decisions.length} total · {activeDecisions.length} active
           </p>
         </div>
-        {canWrite && !showCreate && (
+        {canWrite && !showCreate && !atCapacity && (
           <button onClick={() => setShowCreate(true)}
             className="text-[11px] font-semibold uppercase tracking-wider text-foreground border border-foreground px-3 py-1.5 rounded-sm hover:bg-foreground hover:text-background transition-colors">
             + Register Decision
@@ -102,7 +73,6 @@ export default function Decisions() {
                 <div key={d.id} className={cn("border rounded-md p-4", d.is_exceeded ? "border-signal-red/40 bg-signal-red/5" : d.is_aging ? "border-signal-amber/40" : "")}>
                   <div className="flex items-start gap-2 mb-2 flex-wrap">
                     <StatusBadge status={d.solution_domain} />
-                    <StatusBadge status={d.impact_tier} />
                     {d.is_aging && <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider">Aging</span>}
                     {d.is_unbound && <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider ml-auto">Unbound — no authority</span>}
                     {d.needs_exec_attention && <span className="text-[11px] font-semibold text-signal-red uppercase tracking-wider ml-auto">Executive Attention Required</span>}
@@ -115,7 +85,7 @@ export default function Decisions() {
                     <div><span className="text-muted-foreground">Surface</span><p className="font-medium mt-0.5">{d.surface}</p></div>
                     <div><span className="text-muted-foreground">Outcome Target</span><p className="font-medium mt-0.5">{d.outcome_target || "—"}</p></div>
                     {(d.outcome_category_key || d.outcome_category) && (
-                      <div><span className="text-muted-foreground">Category</span><p className="font-medium mt-0.5">{d.outcome_category_key ?? d.outcome_category}</p></div>
+                      <div><span className="text-muted-foreground">Category</span><p className="font-medium mt-0.5">{categoryLabels[(d.outcome_category_key ?? d.outcome_category) as string] ?? (d.outcome_category_key ?? d.outcome_category)}</p></div>
                     )}
                     {d.expected_impact && <div><span className="text-muted-foreground">Expected Impact</span><p className="font-medium mt-0.5">{d.expected_impact}</p></div>}
                   </div>
@@ -126,24 +96,6 @@ export default function Decisions() {
                     {d.revenue_at_risk && <div><span className="text-muted-foreground">Enterprise Exposure</span><p className="font-semibold mt-0.5 text-signal-red">{d.revenue_at_risk}</p></div>}
                     {d.segment_impact && <div><span className="text-muted-foreground">Segment</span><p className="font-medium mt-0.5">{d.segment_impact}</p></div>}
                     <div><span className="text-muted-foreground">Owner</span><p className="font-medium mt-0.5">{d.owner}</p></div>
-                  </div>
-
-                  <div className="flex items-center gap-6 text-xs">
-                    <div>
-                      <span className="text-muted-foreground">Age</span>
-                      <p className={cn("font-semibold text-mono mt-0.5", d.is_aging && "text-signal-amber")}>{d.age_days} days</p>
-                    </div>
-                    {canWrite && (
-                      <div>
-                        <span className="text-muted-foreground">Status</span>
-                        <select value={d.status} onChange={(e) => handleStatusChange(d, e.target.value as DecisionStatus)}
-                          className="block mt-0.5 border rounded-sm px-2 py-1 text-xs bg-background focus:outline-none">
-                          {statusOptions.map((s) => (
-                            <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
                   </div>
 
                   {d.blocked_reason && (

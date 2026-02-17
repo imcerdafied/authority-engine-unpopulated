@@ -7,10 +7,8 @@ import type { Database } from "@/integrations/supabase/types";
 import { fetchOutcomeCategories, type OutcomeCategoryItem } from "@/lib/taxonomy";
 
 type SolutionDomain = Database["public"]["Enums"]["solution_domain"];
-type ImpactTier = Database["public"]["Enums"]["impact_tier"];
 
 const solutionDomains: SolutionDomain[] = ["S1", "S2", "S3", "Cross"];
-const impactTiers: ImpactTier[] = ["High", "Medium", "Low"];
 
 export default function CreateDecisionForm({ onClose, navigateAfter = false }: { onClose: () => void; navigateAfter?: boolean }) {
   const createDecision = useCreateDecision();
@@ -22,7 +20,6 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
   const [owner, setOwner] = useState("");
   const [surface, setSurface] = useState("");
   const [solutionDomain, setSolutionDomain] = useState<SolutionDomain>("S1");
-  const [impactTier, setImpactTier] = useState<ImpactTier>("Medium");
   const [outcomeTarget, setOutcomeTarget] = useState("");
   const [outcomeCategories, setOutcomeCategories] = useState<OutcomeCategoryItem[]>([]);
   const [outcomeCategoryKey, setOutcomeCategoryKey] = useState("");
@@ -53,7 +50,7 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
       owner,
       surface,
       solution_domain: solutionDomain,
-      impact_tier: impactTier,
+      impact_tier: "High",
       status: "active",
       outcome_target: outcomeTarget || null,
       outcome_category_key: outcomeCategoryKey || null,
@@ -94,7 +91,7 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
               className="w-full border rounded-sm px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-foreground" />
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">Surface *</label>
             <input required value={surface} onChange={(e) => setSurface(e.target.value)} placeholder="Streaming / DPI / Agent"
@@ -105,13 +102,6 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
             <select value={solutionDomain} onChange={(e) => setSolutionDomain(e.target.value as SolutionDomain)}
               className="w-full border rounded-sm px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-foreground">
               {solutionDomains.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">Impact Tier</label>
-            <select value={impactTier} onChange={(e) => setImpactTier(e.target.value as ImpactTier)}
-              className="w-full border rounded-sm px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-foreground">
-              {impactTiers.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
         </div>
