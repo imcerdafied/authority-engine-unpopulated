@@ -526,19 +526,15 @@ export default function Overview() {
     return (
       <div>
         <div className="mb-8">
-          <h1 className="text-xl font-bold">Executive Overview</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-bold">Executive Overview</h1>
+            <span className="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-sm bg-muted text-muted-foreground">
+              {m.active_high_impact}/5 Active · {5 - m.active_high_impact} slots remaining
+            </span>
+          </div>
           <p className="text-sm text-muted-foreground mt-1">
             {new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
           </p>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 mb-8">
-          <MetricCard
-            label="Active High-Impact"
-            value={`${m.active_high_impact}/5`}
-            sub={`${5 - m.active_high_impact} slots remaining`}
-          />
-          <MetricCard label="Unlinked Signals" value={m.unlinked_signals} />
         </div>
 
         {canWrite && (
@@ -612,31 +608,16 @@ export default function Overview() {
   // ==================== STATE 2: OPERATING MODE ====================
   return (
     <div>
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold">Executive Overview</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
-          </p>
-        </div>
+      <div className="mb-8">
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => setExecutiveMode(true)}
-            className="text-[11px] font-semibold uppercase tracking-wider text-foreground border border-foreground px-3 py-1.5 rounded-sm hover:bg-foreground hover:text-background transition-colors"
-          >
-            Executive Mode
-          </button>
+          <h1 className="text-xl font-bold">Executive Overview</h1>
+          <span className="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-sm bg-foreground/10 text-foreground">
+            5/5 Active · At capacity
+          </span>
         </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 mb-8">
-        <MetricCard
-          label="Active High-Impact"
-          value={`${m.active_high_impact}/5`}
-          danger
-          sub="At capacity"
-        />
-        <MetricCard label="Unlinked Signals" value={m.unlinked_signals} alert={m.unlinked_signals > 0} />
+        <p className="text-sm text-muted-foreground mt-1">
+          {new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+        </p>
       </div>
 
       {showRegister && (
@@ -655,7 +636,14 @@ export default function Overview() {
               const exceeded = d.is_exceeded ?? false;
               const urgent = d.is_urgent ?? false;
               return (
-                <div key={d.id} className={cn("px-4 py-3", exceeded && "bg-signal-red/5")}>
+                <div
+                  key={d.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => navigate("/decisions")}
+                  onKeyDown={(e) => e.key === "Enter" && navigate("/decisions")}
+                  className={cn("px-4 py-3 cursor-pointer hover:bg-accent/50 transition-colors", exceeded && "bg-signal-red/5")}
+                >
                   <div className="flex items-center gap-4">
                     <div className="flex gap-1.5 shrink-0">
                       <StatusBadge status={d.solution_domain} />
