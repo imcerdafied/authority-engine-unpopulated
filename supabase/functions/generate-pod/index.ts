@@ -15,13 +15,25 @@ POD CONFIGURATION PRINCIPLES:
 5. Every pod must answer: What revenue does this unlock? What revenue does this defend? What cost does this reduce? What renewal risk does this mitigate?
 
 COMPOSITION PATTERNS BY BET TYPE:
-- Revenue defense / migration bets: Senior PM (commercially sharp), Engineering Lead (platform depth), 6-10 engineers (backend + infra + frontend), 2 Data Scientists, 1 Design Lead, 1 Customer Success Lead, 0.5 Finance Partner. Typical total: 12-16.
-- Product expansion / growth bets: Senior PM (growth-oriented), Engineering Lead (application + analytics), 8-12 engineers (analytics + API + UI + backend), 2-3 Data Scientists, 1 Design Lead, 1 Sales Engineer / GTM Partner, 0.5 Finance Partner. Typical total: 14-19.
-- Infrastructure / platform bets: PM (platform mindset), Engineering Lead (data infrastructure), 8-10 engineers (identity, query engine, APIs, data pipeline), 2 Data Engineers, 1 Data Scientist, 1 Platform SRE. Typical total: 13-16.
-- Executive / positioning bets: PM (executive empathy), Engineering Lead (frontend + API), 5-7 engineers, 1 Design Director (high craft), 1 Data Partner, 1 Sales/Marketing Partner. Typical total: 10-12.
-- Strategic differentiation / AI bets: PM (technical, AI-fluent), Engineering Lead (architecture-heavy), 8-12 engineers (event ingestion + outcome modeling + platform), 3 Data Scientists (outcome attribution + learning loops), 1 Platform Architect, 1 GTM Strategist, 0.5 Finance Partner. Typical total: 16-20.
 
-These are enterprise-scale pods for a company with 10+ engineering teams. Do not understaff. Each bet represents millions in exposure and requires serious engineering investment.
+First, classify the bet into one of these categories based on its title, outcome target, and exposure:
+
+1. GTM / Commercial Motion — bets about positioning, narrative shifts, sales strategy, renewal approaches, pricing, or go-to-market changes. These are NOT engineering builds. Examples: "adopt DPI as renewal narrative", "reposition product for enterprise". Pod is sales/CS-heavy:
+   - Sales/GTM Lead, 1-2 Customer Success Leads, 1 Sales Enablement, 1 Marketing Partner, 0.5 Finance Partner, 1 Engineering Lead (for tooling only, NOT building product), optional 1-2 engineers for dashboards/tooling. Typical total: 5-8.
+
+2. Product Build / Platform — bets about building, unifying, or shipping product capabilities. These are engineering-heavy. Examples: "unify pattern detection and predictive intelligence", "ship segmentation as platform service". Pod is engineering-heavy:
+   - Senior PM, Engineering Lead, 8-12 engineers, 2-3 Data Scientists, 1 Design Lead, 1 GTM Partner, 0.5 Finance Partner. Typical total: 14-19.
+
+3. Infrastructure / Platform Foundation — bets about foundational systems that other bets depend on. Examples: "segmentation as first-class infrastructure". Pod is engineering-heavy with platform focus:
+   - PM (platform mindset), Engineering Lead, 8-10 engineers, 2 Data Engineers, 1 Data Scientist, 1 Platform SRE. Typical total: 13-16.
+
+4. Strategic Differentiation / R&D — bets about category definition, AI capabilities, or long-term technical moats. Examples: "agent outcome intelligence", "role in agentic stack". Pod is architecture and research-heavy:
+   - PM (technical, AI-fluent), Engineering Lead (architecture-heavy), 8-12 engineers, 3 Data Scientists, 1 Platform Architect, 1 GTM Strategist, 0.5 Finance Partner. Typical total: 16-20.
+
+5. Executive / Positioning — bets about how the product is perceived by executives and the market. Examples: "executive decision layer", "bridge strategy vs growth bet". Pod is design and GTM-heavy:
+   - PM (executive empathy), 1 Design Director, 3-5 engineers (frontend + API), 1 Data Partner, 1 Sales/Marketing Partner, 0.5 Finance Partner. Typical total: 7-10.
+
+CRITICAL: Do NOT put 10+ engineers on a bet that is fundamentally a sales motion or narrative shift. If the bet is about changing how something is sold, positioned, or communicated — it needs GTM people, not engineers. Only assign significant engineering headcount when the bet requires building or modifying product/platform capabilities.
 
 STRUCTURAL RULES:
 - Shared layers (telemetry, identity, event ingestion, pattern engine) remain coordinated through weekly Pod-of-Pods sync

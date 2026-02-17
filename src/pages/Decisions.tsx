@@ -65,6 +65,7 @@ function InlineEdit({
   placeholder = "—",
   variant = "default",
   inputType = "text",
+  displayTransform,
 }: {
   value: string;
   field: string;
@@ -76,6 +77,7 @@ function InlineEdit({
   placeholder?: string;
   variant?: "default" | "title";
   inputType?: "text" | "number";
+  displayTransform?: (v: string) => string;
 }) {
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
@@ -108,9 +110,11 @@ function InlineEdit({
     }
   };
 
+  const displayValue = displayTransform ? (value ? displayTransform(value) : "") : value;
+  const display = displayValue || placeholder;
+  const isEmpty = !value;
+
   if (!canEdit) {
-    const display = value || placeholder;
-    const isEmpty = !value;
     return (
       <span className={cn(isEmpty && "text-muted-foreground/50 italic", className)}>
         {display}
@@ -137,8 +141,6 @@ function InlineEdit({
     );
   }
 
-  const display = value || placeholder;
-  const isEmpty = !value;
   return (
     <span
       role="button"
@@ -165,6 +167,7 @@ const categoryLabels: Record<string, string> = {
   agent_trust: "Agent Trust",
   live_event_risk: "Live Event Risk",
   operational_efficiency: "Operational Efficiency",
+  platform_integrity: "Platform Integrity",
 };
 
 function relativeTime(dateStr: string): string {
@@ -476,6 +479,7 @@ function PodInlineEdit({
   inputType = "text",
   className,
   placeholder,
+  inputClassName,
 }: {
   value: string;
   onSave: (v: string) => void;
@@ -484,6 +488,7 @@ function PodInlineEdit({
   inputType?: "text" | "number";
   className?: string;
   placeholder?: string;
+  inputClassName?: string;
 }) {
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
@@ -530,7 +535,12 @@ function PodInlineEdit({
         onChange={(e) => setEditValue(e.target.value)}
         onBlur={handleSave}
         onKeyDown={(e) => e.key === "Enter" && handleSave()}
-        className={cn("w-full text-sm border rounded px-2 py-1 bg-background", className)}
+        className={cn(
+          inputType === "number"
+            ? "w-12 text-center text-sm border rounded px-1 py-0.5 bg-background [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            : "w-full text-sm border rounded px-2 py-1 bg-background",
+          inputClassName ?? className
+        )}
       />
     );
   }
@@ -879,9 +889,7 @@ function BetCard({
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4 mb-3">
         <div><span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Surface</span><p className="text-sm font-medium mt-0.5">{d.surface}</p></div>
         <div><span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Outcome Target</span><div className="text-sm font-medium mt-0.5"><InlineEdit value={d.outcome_target ?? ""} field="outcome_target" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" /></div></div>
-        {(d.outcome_category_key || d.outcome_category) && (
-          <div><span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Category</span><p className="text-sm font-medium mt-0.5">{categoryLabels[(d.outcome_category_key ?? d.outcome_category) as string] ?? (d.outcome_category_key ?? d.outcome_category)}</p></div>
-        )}
+        <div><span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Category</span><div className="text-sm font-medium mt-0.5"><InlineEdit value={(d.outcome_category_key ?? d.outcome_category) ?? ""} field="outcome_category_key" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" placeholder="—" displayTransform={(v) => categoryLabels[v] ?? v.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())} /></div></div>
         <div><span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Expected Impact</span><div className="text-sm font-medium mt-0.5"><InlineEdit value={d.expected_impact ?? ""} field="expected_impact" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" /></div></div>
       </div>
 
