@@ -224,20 +224,6 @@ function SeededDecisionsList({
 }
 
 
-type SolutionDomain = "S1" | "S2" | "S3" | "Cross";
-
-function computeSolutionDrift(decisions: any[]) {
-  const active = decisions.filter((d) => d.status === "active" && !!d.activated_at);
-  const counts: Record<SolutionDomain, number> = { S1: 0, S2: 0, S3: 0, "Cross": 0 };
-  active.forEach((d) => { counts[d.solution_domain as SolutionDomain]++; });
-  const total = active.length || 1;
-  const s1Pct = Math.round((counts.S1 / total) * 100);
-  const s2Pct = Math.round((counts.S2 / total) * 100);
-  const s3Pct = Math.round((counts.S3 / total) * 100);
-  const legacyGravity = s1Pct > 50;
-  return { s1Pct, s2Pct, s3Pct, counts, legacyGravity };
-}
-
 function computeBuilderVelocity(pods: any[]) {
   return pods.map((pod: any) => {
     const inits = pod.pod_initiatives || [];
@@ -295,7 +281,6 @@ export default function Overview() {
   );
   const unlinkedSignals = signals.filter((s) => !s.decision_id);
 
-  const drift = computeSolutionDrift(decisions);
   const velocity = computeBuilderVelocity(pods);
 
   const totalRevenueAtRisk = decisions
@@ -551,13 +536,12 @@ export default function Overview() {
           <DataExport />
         </div>
 
-        <div className="grid grid-cols-3 gap-3 mb-8">
+        <div className="grid grid-cols-2 gap-3 mb-8">
           <MetricCard
             label="Active High-Impact"
             value={`${m.active_high_impact}/5`}
             sub={`${5 - m.active_high_impact} slots remaining`}
           />
-          <MetricCard label="Blocked > 5 days" value={m.blocked_gt5_days} />
           <MetricCard label="Unlinked Signals" value={m.unlinked_signals} />
         </div>
 
@@ -650,51 +634,18 @@ export default function Overview() {
         </div>
       </div>
 
-      <div className="grid grid-cols-5 gap-3 mb-8">
+      <div className="grid grid-cols-2 gap-3 mb-8">
         <MetricCard
           label="Active High-Impact"
           value={`${m.active_high_impact}/5`}
           danger
           sub="At capacity"
         />
-        <MetricCard label="Blocked > 5 days" value={m.blocked_gt5_days} alert={m.blocked_gt5_days > 0} />
         <MetricCard label="Unlinked Signals" value={m.unlinked_signals} alert={m.unlinked_signals > 0} />
-        <MetricCard
-          label="Decision Latency"
-          value={m.total_active ? `${latencyValue}d` : "—"}
-          sub={latencyDelta !== null ? `Target: ${latencyTarget}d · Δ ${latencyDelta > 0 ? "+" : ""}${latencyDelta}d` : `Target: ${latencyTarget}d`}
-          alert={latencyDelta !== null && latencyDelta > 0}
-        />
-        <MetricCard
-          label="Within Slice"
-          value={m.total_active ? `${slicePercent}%` : "—"}
-          sub="of active decisions"
-        />
       </div>
 
       {showRegister && (
         <CreateDecisionForm onClose={() => setShowRegister(false)} />
-      )}
-
-      {activeDecisions.length > 0 && (
-        <div className={cn(
-          "mb-8 border rounded-md px-4 py-3",
-          drift.legacyGravity && "border-signal-amber/40 bg-signal-amber/5"
-        )}>
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Solution Drift Index</p>
-            {drift.legacyGravity && (
-              <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider">
-                Legacy Gravity Detected
-              </span>
-            )}
-          </div>
-          <div className="flex gap-6 text-xs">
-            <span>S1 · Video: <span className={cn("font-semibold text-mono", drift.s1Pct > 50 && "text-signal-amber")}>{drift.s1Pct}%</span></span>
-            <span>S2 · DPI: <span className="font-semibold text-mono">{drift.s2Pct}%</span></span>
-            <span>S3 · Agent: <span className="font-semibold text-mono">{drift.s3Pct}%</span></span>
-          </div>
-        </div>
       )}
 
       {activeDecisions.length > 0 && (
@@ -713,8 +664,6 @@ export default function Overview() {
                   <div className="flex items-center gap-4">
                     <div className="flex gap-1.5 shrink-0">
                       <StatusBadge status={d.solution_domain} />
-                      <StatusBadge status={d.impact_tier} />
-                      {d.decision_health && <StatusBadge status={d.decision_health} />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{d.title}</p>

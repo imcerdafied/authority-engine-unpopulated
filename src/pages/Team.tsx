@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useOrg } from "@/contexts/OrgContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { usePendingInvitations, useOrgMembers, useInviteMember, useRevokeInvitation } from "@/hooks/useTeam";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -13,6 +14,7 @@ const roleLabels: Record<string, string> = {
 const roleOptions = ["admin", "pod_lead", "viewer"] as const;
 
 export default function Team() {
+  const { user } = useAuth();
   const { currentOrg, currentRole } = useOrg();
   const { data: members = [], isLoading: membersLoading } = useOrgMembers();
   const { data: invitations = [], isLoading: invitesLoading } = usePendingInvitations();
@@ -154,7 +156,9 @@ export default function Team() {
             {members.map((m) => (
               <div key={m.user_id} className="px-4 py-3 flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium">{m.user_id.slice(0, 8)}…</p>
+                  <p className="text-sm font-medium">
+                    {m.user_id === user?.id ? `You (${roleLabels[m.role] || m.role})` : "Member"}
+                  </p>
                 </div>
                 <span
                   className={cn(

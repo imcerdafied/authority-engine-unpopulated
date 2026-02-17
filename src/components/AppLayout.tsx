@@ -8,10 +8,7 @@ import logo from "@/assets/logo.png";
 const navItems = [
   { label: "Overview", path: "/" },
   { label: "Decisions", path: "/decisions" },
-  { label: "Signals", path: "/signals" },
-  { label: "Pods", path: "/pods" },
-  { label: "Memory", path: "/memory" },
-  { label: "Ask", path: "/ask" },
+  { label: "Builder Pods", path: "/pods" },
   { label: "Team", path: "/team" },
 ];
 

@@ -1,13 +1,11 @@
-import { useMemo, useState } from "react";
-import { useDecisions, useUpdateDecision, useDeleteDecision, useDecisionRisks } from "@/hooks/useOrgData";
+import { useState } from "react";
+import { useDecisions, useUpdateDecision, useDecisionRisks } from "@/hooks/useOrgData";
 import { useOrg } from "@/contexts/OrgContext";
 import StatusBadge from "@/components/StatusBadge";
-import RiskChip from "@/components/RiskChip";
 import CreateDecisionForm from "@/components/CreateDecisionForm";
 import ProjectionPanel from "@/components/ProjectionPanel";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import type { Database } from "@/integrations/supabase/types";
 import type { DecisionComputed } from "@/hooks/useOrgData";
 
 type DecisionStatus = "active" | "accepted" | "rejected" | "archived";
@@ -30,62 +28,18 @@ function parseWorkflowError(msg: string): string | null {
   return null;
 }
 
-function WorkflowBadge({ label, type = "info" }: { label: string; type?: "info" | "warn" | "success" }) {
-  return (
-    <span className={cn(
-      "text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-sm",
-      type === "warn" && "bg-signal-amber/10 text-signal-amber",
-      type === "success" && "bg-signal-green/10 text-signal-green",
-      type === "info" && "bg-muted text-muted-foreground"
-    )}>
-      {label}
-    </span>
-  );
-}
-
-function getReadinessIssues(d: DecisionComputed): string[] {
-  const issues: string[] = [];
-  if (!d.outcome_target) issues.push("Outcome Target");
-  if (!d.outcome_category_key && !d.outcome_category) issues.push("Outcome Category");
-  if (!d.expected_impact) issues.push("Expected Impact");
-  if (!d.exposure_value) issues.push("Exposure Value");
-  if (!d.owner) issues.push("Owner");
-  return issues;
-}
-
 export default function Decisions() {
   const { data: decisions = [], isLoading: decisionsLoading } = useDecisions();
-  const { data: risks = [], isLoading: risksLoading } = useDecisionRisks();
+  const { isLoading: risksLoading } = useDecisionRisks();
   const updateDecision = useUpdateDecision();
-  const deleteDecision = useDeleteDecision();
   const { currentRole } = useOrg();
   const [showCreate, setShowCreate] = useState(false);
-  const riskByDecision = useMemo(() => {
-    const m: Record<string, { risk_indicator: "Green" | "Yellow" | "Red"; risk_score: number }> = {};
-    const validIndicators = ["Green", "Yellow", "Red"] as const;
-    for (const r of risks) {
-      const indicator = validIndicators.includes(r.risk_indicator as any)
-        ? (r.risk_indicator as "Green" | "Yellow" | "Red")
-        : "Green";
-      m[r.decision_id] = {
-        risk_indicator: indicator,
-        risk_score: r.risk_score ?? 0,
-      };
-    }
-    return m;
-  }, [risks]);
-
-  const getRisk = (decisionId: string) =>
-    riskByDecision[decisionId] ?? { risk_indicator: "Green" as const, risk_score: 0 };
 
   const canWrite = currentRole === "admin" || currentRole === "pod_lead";
-  const canDelete = currentRole === "admin";
 
   if (decisionsLoading || risksLoading) return <p className="text-xs text-muted-foreground uppercase tracking-widest">Loading...</p>;
 
   const activeDecisions = decisions.filter((d) => d.status === "active" && !!d.activated_at);
-  const highActive = activeDecisions.filter((d) => d.impact_tier === "High").length;
-  const atCapacity = highActive >= 5;
   const isEmpty = decisions.length === 0;
 
   const statusOptions: DecisionStatus[] = ["active", "accepted", "rejected", "archived"];
@@ -122,13 +76,6 @@ export default function Decisions() {
 
       {showCreate && <CreateDecisionForm onClose={() => setShowCreate(false)} />}
 
-      {atCapacity && (
-        <div className="mb-6 border border-foreground rounded-md px-4 py-3">
-          <p className="text-sm font-bold">High-Impact Capacity Full — Authority Mode Active</p>
-          <p className="text-xs text-muted-foreground mt-0.5">Close 1 decision to open 1.</p>
-        </div>
-      )}
-
       {isEmpty && !showCreate ? (
         <div className="border border-dashed rounded-md px-6 py-10 text-center">
           <p className="text-sm font-medium text-muted-foreground">No decisions registered.</p>
@@ -143,32 +90,12 @@ export default function Decisions() {
           <div className="space-y-2">
             {decisions.map((d) => {
               const isActive = d.status === "active";
-              const readinessIssues = isActive ? getReadinessIssues(d) : [];
 
               return (
                 <div key={d.id} className={cn("border rounded-md p-4", d.is_exceeded ? "border-signal-red/40 bg-signal-red/5" : d.is_aging ? "border-signal-amber/40" : "")}>
                   <div className="flex items-start gap-2 mb-2 flex-wrap">
                     <StatusBadge status={d.solution_domain} />
                     <StatusBadge status={d.impact_tier} />
-                    <StatusBadge status={d.status} />
-                    {d.decision_health && <StatusBadge status={d.decision_health} />}
-                    <RiskChip indicator={getRisk(d.id).risk_indicator} />
-
-                    {isActive && readinessIssues.length === 0 && (
-                      <WorkflowBadge label="Ready" type="success" />
-                    )}
-                    {isActive && readinessIssues.length > 0 && (
-                      <WorkflowBadge label={`Missing: ${readinessIssues.join(", ")}`} type="warn" />
-                    )}
-                    {isActive && d.activated_at && (
-                      <WorkflowBadge label="Activated" type="success" />
-                    )}
-
-                    {isActive && (
-                      <span className={cn("text-[11px] font-semibold uppercase tracking-wider", d.is_exceeded ? "text-signal-red" : d.is_urgent ? "text-signal-amber" : "text-muted-foreground")}>
-                        {d.is_exceeded ? `Exceeded ${d.slice_deadline_days || 10}d build window` : `Slice due in ${d.slice_remaining}d`}
-                      </span>
-                    )}
                     {d.is_aging && <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider">Aging</span>}
                     {d.is_unbound && <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider ml-auto">Unbound — no authority</span>}
                     {d.needs_exec_attention && <span className="text-[11px] font-semibold text-signal-red uppercase tracking-wider ml-auto">Executive Attention Required</span>}
@@ -209,12 +136,6 @@ export default function Decisions() {
                           ))}
                         </select>
                       </div>
-                    )}
-                    {canDelete && (
-                      <button onClick={() => { if (confirm("Delete this decision?")) deleteDecision.mutate(d.id); }}
-                        className="mt-3 text-[11px] font-semibold uppercase tracking-wider text-signal-red hover:underline">
-                        Delete
-                      </button>
                     )}
                   </div>
 
