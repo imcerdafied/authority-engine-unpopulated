@@ -2,7 +2,6 @@ import { useDecisions, useUpdateDecision, useSignals, usePods, useOverviewMetric
 import StatusBadge from "@/components/StatusBadge";
 import RiskChip from "@/components/RiskChip";
 import MetricCard from "@/components/MetricCard";
-import DataExport from "@/components/DataExport";
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { cn } from "@/lib/utils";
@@ -526,14 +525,11 @@ export default function Overview() {
   if (!authorityActive) {
     return (
       <div>
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold">Executive Overview</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              {new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
-            </p>
-          </div>
-          <DataExport />
+        <div className="mb-8">
+          <h1 className="text-xl font-bold">Executive Overview</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+          </p>
         </div>
 
         <div className="grid grid-cols-2 gap-3 mb-8">
@@ -624,7 +620,6 @@ export default function Overview() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <DataExport />
           <button
             onClick={() => setExecutiveMode(true)}
             className="text-[11px] font-semibold uppercase tracking-wider text-foreground border border-foreground px-3 py-1.5 rounded-sm hover:bg-foreground hover:text-background transition-colors"
