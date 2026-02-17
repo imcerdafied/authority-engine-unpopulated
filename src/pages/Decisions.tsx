@@ -505,7 +505,7 @@ function PodInlineEdit({
   };
 
   if (!canEdit) {
-    return <span className={cn(className, !value && "text-muted-foreground/50 italic")}>{value || placeholder ?? "—"}</span>;
+    return <span className={cn(className, !value && "text-muted-foreground/50 italic")}>{value || (placeholder ?? "—")}</span>;
   }
 
   if (editing) {
@@ -548,7 +548,7 @@ function PodInlineEdit({
         className
       )}
     >
-      {value || placeholder ?? "—"}
+      {value || (placeholder ?? "—")}
     </span>
   );
 }
