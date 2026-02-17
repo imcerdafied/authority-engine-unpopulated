@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { safeBtoaUnicode } from "@/lib/base64";
 import type { DecisionComputed } from "@/hooks/useOrgData";
 
@@ -138,22 +139,15 @@ export default function ProjectionPanel({ decision }: { decision: DecisionComput
 
   return (
     <div className="mt-4 pt-4 border-t">
-      <div className="flex items-start justify-between mb-1">
-        <div>
-          <h4 className="text-xs font-bold uppercase tracking-wider">AI Impact Projection</h4>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
-            Scenario modeling based on structured decision metadata.
-          </p>
-        </div>
-        {loadingExisting ? null : (
+      <div className="flex justify-end mb-1">
+        {loadingExisting ? null : canGenerate ? (
           <button
-            disabled={!canGenerate || loading}
+            disabled={loading}
             onClick={handleGenerate}
             className={cn(
               "text-[11px] font-semibold uppercase tracking-wider px-3 py-1.5 rounded-sm border transition-colors",
-              canGenerate
-                ? "border-foreground text-foreground hover:bg-foreground hover:text-background"
-                : "border-muted text-muted-foreground cursor-not-allowed opacity-50"
+              "border-foreground text-foreground hover:bg-foreground hover:text-background",
+              loading && "opacity-50 cursor-not-allowed"
             )}
           >
             {loading
@@ -164,14 +158,24 @@ export default function ProjectionPanel({ decision }: { decision: DecisionComput
                 : "Regenerate"
               : "Generate Projection"}
           </button>
+        ) : (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-block">
+                <button
+                  disabled
+                  className="text-[11px] font-semibold uppercase tracking-wider px-3 py-1.5 rounded-sm border border-muted text-muted-foreground cursor-not-allowed opacity-50"
+                >
+                  Generate Projection
+                </button>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Requires outcome category, expected impact, and exposure value</p>
+            </TooltipContent>
+          </Tooltip>
         )}
       </div>
-
-      {!canGenerate && (
-        <p className="text-[11px] text-signal-amber mt-2">
-          Projection requires outcome category, expected impact, and exposure value.
-        </p>
-      )}
 
       {error && (
         <p className="text-[11px] text-signal-red mt-2">{error}</p>
