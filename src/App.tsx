@@ -12,6 +12,7 @@ import Signals from "@/pages/Signals";
 import Pods from "@/pages/Pods";
 import Memory from "@/pages/Memory";
 import Ask from "@/pages/Ask";
+import Team from "@/pages/Team";
 import Auth from "@/pages/Auth";
 import OrgSetup from "@/components/OrgSetup";
 import NotFound from "./pages/NotFound";
@@ -47,6 +48,7 @@ function AppContent() {
           <Route path="/pods" element={<Pods />} />
           <Route path="/memory" element={<Memory />} />
           <Route path="/ask" element={<Ask />} />
+          <Route path="/team" element={<Team />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </AppLayout>

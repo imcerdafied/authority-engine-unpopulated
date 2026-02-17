@@ -83,7 +83,7 @@ export default function Decisions() {
 
   if (decisionsLoading || risksLoading) return <p className="text-xs text-muted-foreground uppercase tracking-widest">Loading...</p>;
 
-  const activeDecisions = decisions.filter((d) => d.status === "active" || d.status === "Active");
+  const activeDecisions = decisions.filter((d) => d.status === "active" && !!d.activated_at);
   const highActive = activeDecisions.filter((d) => d.impact_tier === "High").length;
   const atCapacity = highActive >= 5;
   const isEmpty = decisions.length === 0;
@@ -142,7 +142,7 @@ export default function Decisions() {
           <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">All Decisions ({decisions.length})</h2>
           <div className="space-y-2">
             {decisions.map((d) => {
-              const isActive = d.status === "active" || d.status === "Active";
+              const isActive = d.status === "active";
               const readinessIssues = isActive ? getReadinessIssues(d) : [];
 
               return (

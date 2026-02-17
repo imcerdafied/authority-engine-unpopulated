@@ -12,6 +12,7 @@ const navItems = [
   { label: "Pods", path: "/pods" },
   { label: "Memory", path: "/memory" },
   { label: "Ask", path: "/ask" },
+  { label: "Team", path: "/team" },
 ];
 
 const roleLabels: Record<string, string> = {

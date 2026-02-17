@@ -27,7 +27,7 @@ function computeAnswer(question: string, decisions: any[], signals: any[], pods:
     case "What needs attention?": {
       const unlinkedSignals = signals.filter((s: any) => !s.decision_id);
       const agingDecisions = decisions.filter(
-        (d: any) => d.status === "Active" && daysSince(d.created_at) > 7
+        (d: any) => d.status === "active" && daysSince(d.created_at) > 7
       );
       const noOutcome = pods
         .flatMap((p: any) => p.pod_initiatives || [])
@@ -35,54 +35,54 @@ function computeAnswer(question: string, decisions: any[], signals: any[], pods:
       return {
         question,
         items: [
-          ...unlinkedSignals.map((s: any) => ({ label: `Signal: ${s.type}`, detail: s.description, solution: s.solution_type })),
-          ...agingDecisions.map((d: any) => ({ label: `Aging: ${d.title}`, detail: `${daysSince(d.created_at)} days, owned by ${d.owner}`, solution: d.solution_type })),
+          ...unlinkedSignals.map((s: any) => ({ label: `Signal: ${s.type}`, detail: s.description, solution: s.solution_domain })),
+          ...agingDecisions.map((d: any) => ({ label: `Aging: ${d.title}`, detail: `${daysSince(d.created_at)} days, owned by ${d.owner}`, solution: d.solution_domain })),
           ...noOutcome.map((i: any) => ({ label: `Unbound: ${i.name}`, detail: `Owner: ${i.owner}` })),
         ],
       };
     }
     case "What's blocked?": {
-      const blocked = decisions.filter((d: any) => d.status === "Blocked");
+      const blocked = decisions.filter((d: any) => d.status === "blocked");
       return {
         question,
         items: blocked.map((d: any) => ({
           label: d.title,
           detail: `Blocked for ${daysSince(d.created_at)} days · ${d.blocked_reason || "No reason specified"} · Dependency: ${d.blocked_dependency_owner || "Unknown"}`,
-          solution: d.solution_type,
+          solution: d.solution_domain,
         })),
       };
     }
     case "Which segment is at risk?": {
-      const segmentDecisions = decisions.filter((d: any) => d.segment_impact && d.status !== "Closed");
+      const segmentDecisions = decisions.filter((d: any) => d.segment_impact && d.status !== "archived");
       const segmentSignals = signals.filter((s: any) => s.type === "Segment Variance");
       return {
         question,
         items: [
-          ...segmentSignals.map((s: any) => ({ label: `Signal: ${s.type}`, detail: s.description, solution: s.solution_type })),
+          ...segmentSignals.map((s: any) => ({ label: `Signal: ${s.type}`, detail: s.description, solution: s.solution_domain })),
           ...segmentDecisions.map((d: any) => ({
             label: `${d.segment_impact}: ${d.title}`,
             detail: `${d.status} · ${daysSince(d.created_at)}d old · ${d.revenue_at_risk || "No exposure quantified"}`,
-            solution: d.solution_type,
+            solution: d.solution_domain,
           })),
         ],
       };
     }
     case "What decision is aging?": {
       const aging = decisions
-        .filter((d: any) => d.status === "Active")
+        .filter((d: any) => d.status === "active")
         .sort((a: any, b: any) => daysSince(b.created_at) - daysSince(a.created_at));
       return {
         question,
         items: aging.map((d: any) => ({
           label: d.title,
           detail: `${daysSince(d.created_at)} days · ${d.owner} · ${d.surface} · ${d.decision_health || "Unknown health"}`,
-          solution: d.solution_type,
+          solution: d.solution_domain,
         })),
       };
     }
     case "Where is legacy gravity?": {
-      const s1Decisions = decisions.filter((d: any) => d.solution_type === "S1" && d.status === "Active");
-      const s1Inits = pods.filter((p: any) => p.solution_type === "S1").flatMap((p: any) => p.pod_initiatives || []).filter((i: any) => !i.shipped);
+      const s1Decisions = decisions.filter((d: any) => d.solution_domain === "S1" && d.status === "active");
+      const s1Inits = pods.filter((p: any) => p.solution_domain === "S1").flatMap((p: any) => p.pod_initiatives || []).filter((i: any) => !i.shipped);
       return {
         question,
         items: [
@@ -95,13 +95,13 @@ function computeAnswer(question: string, decisions: any[], signals: any[], pods:
       };
     }
     case "What renewal exposure exists?": {
-      const renewalDecisions = decisions.filter((d: any) => d.revenue_at_risk && d.status !== "Closed");
+      const renewalDecisions = decisions.filter((d: any) => d.revenue_at_risk && d.status !== "archived");
       return {
         question,
         items: renewalDecisions.map((d: any) => ({
           label: d.title,
           detail: `${d.revenue_at_risk} · ${d.owner} · ${d.surface} · ${d.decision_health || "Unknown"}`,
-          solution: d.solution_type,
+          solution: d.solution_domain,
         })),
       };
     }
