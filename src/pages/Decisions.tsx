@@ -40,6 +40,8 @@ export default function Decisions() {
   if (decisionsLoading || risksLoading) return <p className="text-xs text-muted-foreground uppercase tracking-widest">Loading...</p>;
 
   const activeDecisions = decisions.filter((d) => d.status === "active" && !!d.activated_at);
+  const activeHighImpact = activeDecisions.filter((d) => d.impact_tier === "High");
+  const atCapacity = activeHighImpact.length >= 5;
   const isEmpty = decisions.length === 0;
 
   const statusOptions: DecisionStatus[] = ["active", "accepted", "rejected", "archived"];
@@ -61,7 +63,12 @@ export default function Decisions() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold">Decisions</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-bold">Decisions</h1>
+            <span className="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-sm bg-muted text-muted-foreground">
+              {activeHighImpact.length}/5 Active{atCapacity ? " · At capacity" : ""}
+            </span>
+          </div>
           <p className="text-sm text-muted-foreground mt-1">
             {decisions.length} total · {activeDecisions.length} active
           </p>

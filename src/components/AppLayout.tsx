@@ -6,8 +6,7 @@ import { useOrg } from "@/contexts/OrgContext";
 import logo from "@/assets/logo.png";
 
 const navItems = [
-  { label: "Overview", path: "/" },
-  { label: "Decisions", path: "/decisions" },
+  { label: "Decisions", path: "/" },
   { label: "Builder Pods", path: "/pods" },
   { label: "Team", path: "/team" },
 ];

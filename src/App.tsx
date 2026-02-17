@@ -6,7 +6,6 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { OrgProvider, useOrg } from "@/contexts/OrgContext";
 import AppLayout from "@/components/AppLayout";
-import Overview from "@/pages/Overview";
 import Decisions from "@/pages/Decisions";
 import Signals from "@/pages/Signals";
 import Pods from "@/pages/Pods";
@@ -42,7 +41,7 @@ function AppContent() {
     <AuthGate>
       <AppLayout>
         <Routes>
-          <Route path="/" element={<Overview />} />
+          <Route path="/" element={<Decisions />} />
           <Route path="/decisions" element={<Decisions />} />
           <Route path="/signals" element={<Signals />} />
           <Route path="/pods" element={<Pods />} />
