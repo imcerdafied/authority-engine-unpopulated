@@ -167,40 +167,6 @@ export function useUpdateDecision() {
   });
 }
 
-export function useLogActivity() {
-  const { currentOrg } = useOrg();
-  const { user } = useAuth();
-  return async (decisionId: string, fieldName: string, oldValue: string | null, newValue: string | null) => {
-    if (!currentOrg || !user || oldValue === newValue) return;
-    await supabase.from("decision_activity" as any).insert({
-      decision_id: decisionId,
-      org_id: currentOrg.id,
-      field_name: fieldName,
-      old_value: oldValue,
-      new_value: newValue,
-      changed_by: user.id,
-    } as any);
-  };
-}
-
-export function useDecisionActivity(decisionId: string) {
-  const { currentOrg } = useOrg();
-  return useQuery({
-    queryKey: ["decision_activity", decisionId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("decision_activity" as any)
-        .select("*")
-        .eq("decision_id", decisionId)
-        .order("created_at", { ascending: false })
-        .limit(5);
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!currentOrg && !!decisionId,
-  });
-}
-
 export function useDeleteDecision() {
   const qc = useQueryClient();
   const { currentOrg } = useOrg();

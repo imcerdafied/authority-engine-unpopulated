@@ -28,15 +28,15 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
             {currentOrg?.name ?? "Organization"}
           </span>
-        </div>
-        <div className="flex items-center gap-4">
+          <Sep />
           <Link
             to="/how-it-works"
             className="text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
           >
             How It Works
           </Link>
-          <Sep />
+        </div>
+        <div className="flex items-center gap-4">
           <Link
             to="/team"
             className="text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"

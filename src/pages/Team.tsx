@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useOrg } from "@/contexts/OrgContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { usePendingInvitations, useOrgMembers, useInviteMember, useRevokeInvitation } from "@/hooks/useTeam";
+import { useOrgMembers } from "@/hooks/useTeam";
+import { useInvitations, useCreateInvitation, useDeleteInvitation } from "@/hooks/useInvitations";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -11,19 +12,18 @@ const roleLabels: Record<string, string> = {
   viewer: "Viewer",
 };
 
-const roleOptions = ["admin", "pod_lead", "viewer"] as const;
+const roleOptions = ["viewer", "pod_lead", "admin"] as const;
 
 export default function Team() {
   const { user } = useAuth();
   const { currentOrg, currentRole } = useOrg();
   const { data: members = [], isLoading: membersLoading } = useOrgMembers();
-  const { data: invitations = [], isLoading: invitesLoading } = usePendingInvitations();
-  const inviteMember = useInviteMember();
-  const revokeInvitation = useRevokeInvitation();
+  const { data: invitations = [], isLoading: invitesLoading } = useInvitations();
+  const createInvitation = useCreateInvitation();
+  const deleteInvitation = useDeleteInvitation();
 
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<string>("viewer");
-  const [showInvite, setShowInvite] = useState(false);
 
   const isAdmin = currentRole === "admin";
   const isLoading = membersLoading || invitesLoading;
@@ -37,11 +37,10 @@ export default function Team() {
     if (!email.trim()) return;
 
     try {
-      await inviteMember.mutateAsync({ email: email.trim(), role });
+      await createInvitation.mutateAsync({ email: email.trim(), role });
       toast.success(`Invitation sent to ${email.trim()}`);
       setEmail("");
       setRole("viewer");
-      setShowInvite(false);
     } catch (err: any) {
       const msg = err?.message || String(err);
       if (msg.includes("duplicate") || msg.includes("unique")) {
@@ -52,10 +51,10 @@ export default function Team() {
     }
   };
 
-  const handleRevoke = async (id: string, email: string) => {
+  const handleRevoke = async (id: string, invEmail: string) => {
     try {
-      await revokeInvitation.mutateAsync(id);
-      toast.success(`Invitation to ${email} revoked.`);
+      await deleteInvitation.mutateAsync(id);
+      toast.success(`Invitation to ${invEmail} revoked.`);
     } catch {
       toast.error("Failed to revoke invitation.");
     }
@@ -63,83 +62,52 @@ export default function Team() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold">Team</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {members.length} member{members.length !== 1 ? "s" : ""} · {invitations.length} pending
-          </p>
-        </div>
-        {isAdmin && !showInvite && (
-          <button
-            onClick={() => setShowInvite(true)}
-            className="text-[11px] font-semibold uppercase tracking-wider text-foreground border border-foreground px-3 py-1.5 rounded-sm hover:bg-foreground hover:text-background transition-colors"
-          >
-            + Invite Member
-          </button>
-        )}
+      <div className="mb-6">
+        <h1 className="text-xl font-bold">Team</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          {members.length} member{members.length !== 1 ? "s" : ""} · {invitations.length} pending
+        </p>
       </div>
 
-      {/* Invite Form */}
-      {showInvite && (
-        <div className="border rounded-md p-5 mb-6 bg-surface-elevated">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Invite Stakeholder
-            </h2>
-            <button
-              onClick={() => setShowInvite(false)}
-              className="text-xs text-muted-foreground hover:text-foreground"
-            >
-              Cancel
-            </button>
-          </div>
-          <form onSubmit={handleInvite} className="space-y-3">
-            <div className="grid grid-cols-3 gap-3">
-              <div className="col-span-2">
-                <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">
-                  Email *
-                </label>
+      {/* Invite Teammate */}
+      {isAdmin && (
+        <section className="mb-8">
+          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">Invite Teammate</h2>
+          <div className="border rounded-md p-4">
+            <form onSubmit={handleInvite} className="flex flex-wrap items-end gap-3">
+              <div>
+                <label className="text-[11px] uppercase tracking-wider text-muted-foreground block mb-1">Email</label>
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@conviva.com"
-                  className="w-full border rounded-sm px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-foreground"
+                  placeholder="name@example.com"
+                  className="w-64 border rounded-sm px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-foreground"
                 />
               </div>
               <div>
-                <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">
-                  Role
-                </label>
+                <label className="text-[11px] uppercase tracking-wider text-muted-foreground block mb-1">Role</label>
                 <select
                   value={role}
                   onChange={(e) => setRole(e.target.value)}
-                  className="w-full border rounded-sm px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-foreground"
+                  className="border rounded-sm px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-foreground"
                 >
                   {roleOptions.map((r) => (
-                    <option key={r} value={r}>
-                      {roleLabels[r]}
-                    </option>
+                    <option key={r} value={r}>{roleLabels[r]}</option>
                   ))}
                 </select>
               </div>
-            </div>
-            <p className="text-[11px] text-muted-foreground">
-              Invited users will be added to <span className="font-semibold">{currentOrg?.name}</span> when they sign up or log in.
-            </p>
-            <div className="flex justify-end pt-1">
               <button
                 type="submit"
-                disabled={inviteMember.isPending}
+                disabled={createInvitation.isPending}
                 className="text-[11px] font-semibold uppercase tracking-wider text-background bg-foreground px-4 py-2 rounded-sm hover:bg-foreground/90 transition-colors disabled:opacity-50"
               >
-                {inviteMember.isPending ? "Sending..." : "Send Invitation"}
+                {createInvitation.isPending ? "Sending..." : "Send Invite"}
               </button>
-            </div>
-          </form>
-        </div>
+            </form>
+          </div>
+        </section>
       )}
 
       {/* Current Members */}
@@ -179,21 +147,22 @@ export default function Team() {
       </section>
 
       {/* Pending Invitations */}
-      {invitations.length > 0 && (
-        <section>
-          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-            Pending Invitations ({invitations.length})
-          </h2>
+      <section>
+        <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+          Pending Invitations ({invitations.length})
+        </h2>
+        {invitations.length === 0 ? (
+          <div className="border border-dashed rounded-md px-6 py-6 text-center">
+            <p className="text-sm text-muted-foreground">No pending invitations.</p>
+          </div>
+        ) : (
           <div className="border rounded-md divide-y">
-            {invitations.map((inv) => (
+            {invitations.map((inv: any) => (
               <div key={inv.id} className="px-4 py-3 flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium">{inv.email}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Invited {new Date(inv.created_at).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    })} · {roleLabels[inv.role] || inv.role}
+                    {roleLabels[inv.role] || inv.role}
                   </p>
                 </div>
                 {isAdmin && (
@@ -207,8 +176,8 @@ export default function Team() {
               </div>
             ))}
           </div>
-        </section>
-      )}
+        )}
+      </section>
     </div>
   );
 }

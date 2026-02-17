@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useDecisions, useUpdateDecision, useDecisionRisks, useLogActivity, useDecisionActivity } from "@/hooks/useOrgData";
+import { useDecisions, useUpdateDecision, useDecisionRisks } from "@/hooks/useOrgData";
+import { useLogActivity, useDecisionActivity } from "@/hooks/useDecisionActivity";
 import { useOrg } from "@/contexts/OrgContext";
 import StatusBadge from "@/components/StatusBadge";
 import CreateDecisionForm from "@/components/CreateDecisionForm";
@@ -15,8 +16,8 @@ const fieldLabels: Record<string, string> = {
   exposure_value: "Exposure",
   current_delta: "Current Delta",
   revenue_at_risk: "Enterprise Exposure",
-  segment_impact: "Segment",
   owner: "Owner",
+  status: "Status",
 };
 
 function InlineEdit({
@@ -152,16 +153,16 @@ function DecisionActivityFeed({ decisionId }: { decisionId: string }) {
     <div className="mt-3 pt-3 border-t">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="text-[11px] uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+        className="text-[11px] uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
       >
         Activity ({activity.length})
       </button>
       {expanded && (
-        <div className="mt-2 space-y-1.5 text-xs">
+        <div className="mt-2 space-y-2 text-xs">
           {isLoading ? (
             <p className="text-muted-foreground">Loading…</p>
           ) : activity.length === 0 ? (
-            <p className="text-muted-foreground italic">No changes recorded yet</p>
+            <p className="text-muted-foreground/50 italic">No changes recorded</p>
           ) : (
             activity.map((a: any) => {
               const label = fieldLabels[a.field_name] ?? a.field_name;
@@ -169,10 +170,11 @@ function DecisionActivityFeed({ decisionId }: { decisionId: string }) {
               const newVal = a.new_value ?? "(empty)";
               const when = a.created_at ? relativeTime(a.created_at) : "";
               return (
-                <p key={a.id} className="text-muted-foreground">
-                  {label} changed from {oldVal} → {newVal}
-                  {when && <span className="ml-1.5 text-muted-foreground/70">· {when}</span>}
-                </p>
+                <div key={a.id}>
+                  <p className="text-[10px] text-muted-foreground">{when}</p>
+                  <p className="font-medium">{label}</p>
+                  <p className="text-muted-foreground">{oldVal} → {newVal}</p>
+                </div>
               );
             })
           )}
@@ -193,8 +195,27 @@ export default function Decisions() {
 
   const canWrite = currentRole === "admin" || currentRole === "pod_lead";
 
+  const statusOptions = ["hypothesis", "defined", "piloting", "scaling", "at_risk", "closed"] as const;
+  const [pendingStatus, setPendingStatus] = useState<{ decisionId: string; newStatus: string; oldStatus: string } | null>(null);
+  const [statusNote, setStatusNote] = useState("");
+
+  const handleStatusConfirm = () => {
+    if (!pendingStatus || !statusNote.trim()) return;
+    updateDecision.mutate({
+      id: pendingStatus.decisionId,
+      status: pendingStatus.newStatus as any,
+      state_changed_at: new Date().toISOString(),
+      state_change_note: statusNote.trim(),
+    } as any);
+    logActivity(pendingStatus.decisionId, "status", pendingStatus.oldStatus, pendingStatus.newStatus);
+    setPendingStatus(null);
+    setStatusNote("");
+  };
+
   const handleInlineSave = async (id: string, field: string, oldValue: string, newValue: string) => {
-    await updateDecision.mutateAsync({ id, [field]: newValue || null } as any);
+    const payload: any = { id, [field]: newValue || null };
+    if (field === "exposure_value") payload.previous_exposure_value = oldValue || null;
+    await updateDecision.mutateAsync(payload);
     qc.invalidateQueries({ queryKey: ["decision_activity", id] });
   };
 
@@ -256,8 +277,8 @@ export default function Decisions() {
                     {(() => {
                       const s = staleness(d.updated_at);
                       return (
-                        <span className={cn("text-[11px] font-medium flex items-center gap-1.5 shrink-0", s.textClass)}>
-                          <span className={cn("w-1.5 h-1.5 rounded-full", s.dotClass, s.pulse && "animate-pulse")} />
+                        <span className={cn("text-[10px] flex items-center gap-1.5 shrink-0", s.textClass, s.pulse && "font-semibold")}>
+                          <span className={cn("w-1.5 h-1.5 rounded-full inline-block", s.dotClass, s.pulse && "animate-pulse")} />
                           {s.label}
                         </span>
                       );
@@ -289,6 +310,56 @@ export default function Decisions() {
                     />
                   </div>
 
+                  {canWrite && (
+                    <div className="mb-3">
+                      <span className="text-muted-foreground text-xs">Status</span>
+                      <div className="mt-0.5">
+                        <select
+                          value={pendingStatus?.decisionId === d.id ? pendingStatus.newStatus : (d.status === "active" ? "piloting" : d.status)}
+                          onChange={(e) => {
+                            const newStatus = e.target.value;
+                            const oldStatus = d.status === "active" ? "piloting" : d.status;
+                            if (newStatus === oldStatus) {
+                              setPendingStatus(null);
+                              return;
+                            }
+                            setPendingStatus({ decisionId: d.id, newStatus, oldStatus: d.status });
+                            setStatusNote("");
+                          }}
+                          className="text-xs border rounded px-2 py-1 bg-background"
+                        >
+                          {statusOptions.map((s) => (
+                            <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1).replace("_", " ")}</option>
+                          ))}
+                        </select>
+                        {pendingStatus?.decisionId === d.id && (
+                          <div className="mt-2 p-2 border rounded bg-muted/30">
+                            <label className="text-[11px] uppercase tracking-wider text-muted-foreground block mb-1">What changed? What&apos;s the evidence?</label>
+                            <textarea
+                              rows={2}
+                              placeholder="Required: reason for state change"
+                              value={statusNote}
+                              onChange={(e) => setStatusNote(e.target.value)}
+                              className="w-full text-xs border rounded px-2 py-1.5 bg-background"
+                            />
+                            <div className="mt-2 flex items-center gap-3">
+                              <button
+                                onClick={handleStatusConfirm}
+                                disabled={!statusNote.trim()}
+                                className="text-[11px] font-semibold uppercase tracking-wider px-3 py-1 rounded bg-foreground text-background disabled:opacity-50"
+                              >
+                                Confirm
+                              </button>
+                              <button onClick={() => setPendingStatus(null)} className="text-xs text-muted-foreground hover:text-foreground">
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-4 gap-4 text-xs mb-3">
                     <div><span className="text-muted-foreground">Surface</span><p className="font-medium mt-0.5">{d.surface}</p></div>
                     <div><span className="text-muted-foreground">Outcome Target</span><div className="font-medium mt-0.5"><InlineEdit value={d.outcome_target ?? ""} field="outcome_target" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} /></div></div>
@@ -299,10 +370,22 @@ export default function Decisions() {
                   </div>
 
                   <div className="grid grid-cols-4 gap-4 text-xs mb-3">
-                    <div><span className="text-muted-foreground">Exposure</span><div className="font-semibold mt-0.5 text-signal-amber"><InlineEdit value={d.exposure_value ?? ""} field="exposure_value" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} /></div></div>
+                    <div><span className="text-muted-foreground">Exposure</span><div className="font-semibold mt-0.5 text-signal-amber">
+                      <InlineEdit value={d.exposure_value ?? ""} field="exposure_value" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} />
+                      {(() => {
+                        const prev = (d as any).previous_exposure_value;
+                        const curr = d.exposure_value ?? "";
+                        if (!prev || prev === curr) return null;
+                        const increased = String(curr).localeCompare(String(prev), undefined, { numeric: true }) > 0;
+                        return (
+                          <span className={cn("text-[10px] ml-1", increased ? "text-signal-red" : "text-signal-green")}>
+                            {increased ? `↑ from ${prev}` : `↓ from ${prev}`}
+                          </span>
+                        );
+                      })()}
+                    </div></div>
                     <div><span className="text-muted-foreground">Current Delta</span><div className="font-semibold mt-0.5 text-signal-amber"><InlineEdit value={d.current_delta ?? ""} field="current_delta" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} /></div></div>
                     <div><span className="text-muted-foreground">Enterprise Exposure</span><div className="font-semibold mt-0.5 text-signal-red"><InlineEdit value={d.revenue_at_risk ?? ""} field="revenue_at_risk" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} /></div></div>
-                    <div><span className="text-muted-foreground">Segment</span><div className="font-medium mt-0.5"><InlineEdit value={d.segment_impact ?? ""} field="segment_impact" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} /></div></div>
                     <div><span className="text-muted-foreground">Owner</span><div className="font-medium mt-0.5"><InlineEdit value={d.owner ?? ""} field="owner" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} /></div></div>
                   </div>
 
