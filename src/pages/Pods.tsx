@@ -34,9 +34,9 @@ export default function Pods() {
 
   const isEmpty = pods.length === 0;
 
-  const activeHighImpact = decisions.filter((d) => d.status === "active" && d.impact_tier === "High" && !!d.activated_at);
+  const activeHighImpact = decisions.filter((d) => d.status !== "closed" && d.impact_tier === "High");
   const authorityActive = activeHighImpact.length >= 5;
-  const activeDecisions = decisions.filter((d) => d.status === "active" && !!d.activated_at);
+  const activeDecisions = decisions.filter((d) => d.status !== "closed");
 
   // Group active decisions by solution_domain for pod matching
   const decisionsByDomain: Record<string, typeof decisions> = {};

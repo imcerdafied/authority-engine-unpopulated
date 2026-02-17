@@ -55,7 +55,7 @@ function computeDecisionFields(row: Record<string, unknown>): DecisionComputed {
   } else {
     sliceRemaining = sliceDeadline - ageDays;
   }
-  const isActive = row.status === "active" || row.status === "Active";
+  const isActive = (row.status as string)?.toLowerCase() !== "closed";
   const isExceeded = isActive && (sliceDueAt ? now > new Date(sliceDueAt).getTime() : ageDays > sliceDeadline);
   const isUrgent = isActive && sliceRemaining >= 0 && sliceRemaining <= 3;
   const isAging = isActive && ageDays > 14;

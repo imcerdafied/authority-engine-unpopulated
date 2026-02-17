@@ -73,7 +73,7 @@ function SeededDecisionsList({
   onAuthorityEngaged: () => void;
 }) {
   const highImpact = decisions.filter((d) => d.impact_tier === "High");
-  const activeHighCount = highImpact.filter((d) => d.status === "active" && !!d.activated_at).length;
+  const activeHighCount = highImpact.filter((d) => d.status !== "closed").length;
   const [expandedFailureId, setExpandedFailureId] = useState<string | null>(null);
   const [failedFields, setFailedFields] = useState<string[]>([]);
   const preActivateCountRef = useRef(activeHighCount);
@@ -142,7 +142,7 @@ function SeededDecisionsList({
       <div className="border rounded-md divide-y">
         {highImpact.map((d) => {
           const isDraft = d.status === "active" && !d.activated_at;
-          const isActive = d.status === "active" && !!d.activated_at;
+          const isActive = d.status !== "closed";
           const isExpanded = expandedFailureId === d.id;
           return (
             <div key={d.id}>
@@ -271,10 +271,10 @@ export default function Overview() {
     friction_drivers: [], at_capacity: false,
   };
 
-  const activeHighImpact = decisions.filter((d) => d.status === "active" && d.impact_tier === "High" && !!d.activated_at);
+  const activeHighImpact = decisions.filter((d) => d.status !== "closed" && d.impact_tier === "High");
   const authorityActive = activeHighImpact.length >= 5;
 
-  const activeDecisions = decisions.filter((d) => d.status === "active" && !!d.activated_at);
+  const activeDecisions = decisions.filter((d) => d.status !== "closed");
   const blockedDecisions = decisions.filter(
     (d) => d.status === "Blocked" && daysSince(d.created_at) > 5
   );
@@ -283,7 +283,7 @@ export default function Overview() {
   const velocity = computeBuilderVelocity(pods);
 
   const totalRevenueAtRisk = decisions
-    .filter((d) => d.status === "active" && !!d.activated_at && d.revenue_at_risk)
+    .filter((d) => d.status !== "closed" && d.revenue_at_risk)
     .map((d) => d.revenue_at_risk!)
     .join(" · ");
 

@@ -221,7 +221,7 @@ export default function Decisions() {
 
   if (decisionsLoading || risksLoading) return <p className="text-xs text-muted-foreground uppercase tracking-widest">Loading...</p>;
 
-  const activeDecisions = decisions.filter((d) => d.status === "active" && !!d.activated_at);
+  const activeDecisions = decisions.filter((d) => d.status !== "closed");
   const activeHighImpact = activeDecisions.filter((d) => d.impact_tier === "High");
   const atCapacity = activeHighImpact.length >= 5;
   const isEmpty = decisions.length === 0;
@@ -263,7 +263,7 @@ export default function Decisions() {
           <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">All Decisions ({decisions.length})</h2>
           <div className="space-y-2">
             {decisions.map((d) => {
-              const isActive = d.status === "active";
+              const isActive = d.status !== "closed";
 
               return (
                 <div key={d.id} className={cn("border rounded-md p-4", d.is_exceeded ? "border-signal-red/40 bg-signal-red/5" : d.is_aging ? "border-signal-amber/40" : "")}>
