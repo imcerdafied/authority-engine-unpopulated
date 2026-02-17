@@ -5,6 +5,7 @@ import { useOrg } from "@/contexts/OrgContext";
 import logo from "@/assets/logo.png";
 import { cn } from "@/lib/utils";
 import ChatAdvisor from "@/components/ChatAdvisor";
+import FeedbackButton from "@/components/FeedbackButton";
 
 const roleLabels: Record<string, string> = {
   admin: "Admin",
@@ -97,6 +98,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       </main>
 
       <ChatAdvisor chatOpen={chatOpen} setChatOpen={setChatOpen} />
+      <FeedbackButton />
     </div>
   );
 }
