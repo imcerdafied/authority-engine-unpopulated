@@ -39,6 +39,13 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           </Link>
           <Sep />
           <Link
+            to="/review"
+            className="text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Review
+          </Link>
+          <Sep />
+          <Link
             to="/how-it-works"
             className="text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
           >

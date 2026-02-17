@@ -391,7 +391,7 @@ export default function Decisions() {
   const [showCreate, setShowCreate] = useState(false);
   const [mode, setMode] = useState<"strategic" | "operational">("strategic");
 
-  const canWrite = currentRole === "admin" || currentRole === "pod_lead";
+  const canWrite = currentRole === "admin" || currentRole === "pod_lead" || currentRole === "viewer";
 
   const statusOptions = ["hypothesis", "defined", "piloting", "scaling", "at_risk", "closed"] as const;
   const [pendingStatus, setPendingStatus] = useState<{ decisionId: string; newStatus: string; oldStatus: string } | null>(null);

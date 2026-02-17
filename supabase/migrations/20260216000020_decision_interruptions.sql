@@ -20,7 +20,9 @@ ALTER TABLE public.decisions
   ADD COLUMN IF NOT EXISTS capacity_diverted integer DEFAULT 0 CHECK (capacity_diverted >= 0 AND capacity_diverted <= 100),
   ADD COLUMN IF NOT EXISTS unplanned_interrupts integer DEFAULT 0 CHECK (unplanned_interrupts >= 0),
   ADD COLUMN IF NOT EXISTS escalation_count integer DEFAULT 0 CHECK (escalation_count >= 0),
-  ADD COLUMN IF NOT EXISTS previous_exposure_value text;
+  ADD COLUMN IF NOT EXISTS previous_exposure_value text,
+  ADD COLUMN IF NOT EXISTS state_changed_at timestamptz,
+  ADD COLUMN IF NOT EXISTS state_change_note text;
 
 -- RLS for decision_interruptions
 ALTER TABLE public.decision_interruptions ENABLE ROW LEVEL SECURITY;
