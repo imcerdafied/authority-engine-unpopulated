@@ -1,6 +1,6 @@
 export default function HowItWorks() {
   return (
-    <div className="max-w-2xl mx-auto space-y-8">
+    <div className="w-full md:max-w-2xl md:mx-auto space-y-8">
       <h1 className="text-xl font-bold">How Build Authority Works</h1>
 
       <section>
@@ -31,7 +31,7 @@ export default function HowItWorks() {
 
       <section>
         <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Who Uses It</h2>
-        <div className="grid gap-3 text-sm">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
           <div className="border rounded-md p-3">
             <p className="font-medium">Executive Sponsor</p>
             <p className="text-muted-foreground">Registers bets, reviews weekly health</p>

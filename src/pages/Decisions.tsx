@@ -446,18 +446,18 @@ export default function Decisions() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-xl font-bold">Bets</h1>
-            <span className="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-sm bg-muted text-muted-foreground">
+      <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="flex flex-col md:flex-row md:items-center gap-3">
+          <h1 className="text-xl font-bold">Bets</h1>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+            <span className="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-sm bg-muted text-muted-foreground w-fit">
               {activeHighImpact.length}/5 Active{atCapacity ? " · At capacity" : ""}
             </span>
-            <div className="flex rounded-full border border-muted-foreground/30 p-0.5">
+            <div className="flex rounded-full border border-muted-foreground/30 p-0.5 w-fit">
               <button
                 onClick={() => setMode("strategic")}
                 className={cn(
-                  "px-3 py-1 text-[10px] uppercase tracking-widest rounded-full transition-colors",
+                  "px-3 py-1 text-[10px] uppercase tracking-widest rounded-full transition-colors min-h-[44px] sm:min-h-0",
                   mode === "strategic" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -466,7 +466,7 @@ export default function Decisions() {
               <button
                 onClick={() => setMode("operational")}
                 className={cn(
-                  "px-3 py-1 text-[10px] uppercase tracking-widest rounded-full transition-colors",
+                  "px-3 py-1 text-[10px] uppercase tracking-widest rounded-full transition-colors min-h-[44px] sm:min-h-0",
                   mode === "operational" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -474,13 +474,13 @@ export default function Decisions() {
               </button>
             </div>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-sm text-muted-foreground">
             {decisions.length} total · {activeDecisions.length} active
           </p>
         </div>
         {canWrite && !showCreate && !atCapacity && (
           <button onClick={() => setShowCreate(true)}
-            className="text-[11px] font-semibold uppercase tracking-wider text-foreground border border-foreground px-3 py-1.5 rounded-sm hover:bg-foreground hover:text-background transition-colors">
+            className="text-[11px] font-semibold uppercase tracking-wider text-foreground border border-foreground px-3 py-1.5 rounded-sm hover:bg-foreground hover:text-background transition-colors w-full md:w-auto min-h-[44px] md:min-h-0">
             + Register Bet
           </button>
         )}
@@ -515,7 +515,7 @@ export default function Decisions() {
               const isActive = d.status !== "closed";
 
               return (
-                <div key={d.id} className={cn("border rounded-md p-4", d.is_exceeded ? "border-signal-red/40 bg-signal-red/5" : d.is_aging ? "border-signal-amber/40" : "")}>
+                <div key={d.id} className={cn("border rounded-md p-4 md:p-6", d.is_exceeded ? "border-signal-red/40 bg-signal-red/5" : d.is_aging ? "border-signal-amber/40" : "")}>
                   <div className="flex items-start justify-between gap-2 mb-2 flex-wrap">
                     <div className="flex items-start gap-2 flex-wrap">
                       <StatusBadge status={d.solution_domain} />
@@ -589,7 +589,7 @@ export default function Decisions() {
                             setPendingStatus({ decisionId: d.id, newStatus, oldStatus: d.status });
                             setStatusNote("");
                           }}
-                          className="text-xs border rounded px-2 py-1 bg-background"
+                          className="text-xs border rounded px-2 py-1 bg-background min-h-[44px] w-full"
                         >
                           {statusOptions.map((s) => (
                             <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1).replace("_", " ")}</option>
@@ -623,18 +623,18 @@ export default function Decisions() {
                     </div>
                   )}
 
-                  <div className="grid grid-cols-4 gap-4 text-xs mb-3">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4 text-xs mb-3">
                     <div><span className="text-muted-foreground">Surface</span><p className="font-medium mt-0.5">{d.surface}</p></div>
-                    <div><span className="text-muted-foreground">Outcome Target</span><div className="font-medium mt-0.5"><InlineEdit value={d.outcome_target ?? ""} field="outcome_target" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} /></div></div>
+                    <div><span className="text-muted-foreground">Outcome Target</span><div className="font-medium mt-0.5"><InlineEdit value={d.outcome_target ?? ""} field="outcome_target" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" /></div></div>
                     {(d.outcome_category_key || d.outcome_category) && (
                       <div><span className="text-muted-foreground">Category</span><p className="font-medium mt-0.5">{categoryLabels[(d.outcome_category_key ?? d.outcome_category) as string] ?? (d.outcome_category_key ?? d.outcome_category)}</p></div>
                     )}
-                    <div><span className="text-muted-foreground">Expected Impact</span><div className="font-medium mt-0.5"><InlineEdit value={d.expected_impact ?? ""} field="expected_impact" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} /></div></div>
+                    <div><span className="text-muted-foreground">Expected Impact</span><div className="font-medium mt-0.5"><InlineEdit value={d.expected_impact ?? ""} field="expected_impact" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" /></div></div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-4 text-xs mb-3">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 text-xs mb-3">
                     <div><span className="text-muted-foreground">Exposure</span><div className="font-semibold mt-0.5 text-signal-amber">
-                      <InlineEdit value={d.exposure_value ?? ""} field="exposure_value" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} />
+                      <InlineEdit value={d.exposure_value ?? ""} field="exposure_value" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" />
                       {(() => {
                         const prev = (d as any).previous_exposure_value;
                         const curr = d.exposure_value ?? "";
@@ -647,8 +647,8 @@ export default function Decisions() {
                         );
                       })()}
                     </div></div>
-                    <div><span className="text-muted-foreground">Enterprise Exposure</span><div className="font-semibold mt-0.5 text-signal-red"><InlineEdit value={d.revenue_at_risk ?? ""} field="revenue_at_risk" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} /></div></div>
-                    <div><span className="text-muted-foreground">Owner</span><div className="font-medium mt-0.5"><InlineEdit value={d.owner ?? ""} field="owner" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} /></div></div>
+                    <div><span className="text-muted-foreground">Enterprise Exposure</span><div className="font-semibold mt-0.5 text-signal-red"><InlineEdit value={d.revenue_at_risk ?? ""} field="revenue_at_risk" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" /></div></div>
+                    <div><span className="text-muted-foreground">Owner</span><div className="font-medium mt-0.5"><InlineEdit value={d.owner ?? ""} field="owner" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" /></div></div>
                   </div>
 
                   {mode === "operational" && (

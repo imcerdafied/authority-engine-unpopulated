@@ -116,14 +116,14 @@ export default function Review() {
         : "text-signal-red";
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
+    <div className="max-w-4xl mx-auto space-y-8 px-4 md:px-0">
       <div>
         <h1 className="text-xl font-bold">Weekly Review</h1>
         <p className="text-sm text-muted-foreground mt-1">{getWeekRange()}</p>
       </div>
 
-      <div className="bg-muted/30 border rounded-lg p-5 mb-8">
-        <div className="flex flex-wrap gap-8">
+      <div className="bg-muted/30 border rounded-lg p-4 md:p-5 mb-8">
+        <div className="flex flex-col md:flex-row md:flex-wrap gap-6 md:gap-8">
           <div>
             <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">Bets Moved</p>
             <p className={cn("text-2xl font-bold", movedClass)}>
@@ -167,7 +167,7 @@ export default function Review() {
             const hasOperational = capacityAllocated > 0 || capacityDiverted > 0;
 
             return (
-              <div key={d.id} className="border rounded-lg p-4">
+              <div key={d.id} className="border rounded-lg p-3 md:p-4 w-full">
                 <div className="flex items-start gap-2 flex-wrap">
                   <span className={cn("w-2 h-2 rounded-full shrink-0 mt-1.5", dotClass)} />
                   <StatusBadge status={d.solution_domain} />
@@ -209,10 +209,10 @@ export default function Review() {
             {exposureChanges.map((a: any) => {
               const bet = decisions.find((d) => d.id === a.decision_id);
               return (
-                <div key={a.id} className="text-sm border rounded p-2">
+                <div key={a.id} className="text-sm border rounded p-2 w-full">
+                  <p className="text-[10px] text-muted-foreground">{relativeTime(a.created_at)}</p>
                   <p className="font-medium">{bet?.title ?? "Unknown bet"}</p>
                   <p className="text-muted-foreground">{a.old_value ?? "—"} → {a.new_value ?? "—"}</p>
-                  <p className="text-[10px] text-muted-foreground">{relativeTime(a.created_at)}</p>
                 </div>
               );
             })}
@@ -230,12 +230,14 @@ export default function Review() {
               const bet = decisions.find((d) => d.id === a.decision_id);
               const label = fieldLabels[a.field_name] ?? a.field_name;
               return (
-                <div key={a.id} className="text-sm border rounded p-2">
-                  <p className="text-[10px] text-muted-foreground">{relativeTime(a.created_at)}</p>
-                  <p className="font-medium text-[12px]">{bet?.title ?? "Unknown bet"}</p>
-                  <p className="text-[12px] text-muted-foreground">
-                    {label} → {a.old_value ?? "—"} → {a.new_value ?? "—"}
-                  </p>
+                <div key={a.id} className="text-sm border rounded p-2 w-full flex flex-col md:flex-row md:items-start md:gap-2">
+                  <p className="text-[10px] text-muted-foreground order-first md:order-none">{relativeTime(a.created_at)}</p>
+                  <div>
+                    <p className="font-medium text-[12px]">{bet?.title ?? "Unknown bet"}</p>
+                    <p className="text-[12px] text-muted-foreground">
+                      {label} → {a.old_value ?? "—"} → {a.new_value ?? "—"}
+                    </p>
+                  </div>
                 </div>
               );
             })}
