@@ -1,12 +1,24 @@
 import { useState } from "react";
+import { useLocation, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
-export default function Auth() {
+const VALID_INVITE_CODE = "buildauthority2026";
+const PENDING_ORG_JOIN_KEY = "pending_org_join";
+
+interface AuthProps {
+  skipInviteCode?: boolean;
+}
+
+export default function Auth({ skipInviteCode }: AuthProps = {}) {
+  const location = useLocation();
+  const { orgId } = useParams<{ orgId?: string }>();
+  const isJoinFlow = skipInviteCode || /^\/join\/[^/]+$/.test(location.pathname);
+
   const [mode, setMode] = useState<"login" | "signup">("login");
+  const [inviteCode, setInviteCode] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [displayName, setDisplayName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -18,12 +30,22 @@ export default function Auth() {
     setLoading(true);
 
     if (mode === "signup") {
+      if (!isJoinFlow) {
+        if (inviteCode.trim().toLowerCase() !== VALID_INVITE_CODE) {
+          setError("Invalid invite code. Contact your admin for access.");
+          setLoading(false);
+          return;
+        }
+      }
+      if (isJoinFlow && orgId) {
+        localStorage.setItem(PENDING_ORG_JOIN_KEY, orgId);
+      }
       const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           emailRedirectTo: window.location.origin,
-          data: { display_name: displayName || email.split("@")[0] },
+          data: { display_name: email.split("@")[0] },
         },
       });
       if (error) {
@@ -43,7 +65,7 @@ export default function Auth() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="w-full max-w-sm">
+      <div className="w-full max-w-sm mx-auto px-4">
         <div className="mb-8 text-center">
           <h1 className="text-sm font-bold tracking-widest uppercase text-foreground">
             Build Authority
@@ -76,17 +98,17 @@ export default function Auth() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {mode === "signup" && (
+            {mode === "signup" && !isJoinFlow && (
               <div>
                 <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">
-                  Display Name
+                  Invite Code
                 </label>
                 <input
                   type="text"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
+                  value={inviteCode}
+                  onChange={(e) => setInviteCode(e.target.value)}
                   className="w-full border rounded-sm px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-foreground"
-                  placeholder="Your name"
+                  placeholder="Enter invite code"
                 />
               </div>
             )}
@@ -128,7 +150,7 @@ export default function Auth() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full text-[11px] font-semibold uppercase tracking-wider text-background bg-foreground px-4 py-2.5 rounded-sm hover:bg-foreground/90 transition-colors disabled:opacity-50"
+              className="w-full text-[11px] font-semibold uppercase tracking-wider text-white bg-black px-4 py-2.5 rounded-sm hover:bg-black/90 transition-colors disabled:opacity-50"
             >
               {loading ? "..." : mode === "login" ? "Sign In" : "Create Account"}
             </button>

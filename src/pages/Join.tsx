@@ -3,8 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrg } from "@/contexts/OrgContext";
 import { supabase } from "@/integrations/supabase/client";
-
-const PENDING_ORG_JOIN_KEY = "pending_org_join";
+import Auth from "@/pages/Auth";
 
 export default function Join() {
   const { orgId } = useParams<{ orgId: string }>();
@@ -23,8 +22,6 @@ export default function Join() {
     if (authLoading || orgLoading) return;
 
     if (!user) {
-      localStorage.setItem(PENDING_ORG_JOIN_KEY, orgId);
-      navigate("/");
       return;
     }
 
@@ -64,6 +61,10 @@ export default function Join() {
   }, [orgId, user, authLoading, orgLoading, memberships, navigate, refetchMemberships]);
 
   if (!orgId) return null;
+
+  if (!authLoading && !orgLoading && !user) {
+    return <Auth skipInviteCode />;
+  }
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4">
