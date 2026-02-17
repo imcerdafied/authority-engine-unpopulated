@@ -7,7 +7,6 @@ import logo from "@/assets/logo.png";
 
 const navItems = [
   { label: "Decisions", path: "/" },
-  { label: "Builder Pods", path: "/pods" },
   { label: "Team", path: "/team" },
 ];
 
