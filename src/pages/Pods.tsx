@@ -87,7 +87,7 @@ export default function Pods() {
           <p className="text-sm font-medium text-muted-foreground">No Builder Pods Active.</p>
           <p className="text-xs text-muted-foreground/70 mt-1.5">Activate a pod to begin execution compression.</p>
           <div className="flex justify-center gap-6 mt-4 text-xs text-muted-foreground/50">
-            <span>Pod Name</span><span>Active Decisions</span><span>Slice Status</span><span>Velocity</span>
+            <span>Pod Name</span><span>Active Bets</span><span>Slice Status</span><span>Velocity</span>
           </div>
         </div>
       ) : (
@@ -153,12 +153,12 @@ export default function Pods() {
                   </div>
                 </div>
 
-                {/* Active Strategic Decisions assigned to this pod */}
+                {/* Active Strategic Bets assigned to this pod */}
                 {podDecisions.length > 0 ? (
                   <div className="border-b">
                     <div className="px-4 py-2 bg-accent/20">
                       <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        Active Decisions · {podDecisions.length}
+                        Active Bets · {podDecisions.length}
                       </p>
                     </div>
                     <div className="divide-y">

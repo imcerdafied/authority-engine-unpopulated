@@ -62,7 +62,7 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
     toast.success(`Draft created — "${title}"`, {
       description: "Complete required fields to activate.",
       action: {
-        label: "View decision",
+        label: "View bet",
         onClick: () => navigate("/decisions"),
       },
     });
@@ -75,7 +75,7 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
   return (
     <div className="border rounded-md p-5 mb-6 bg-surface-elevated">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Register High-Impact Decision</h2>
+        <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Register High-Impact Bet</h2>
         <button onClick={onClose} className="text-xs text-muted-foreground hover:text-foreground">Cancel</button>
       </div>
       <form onSubmit={handleSubmit} className="space-y-3">
@@ -152,7 +152,7 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
         <div className="flex justify-end pt-2">
           <button type="submit" disabled={createDecision.isPending || !outcomeCategoryKey}
             className="text-[11px] font-semibold uppercase tracking-wider text-background bg-foreground px-4 py-2 rounded-sm hover:bg-foreground/90 transition-colors disabled:opacity-50">
-            {createDecision.isPending ? "Registering..." : "Register Decision"}
+            {createDecision.isPending ? "Registering..." : "Register Bet"}
           </button>
         </div>
       </form>

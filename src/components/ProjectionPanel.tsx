@@ -183,7 +183,7 @@ export default function ProjectionPanel({ decision }: { decision: DecisionComput
 
       {isStale && projection && !loading && (
         <p className="text-[11px] text-signal-amber mt-2">
-          Decision metadata has changed since last projection. Consider regenerating.
+          Bet metadata has changed since last projection. Consider regenerating.
         </p>
       )}
 

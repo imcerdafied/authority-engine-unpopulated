@@ -12,7 +12,7 @@ const presetQuestions = [
   "What needs attention?",
   "What's blocked?",
   "Which segment is at risk?",
-  "What decision is aging?",
+  "What bet is aging?",
   "Where is legacy gravity?",
   "What renewal exposure exists?",
 ];
@@ -67,7 +67,7 @@ function computeAnswer(question: string, decisions: any[], signals: any[], pods:
         ],
       };
     }
-    case "What decision is aging?": {
+    case "What bet is aging?": {
       const aging = decisions
         .filter((d: any) => d.status === "active")
         .sort((a: any, b: any) => daysSince(b.created_at) - daysSince(a.created_at));
@@ -86,7 +86,7 @@ function computeAnswer(question: string, decisions: any[], signals: any[], pods:
       return {
         question,
         items: [
-          ...s1Decisions.map((d: any) => ({ label: `S1 Decision: ${d.title}`, detail: `${daysSince(d.created_at)}d old · ${d.owner} · ${d.revenue_at_risk || ""}`, solution: "S1" })),
+          ...s1Decisions.map((d: any) => ({ label: `S1 Bet: ${d.title}`, detail: `${daysSince(d.created_at)}d old · ${d.owner} · ${d.revenue_at_risk || ""}`, solution: "S1" })),
           ...s1Inits.map((i: any) => ({ label: `S1 Initiative: ${i.name}`, detail: `Owner: ${i.owner} · Not shipped`, solution: "S1" })),
           ...(s1Decisions.length === 0 && s1Inits.length === 0
             ? [{ label: "No legacy gravity detected", detail: "S1 attention is within normal bounds" }]

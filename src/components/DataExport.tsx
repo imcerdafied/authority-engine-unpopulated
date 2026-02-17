@@ -64,7 +64,7 @@ export default function DataExport() {
         onClick={() => handleExport("decisions")}
         className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground border rounded-sm px-2.5 py-1 hover:bg-accent transition-colors"
       >
-        Export Decisions
+        Export Bets
       </button>
       <button
         onClick={() => handleExport("signals")}

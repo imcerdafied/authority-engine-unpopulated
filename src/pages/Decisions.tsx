@@ -2,11 +2,28 @@ import { useState, useRef, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useDecisions, useUpdateDecision, useDecisionRisks } from "@/hooks/useOrgData";
 import { useLogActivity, useDecisionActivity } from "@/hooks/useDecisionActivity";
+import { useInterruptions, useCreateInterruption } from "@/hooks/useInterruptions";
 import { useOrg } from "@/contexts/OrgContext";
 import StatusBadge from "@/components/StatusBadge";
 import CreateDecisionForm from "@/components/CreateDecisionForm";
 import ProjectionPanel from "@/components/ProjectionPanel";
 import { cn } from "@/lib/utils";
+
+const SOURCE_OPTIONS = [
+  { value: "ad_hoc", label: "Ad Hoc" },
+  { value: "escalation", label: "Escalation" },
+  { value: "deal_request", label: "Deal Request" },
+  { value: "support", label: "Support" },
+  { value: "executive_override", label: "Executive Override" },
+] as const;
+
+const SOURCE_COLORS: Record<string, string> = {
+  ad_hoc: "bg-muted text-muted-foreground",
+  escalation: "bg-signal-red/20 text-signal-red",
+  deal_request: "bg-signal-amber/20 text-signal-amber",
+  support: "bg-signal-amber/20 text-signal-amber",
+  executive_override: "bg-signal-red/20 text-signal-red",
+};
 
 const fieldLabels: Record<string, string> = {
   title: "Title",
@@ -30,6 +47,7 @@ function InlineEdit({
   className,
   placeholder = "—",
   variant = "default",
+  inputType = "text",
 }: {
   value: string;
   field: string;
@@ -40,6 +58,7 @@ function InlineEdit({
   className?: string;
   placeholder?: string;
   variant?: "default" | "title";
+  inputType?: "text" | "number";
 }) {
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
@@ -86,7 +105,9 @@ function InlineEdit({
     return (
       <input
         ref={inputRef}
-        type="text"
+        type={inputType}
+        min={inputType === "number" ? 0 : undefined}
+        max={inputType === "number" ? 100 : undefined}
         value={editValue}
         onChange={(e) => setEditValue(e.target.value)}
         onBlur={handleSave}
@@ -145,6 +166,181 @@ function staleness(updatedAt: string): { label: string; dotClass: string; textCl
   return { label: `No movement in ${days}d`, dotClass: "bg-signal-red", textClass: "text-signal-red", pulse: true };
 }
 
+function ResourceRealitySection({
+  decision: d,
+  canWrite,
+  handleInlineSave,
+  logActivity,
+  createInterruption,
+  updateDecision,
+  qc,
+}: {
+  decision: any;
+  canWrite: boolean;
+  handleInlineSave: (id: string, field: string, oldValue: string, newValue: string) => Promise<void>;
+  logActivity: (decisionId: string, field: string, oldValue: string | null, newValue: string | null) => void | Promise<void>;
+  createInterruption: ReturnType<typeof useCreateInterruption>;
+  updateDecision: ReturnType<typeof useUpdateDecision>;
+  qc: ReturnType<typeof useQueryClient>;
+}) {
+  const [interruptExpanded, setInterruptExpanded] = useState(false);
+  const [logFormExpanded, setLogFormExpanded] = useState(false);
+  const [logDesc, setLogDesc] = useState("");
+  const [logSource, setLogSource] = useState("ad_hoc");
+  const [logEngineers, setLogEngineers] = useState(0);
+  const [logDays, setLogDays] = useState(0);
+  const [logImpact, setLogImpact] = useState("");
+
+  const { data: interruptions = [] } = useInterruptions(d.id);
+  const capacityAllocated = (d.capacity_allocated ?? 0) as number;
+  const capacityDiverted = (d.capacity_diverted ?? 0) as number;
+  const unplannedInterrupts = (d.unplanned_interrupts ?? 0) as number;
+  const escalationCount = (d.escalation_count ?? 0) as number;
+  const netCapacity = Math.max(0, capacityAllocated - capacityDiverted);
+
+  const netCapacityClass =
+    netCapacity > 60 ? "text-signal-green" : netCapacity > 30 ? "text-signal-amber" : "text-signal-red";
+
+  const handleLogInterruption = async () => {
+    if (!logDesc.trim()) return;
+    try {
+      await createInterruption.mutateAsync({
+        decision_id: d.id,
+        description: logDesc.trim(),
+        source: logSource,
+        engineers_diverted: logEngineers,
+        estimated_days: logDays,
+        impact_note: logImpact.trim() || undefined,
+      });
+      const addDiverted = Math.min(100 - capacityDiverted, Math.round((logEngineers * logDays) / 5));
+      await updateDecision.mutateAsync({
+        id: d.id,
+        unplanned_interrupts: unplannedInterrupts + 1,
+        escalation_count: logSource === "escalation" ? escalationCount + 1 : escalationCount,
+        capacity_diverted: Math.min(100, capacityDiverted + addDiverted),
+      } as any);
+      qc.invalidateQueries({ queryKey: ["decisions"] });
+      setLogFormExpanded(false);
+      setLogDesc("");
+      setLogSource("ad_hoc");
+      setLogEngineers(0);
+      setLogDays(0);
+      setLogImpact("");
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const grayPct = Math.max(0, 100 - capacityAllocated - capacityDiverted);
+
+  return (
+    <div className="mt-3 pt-3 border-t space-y-3">
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Resource Reality</p>
+      <div className="space-y-2">
+        <div className="h-2 rounded-full overflow-hidden flex bg-muted">
+          <div className="bg-signal-green" style={{ width: `${capacityAllocated}%` }} />
+          <div className="bg-signal-red" style={{ width: `${capacityDiverted}%` }} />
+          <div className="bg-muted-foreground/20" style={{ width: `${grayPct}%` }} />
+        </div>
+        <div className="flex gap-4 text-[10px]">
+          <span className="text-signal-green">Allocated: <InlineEdit value={String(capacityAllocated)} field="capacity_allocated" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} inputType="number" />%</span>
+          <span className="text-signal-red">Diverted: <InlineEdit value={String(capacityDiverted)} field="capacity_diverted" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} inputType="number" />%</span>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-4 text-xs">
+        <span>Interrupts: {unplannedInterrupts}</span>
+        <span>Escalations: {escalationCount}</span>
+        <span className={netCapacityClass}>Net Capacity: {netCapacity}%</span>
+      </div>
+      {capacityDiverted > 20 && (
+        <div className="border-l-2 border-signal-red bg-signal-red/5 p-3 rounded-r-md">
+          <p className="text-[12px] text-signal-red font-medium">
+            ⚠ {capacityDiverted}% capacity diverted. Estimated slip: ~{Math.ceil(capacityDiverted / 10)} weeks. Exposure at risk: {d.revenue_at_risk || d.exposure_value || "—"}
+          </p>
+        </div>
+      )}
+      <div className="pt-2">
+        <button
+          onClick={() => setInterruptExpanded(!interruptExpanded)}
+          className="text-[11px] uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+        >
+          Interruptions ({interruptions.length})
+        </button>
+        {interruptExpanded && (
+          <div className="mt-2 space-y-2">
+            {interruptions.length === 0 ? (
+              <p className="text-muted-foreground/50 italic text-xs">No interruptions logged</p>
+            ) : (
+              interruptions.map((i: any) => (
+                <div key={i.id} className="text-xs border rounded p-2 bg-muted/20">
+                  <span className={cn("text-[9px] px-1.5 py-0.5 rounded", SOURCE_COLORS[i.source] ?? "bg-muted")}>
+                    {SOURCE_OPTIONS.find((o) => o.value === i.source)?.label ?? i.source}
+                  </span>
+                  <p className="font-medium mt-1">{i.description}</p>
+                  <p className="text-muted-foreground text-[10px]">{i.engineers_diverted} engineers · {i.estimated_days} days</p>
+                  <p className="text-[10px] text-muted-foreground">{i.created_at ? relativeTime(i.created_at) : ""}</p>
+                </div>
+              ))
+            )}
+            {canWrite && (
+              <>
+                {!logFormExpanded ? (
+                  <button
+                    onClick={() => setLogFormExpanded(true)}
+                    className="text-[11px] font-semibold uppercase tracking-wider text-foreground border border-foreground px-3 py-1 rounded-sm hover:bg-foreground hover:text-background transition-colors"
+                  >
+                    Log Interruption
+                  </button>
+                ) : (
+                  <div className="mt-2 p-3 border rounded bg-muted/30 space-y-2">
+                    <div>
+                      <label className="text-[11px] uppercase tracking-wider text-muted-foreground block mb-1">Description</label>
+                      <input
+                        value={logDesc}
+                        onChange={(e) => setLogDesc(e.target.value)}
+                        placeholder="Required"
+                        className="w-full text-xs border rounded px-2 py-1.5 bg-background"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] uppercase tracking-wider text-muted-foreground block mb-1">Source</label>
+                      <select value={logSource} onChange={(e) => setLogSource(e.target.value)} className="text-xs border rounded px-2 py-1.5 bg-background w-full">
+                        {SOURCE_OPTIONS.map((o) => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[11px] uppercase tracking-wider text-muted-foreground block mb-1">Engineers Diverted</label>
+                        <input type="number" min={0} value={logEngineers} onChange={(e) => setLogEngineers(parseInt(e.target.value, 10) || 0)} className="w-full text-xs border rounded px-2 py-1.5 bg-background" />
+                      </div>
+                      <div>
+                        <label className="text-[11px] uppercase tracking-wider text-muted-foreground block mb-1">Estimated Days</label>
+                        <input type="number" min={0} value={logDays} onChange={(e) => setLogDays(parseInt(e.target.value, 10) || 0)} className="w-full text-xs border rounded px-2 py-1.5 bg-background" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-[11px] uppercase tracking-wider text-muted-foreground block mb-1">Impact Note (optional)</label>
+                      <input value={logImpact} onChange={(e) => setLogImpact(e.target.value)} className="w-full text-xs border rounded px-2 py-1.5 bg-background" />
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button onClick={handleLogInterruption} disabled={!logDesc.trim()} className="text-[11px] font-semibold uppercase tracking-wider px-3 py-1 rounded bg-foreground text-background disabled:opacity-50">
+                        Save
+                      </button>
+                      <button onClick={() => setLogFormExpanded(false)} className="text-xs text-muted-foreground hover:text-foreground">Cancel</button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function DecisionActivityFeed({ decisionId }: { decisionId: string }) {
   const [expanded, setExpanded] = useState(false);
   const { data: activity = [], isLoading } = useDecisionActivity(decisionId);
@@ -190,8 +386,10 @@ export default function Decisions() {
   const { isLoading: risksLoading } = useDecisionRisks();
   const updateDecision = useUpdateDecision();
   const logActivity = useLogActivity();
+  const createInterruption = useCreateInterruption();
   const { currentRole } = useOrg();
   const [showCreate, setShowCreate] = useState(false);
+  const [mode, setMode] = useState<"strategic" | "operational">("strategic");
 
   const canWrite = currentRole === "admin" || currentRole === "pod_lead";
 
@@ -213,7 +411,13 @@ export default function Decisions() {
   };
 
   const handleInlineSave = async (id: string, field: string, oldValue: string, newValue: string) => {
-    const payload: any = { id, [field]: newValue || null };
+    const payload: any = { id };
+    if (field === "capacity_allocated" || field === "capacity_diverted") {
+      const num = newValue ? Math.min(100, Math.max(0, parseInt(newValue, 10) || 0)) : 0;
+      payload[field] = num;
+    } else {
+      payload[field] = newValue || null;
+    }
     if (field === "exposure_value") payload.previous_exposure_value = oldValue || null;
     await updateDecision.mutateAsync(payload);
     qc.invalidateQueries({ queryKey: ["decision_activity", id] });
@@ -226,15 +430,41 @@ export default function Decisions() {
   const atCapacity = activeHighImpact.length >= 5;
   const isEmpty = decisions.length === 0;
 
+  const totalInterrupts = decisions.reduce((s, d) => s + ((d as any).unplanned_interrupts ?? 0), 0);
+  const avgCapacityDiverted = decisions.length
+    ? Math.round(decisions.reduce((s, d) => s + ((d as any).capacity_diverted ?? 0), 0) / decisions.length)
+    : 0;
+  const decisionsAtRisk = decisions.filter((d) => ((d as any).capacity_diverted ?? 0) > 20).length;
+
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-xl font-bold">Decisions</h1>
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-xl font-bold">Bets</h1>
             <span className="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-sm bg-muted text-muted-foreground">
               {activeHighImpact.length}/5 Active{atCapacity ? " · At capacity" : ""}
             </span>
+            <div className="flex rounded-full border border-muted-foreground/30 p-0.5">
+              <button
+                onClick={() => setMode("strategic")}
+                className={cn(
+                  "px-3 py-1 text-[10px] uppercase tracking-widest rounded-full transition-colors",
+                  mode === "strategic" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Strategic
+              </button>
+              <button
+                onClick={() => setMode("operational")}
+                className={cn(
+                  "px-3 py-1 text-[10px] uppercase tracking-widest rounded-full transition-colors",
+                  mode === "operational" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Operational
+              </button>
+            </div>
           </div>
           <p className="text-sm text-muted-foreground mt-1">
             {decisions.length} total · {activeDecisions.length} active
@@ -243,24 +473,35 @@ export default function Decisions() {
         {canWrite && !showCreate && !atCapacity && (
           <button onClick={() => setShowCreate(true)}
             className="text-[11px] font-semibold uppercase tracking-wider text-foreground border border-foreground px-3 py-1.5 rounded-sm hover:bg-foreground hover:text-background transition-colors">
-            + Register Decision
+            + Register Bet
           </button>
         )}
       </div>
+
+      {mode === "operational" && (
+        <div className="bg-muted/30 border rounded-lg p-4 mb-6">
+          <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-3">Operational Reality</p>
+          <div className="flex justify-between text-[13px] font-mono">
+            <span>Total Interrupts: {totalInterrupts}</span>
+            <span>Avg Capacity Diverted: {avgCapacityDiverted}%</span>
+            <span>Bets At Risk: {decisionsAtRisk}</span>
+          </div>
+        </div>
+      )}
 
       {showCreate && <CreateDecisionForm onClose={() => setShowCreate(false)} />}
 
       {isEmpty && !showCreate ? (
         <div className="border border-dashed rounded-md px-6 py-10 text-center">
-          <p className="text-sm font-medium text-muted-foreground">No decisions registered.</p>
-          <p className="text-xs text-muted-foreground/70 mt-1.5">Register first high-impact decision to initiate constraint.</p>
+          <p className="text-sm font-medium text-muted-foreground">No bets registered.</p>
+          <p className="text-xs text-muted-foreground/70 mt-1.5">Register first high-impact bet to initiate constraint.</p>
           <div className="flex justify-center gap-6 mt-4 text-xs text-muted-foreground/50">
             <span>Hard cap: 5</span><span>10-day slice rule</span><span>Outcome required</span><span>Owner required</span>
           </div>
         </div>
       ) : (
         <section className="mb-8">
-          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">All Decisions ({decisions.length})</h2>
+          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">All Bets ({decisions.length})</h2>
           <div className="space-y-2">
             {decisions.map((d) => {
               const isActive = d.status !== "closed";
@@ -369,7 +610,7 @@ export default function Decisions() {
                     <div><span className="text-muted-foreground">Expected Impact</span><div className="font-medium mt-0.5"><InlineEdit value={d.expected_impact ?? ""} field="expected_impact" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} /></div></div>
                   </div>
 
-                  <div className="grid grid-cols-4 gap-4 text-xs mb-3">
+                  <div className="grid grid-cols-5 gap-4 text-xs mb-3">
                     <div><span className="text-muted-foreground">Exposure</span><div className="font-semibold mt-0.5 text-signal-amber">
                       <InlineEdit value={d.exposure_value ?? ""} field="exposure_value" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} />
                       {(() => {
@@ -387,7 +628,20 @@ export default function Decisions() {
                     <div><span className="text-muted-foreground">Current Delta</span><div className="font-semibold mt-0.5 text-signal-amber"><InlineEdit value={d.current_delta ?? ""} field="current_delta" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} /></div></div>
                     <div><span className="text-muted-foreground">Enterprise Exposure</span><div className="font-semibold mt-0.5 text-signal-red"><InlineEdit value={d.revenue_at_risk ?? ""} field="revenue_at_risk" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} /></div></div>
                     <div><span className="text-muted-foreground">Owner</span><div className="font-medium mt-0.5"><InlineEdit value={d.owner ?? ""} field="owner" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} /></div></div>
+                    <div><span className="text-muted-foreground">Capacity</span><div className="font-medium mt-0.5"><InlineEdit value={String((d as any).capacity_allocated ?? 0)} field="capacity_allocated" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} inputType="number" />%</div></div>
                   </div>
+
+                  {mode === "operational" && (
+                    <ResourceRealitySection
+                      decision={d}
+                      canWrite={canWrite}
+                      handleInlineSave={handleInlineSave}
+                      logActivity={logActivity}
+                      createInterruption={createInterruption}
+                      updateDecision={updateDecision}
+                      qc={qc}
+                    />
+                  )}
 
                   {d.blocked_reason && (
                     <div className="mt-3 pt-3 border-t text-xs">

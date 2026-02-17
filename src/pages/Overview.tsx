@@ -24,7 +24,7 @@ const REQUIRED_FIELDS: { key: keyof DecisionComputed; label: string }[] = [
 
 function parseWorkflowErrors(msg: string): string[] {
   const map: Record<string, string> = {
-    HIGH_IMPACT_CAP: "Cannot exceed 5 active high-impact decisions.",
+    HIGH_IMPACT_CAP: "Cannot exceed 5 active high-impact bets.",
     OUTCOME_REQUIRED: "Outcome Target",
     OWNER_REQUIRED: "Owner",
     OUTCOME_CATEGORY_REQUIRED: "Outcome Category",
@@ -100,7 +100,7 @@ function SeededDecisionsList({
             onAuthorityEngaged();
           } else {
             toast.success(
-              `Decision live. Slice clock running. ${slotsRemaining} slot${slotsRemaining !== 1 ? "s" : ""} remaining.`
+              `Bet live. Slice clock running. ${slotsRemaining} slot${slotsRemaining !== 1 ? "s" : ""} remaining.`
             );
           }
         },
@@ -109,7 +109,7 @@ function SeededDecisionsList({
           const errors = parseWorkflowErrors(msg);
 
           if (msg.includes("HIGH_IMPACT_CAP")) {
-            toast.error("Cannot exceed 5 active high-impact decisions.");
+            toast.error("Cannot exceed 5 active high-impact bets.");
             return;
           }
 
@@ -137,7 +137,7 @@ function SeededDecisionsList({
   return (
     <section className="mb-8">
       <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-        Registered Decisions ({activeHighCount}/5)
+        Registered Bets ({activeHighCount}/5)
       </h2>
       <div className="border rounded-md divide-y">
         {highImpact.map((d) => {
@@ -214,7 +214,7 @@ function SeededDecisionsList({
         })}
         {highImpact.length === 0 && (
           <div className="px-4 py-6 text-center">
-            <p className="text-xs text-muted-foreground">No high-impact decisions registered yet.</p>
+            <p className="text-xs text-muted-foreground">No high-impact bets registered yet.</p>
           </div>
         )}
       </div>
@@ -361,13 +361,13 @@ export default function Overview() {
           <>
             <div className="grid grid-cols-4 gap-3 mb-8">
               <MetricCard label="Active High-Impact" value={`${m.active_high_impact}/5`} sub="Authority Mode Inactive" />
-              <MetricCard label="Decision Latency" value="—" sub={`Target: ${latencyTarget}d`} />
+              <MetricCard label="Bet Latency" value="—" sub={`Target: ${latencyTarget}d`} />
               <MetricCard label="Operating Friction" value="—" sub="No active constraints" />
               <MetricCard label="Exec Attention" value="0" sub="No items flagged" />
             </div>
             <div className="border border-dashed rounded-md px-6 py-8 text-center">
               <p className="text-sm font-medium text-muted-foreground">Authority layer not yet activated.</p>
-              <p className="text-xs text-muted-foreground/70 mt-1">Register high-impact decisions to populate executive view.</p>
+              <p className="text-xs text-muted-foreground/70 mt-1">Register high-impact bets to populate executive view.</p>
             </div>
           </>
         ) : (
@@ -381,7 +381,7 @@ export default function Overview() {
                 sub={authorityActive ? "Authority Mode Active" : `${5 - m.active_high_impact} slots open`}
               />
               <MetricCard
-                label="Decision Latency"
+                label="Bet Latency"
                 value={m.total_active ? `${latencyValue}d` : "—"}
                 alert={latencyDelta !== null && latencyDelta > 0}
                 sub={latencyDelta !== null ? `Target: ${latencyTarget}d · Δ ${latencyDelta > 0 ? "+" : ""}${latencyDelta}d` : `Target: ${latencyTarget}d`}
@@ -398,7 +398,7 @@ export default function Overview() {
                 value={execAttentionDecisions.length}
                 alert={execAttentionDecisions.length > 0}
                 danger={execAttentionDecisions.length > 0}
-                sub={execAttentionDecisions.length > 0 ? "Decisions flagged" : "No items flagged"}
+                sub={execAttentionDecisions.length > 0 ? "Bets flagged" : "No items flagged"}
               />
             </div>
 
@@ -450,7 +450,7 @@ export default function Overview() {
 
             <section className="mb-8">
               <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-                Active High-Impact Decisions
+                Active High-Impact Bets
               </h2>
               {sortedActiveHighImpact.length > 0 ? (
                 <div className="border rounded-md divide-y">
@@ -482,7 +482,7 @@ export default function Overview() {
                 </div>
               ) : (
                 <div className="border border-dashed rounded-md px-4 py-6 text-center">
-                  <p className="text-sm text-muted-foreground">No active high-impact decisions.</p>
+                  <p className="text-sm text-muted-foreground">No active high-impact bets.</p>
                 </div>
               )}
             </section>
@@ -490,7 +490,7 @@ export default function Overview() {
             {execAttentionDecisions.length > 0 && (
               <section>
                 <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-                  Decisions Requiring Executive Attention
+                  Bets Requiring Executive Attention
                 </h2>
                 <div className="border border-signal-red/30 rounded-md bg-signal-red/5 divide-y divide-signal-red/10">
                   {execAttentionDecisions.map((d) => {
@@ -543,7 +543,7 @@ export default function Overview() {
               onClick={() => setShowRegister(true)}
               className="text-[11px] font-semibold uppercase tracking-wider text-background bg-foreground px-4 py-2 rounded-sm hover:bg-foreground/90 transition-colors"
             >
-              + Register Decision
+              + Register Bet
             </button>
           </div>
         )}
@@ -627,7 +627,7 @@ export default function Overview() {
       {activeDecisions.length > 0 && (
         <section className="mb-8">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Active Decisions</h2>
+            <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Active Bets</h2>
             <Link to="/decisions" className="text-xs text-muted-foreground hover:text-foreground transition-colors">View all →</Link>
           </div>
           <div className="border rounded-md divide-y">
@@ -712,7 +712,7 @@ export default function Overview() {
           {unlinkedSignals.length > 3 && (
             <div className="mb-3 border border-signal-amber/40 bg-signal-amber/5 rounded-md px-4 py-2">
               <p className="text-xs font-semibold text-signal-amber">
-                {unlinkedSignals.length} signals without decisions — inaction is visible
+                {unlinkedSignals.length} signals without bets — inaction is visible
               </p>
             </div>
           )}

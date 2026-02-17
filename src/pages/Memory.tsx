@@ -21,7 +21,7 @@ export default function Memory() {
       <div className="mb-6">
         <h1 className="text-xl font-bold">Closed Loop Memory</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          {closedDecisions.length} decisions in memory
+          {closedDecisions.length} bets in memory
         </p>
       </div>
 

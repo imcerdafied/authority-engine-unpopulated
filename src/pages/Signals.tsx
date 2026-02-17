@@ -75,14 +75,14 @@ export default function Signals() {
                 {s.solution_domain && <StatusBadge status={s.solution_domain} />}
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground bg-muted px-2 py-0.5 rounded-sm">{s.type}</span>
                 <span className="text-[11px] text-muted-foreground">{daysSince(s.created_at)}d ago · {s.source}</span>
-                {!s.decision_id && <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider ml-auto">Needs Decision</span>}
+                {!s.decision_id && <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider ml-auto">Needs Bet</span>}
                 {s.decision_id && <span className="text-[11px] text-signal-green font-semibold uppercase tracking-wider ml-auto">Linked</span>}
               </div>
               <p className="text-sm">{s.description}</p>
               <div className="flex items-center gap-3 mt-2">
                 {!s.decision_id && (
                   <button className="text-[11px] font-semibold uppercase tracking-wider text-foreground border border-foreground px-2 py-1 rounded-sm hover:bg-foreground hover:text-background transition-colors">
-                    Spawn Decision →
+                    Spawn Bet →
                   </button>
                 )}
                 {canDelete && (
