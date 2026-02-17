@@ -632,7 +632,7 @@ export default function Decisions() {
                     <div><span className="text-muted-foreground">Expected Impact</span><div className="font-medium mt-0.5"><InlineEdit value={d.expected_impact ?? ""} field="expected_impact" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} /></div></div>
                   </div>
 
-                  <div className="grid grid-cols-5 gap-4 text-xs mb-3">
+                  <div className="grid grid-cols-4 gap-4 text-xs mb-3">
                     <div><span className="text-muted-foreground">Exposure</span><div className="font-semibold mt-0.5 text-signal-amber">
                       <InlineEdit value={d.exposure_value ?? ""} field="exposure_value" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} />
                       {(() => {
@@ -650,7 +650,6 @@ export default function Decisions() {
                     <div><span className="text-muted-foreground">Current Delta</span><div className="font-semibold mt-0.5 text-signal-amber"><InlineEdit value={d.current_delta ?? ""} field="current_delta" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} /></div></div>
                     <div><span className="text-muted-foreground">Enterprise Exposure</span><div className="font-semibold mt-0.5 text-signal-red"><InlineEdit value={d.revenue_at_risk ?? ""} field="revenue_at_risk" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} /></div></div>
                     <div><span className="text-muted-foreground">Owner</span><div className="font-medium mt-0.5"><InlineEdit value={d.owner ?? ""} field="owner" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} /></div></div>
-                    <div><span className="text-muted-foreground">Capacity</span><div className="font-medium mt-0.5"><InlineEdit value={String((d as any).capacity_allocated ?? 0)} field="capacity_allocated" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} inputType="number" />%</div></div>
                   </div>
 
                   {mode === "operational" && (
