@@ -1,13 +1,8 @@
 import { ReactNode } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { cn } from "@/lib/utils";
+import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrg } from "@/contexts/OrgContext";
 import logo from "@/assets/logo.png";
-
-const navItems = [
-  { label: "Decisions", path: "/" },
-];
 
 const roleLabels: Record<string, string> = {
   admin: "Admin",
@@ -15,115 +10,56 @@ const roleLabels: Record<string, string> = {
   viewer: "Viewer",
 };
 
+const Sep = () => <span className="text-muted-foreground/30 mx-3">|</span>;
+
 export default function AppLayout({ children }: { children: ReactNode }) {
-  const location = useLocation();
   const { user, signOut } = useAuth();
-  const { currentOrg, currentRole, memberships, setCurrentOrgId } = useOrg();
+  const { currentOrg, currentRole } = useOrg();
 
   return (
-    <div className="flex min-h-screen">
-      {/* Sidebar */}
-      <aside className="w-56 shrink-0 bg-sidebar border-r border-sidebar-border flex flex-col">
-        <div className="px-5 py-6">
-          <div className="flex items-center gap-2.5">
-            <img src={logo} alt="Build Authority" className="w-7 h-7" />
-            <div>
-              <h1 className="text-sm font-bold tracking-widest uppercase text-sidebar-primary leading-tight">
-                Build
-              </h1>
-              <h1 className="text-sm font-bold tracking-widest uppercase text-sidebar-primary leading-tight">
-                Authority
-              </h1>
-            </div>
-          </div>
-          {currentOrg?.name ? (
-            <p className="text-[10px] uppercase tracking-widest text-sidebar-muted mt-1">
-              {currentOrg.name}
-            </p>
-          ) : (
-            <p className="text-[10px] uppercase tracking-widest text-sidebar-muted mt-1">
-              Select Organization
-            </p>
-          )}
+    <div className="min-h-screen flex flex-col">
+      <header className="border-b px-6 py-3 flex items-center justify-between">
+        <div className="flex items-center">
+          <img src={logo} alt="Build Authority" className="w-6 h-6" />
+          <span className="text-xs font-bold tracking-widest uppercase ml-2.5">
+            BUILD AUTHORITY
+          </span>
+          <Sep />
+          <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+            {currentOrg?.name ?? "Organization"}
+          </span>
         </div>
-
-        {/* Org selector */}
-        {memberships.length > 1 && (
-          <div className="px-3 mb-2">
-            <select
-              value={currentOrg?.id || ""}
-              onChange={(e) => setCurrentOrgId(e.target.value)}
-              className="w-full bg-sidebar-accent text-sidebar-accent-foreground text-[11px] rounded-sm px-2 py-1.5 border border-sidebar-border focus:outline-none"
-            >
-              {memberships.map((m) => (
-                <option key={m.org_id} value={m.org_id}>
-                  {m.organization.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        <nav className="flex-1 px-3 space-y-0.5">
-          {navItems.map((item) => {
-            const isActive = location.pathname === item.path;
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={cn(
-                  "block px-3 py-2 text-[13px] font-medium rounded-md transition-colors",
-                  isActive
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                    : "text-sidebar-foreground hover:text-sidebar-primary hover:bg-sidebar-accent/50"
-                )}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
-
-        <div className="px-5 py-4 border-t border-sidebar-border">
-          <p className="text-[10px] text-sidebar-muted uppercase tracking-wider">
-            S1 · Video Insights
-          </p>
-          <p className="text-[10px] text-sidebar-muted uppercase tracking-wider">
-            S2 · DPI Intelligence
-          </p>
-          <p className="text-[10px] text-sidebar-muted uppercase tracking-wider">
-            S3 · Agent Outcomes
-          </p>
-        </div>
-
-        {/* User info */}
-        <div className="px-5 py-3 border-t border-sidebar-border">
-          <p className="text-[10px] text-sidebar-muted truncate">
-            {user?.email}
-          </p>
-          {currentRole && (
-            <p className="text-[10px] text-sidebar-muted font-semibold uppercase tracking-wider mt-0.5">
-              {roleLabels[currentRole] || currentRole}
-            </p>
-          )}
+        <div className="flex items-center gap-4">
           <Link
             to="/team"
-            className="block text-[10px] text-sidebar-muted hover:text-sidebar-primary uppercase tracking-wider transition-colors mb-1 mt-1"
+            className="text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
           >
             Team
           </Link>
+          <Sep />
+          <span className="text-[10px] text-muted-foreground truncate max-w-[180px]">
+            {user?.email}
+          </span>
+          {currentRole && (
+            <>
+              <Sep />
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {roleLabels[currentRole] || currentRole}
+              </span>
+            </>
+          )}
+          <Sep />
           <button
             onClick={signOut}
-            className="text-[10px] text-sidebar-muted hover:text-sidebar-primary uppercase tracking-wider transition-colors"
+            className="text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
           >
             Sign Out
           </button>
         </div>
-      </aside>
+      </header>
 
-      {/* Main content */}
       <main className="flex-1 overflow-auto">
-        <div className="max-w-5xl mx-auto px-8 py-8">
+        <div className="max-w-6xl mx-auto px-8 py-8 w-full">
           {children}
         </div>
       </main>
