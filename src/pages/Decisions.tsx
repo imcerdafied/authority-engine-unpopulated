@@ -174,40 +174,30 @@ function nudgeMailto(betTitle: string, days: number, owner: string, exposure: st
   return `mailto:?subject=${subject}&body=${body}`;
 }
 
-function ResourceRealitySection({
+function LogInterruptionForm({
   decision: d,
   canWrite,
-  handleInlineSave,
-  logActivity,
   createInterruption,
   updateDecision,
   qc,
+  onClose,
 }: {
   decision: any;
   canWrite: boolean;
-  handleInlineSave: (id: string, field: string, oldValue: string, newValue: string) => Promise<void>;
-  logActivity: (decisionId: string, field: string, oldValue: string | null, newValue: string | null) => void | Promise<void>;
   createInterruption: ReturnType<typeof useCreateInterruption>;
   updateDecision: ReturnType<typeof useUpdateDecision>;
   qc: ReturnType<typeof useQueryClient>;
+  onClose: () => void;
 }) {
-  const [interruptExpanded, setInterruptExpanded] = useState(false);
-  const [logFormExpanded, setLogFormExpanded] = useState(false);
   const [logDesc, setLogDesc] = useState("");
   const [logSource, setLogSource] = useState("ad_hoc");
   const [logEngineers, setLogEngineers] = useState(0);
   const [logDays, setLogDays] = useState(0);
   const [logImpact, setLogImpact] = useState("");
 
-  const { data: interruptions = [] } = useInterruptions(d.id);
-  const capacityAllocated = (d.capacity_allocated ?? 0) as number;
   const capacityDiverted = (d.capacity_diverted ?? 0) as number;
   const unplannedInterrupts = (d.unplanned_interrupts ?? 0) as number;
   const escalationCount = (d.escalation_count ?? 0) as number;
-  const netCapacity = Math.max(0, capacityAllocated - capacityDiverted);
-
-  const netCapacityClass =
-    netCapacity > 60 ? "text-signal-green" : netCapacity > 30 ? "text-signal-amber" : "text-signal-red";
 
   const handleLogInterruption = async () => {
     if (!logDesc.trim()) return;
@@ -228,21 +218,104 @@ function ResourceRealitySection({
         capacity_diverted: Math.min(100, capacityDiverted + addDiverted),
       } as any);
       qc.invalidateQueries({ queryKey: ["decisions"] });
-      setLogFormExpanded(false);
-      setLogDesc("");
-      setLogSource("ad_hoc");
-      setLogEngineers(0);
-      setLogDays(0);
-      setLogImpact("");
+      onClose();
     } catch (e) {
       console.error(e);
     }
   };
 
-  const grayPct = Math.max(0, 100 - capacityAllocated - capacityDiverted);
+  if (!canWrite) return null;
 
   return (
-    <div className="mt-3 pt-3 border-t space-y-3">
+    <div className="mt-2 p-3 border rounded bg-muted/30 space-y-2">
+      <div>
+        <label className="text-[11px] uppercase tracking-wider text-muted-foreground block mb-1">Description</label>
+        <input
+          value={logDesc}
+          onChange={(e) => setLogDesc(e.target.value)}
+          placeholder="Required"
+          className="w-full text-xs border rounded px-2 py-1.5 bg-background"
+        />
+      </div>
+      <div>
+        <label className="text-[11px] uppercase tracking-wider text-muted-foreground block mb-1">Source</label>
+        <select value={logSource} onChange={(e) => setLogSource(e.target.value)} className="text-xs border rounded px-2 py-1.5 bg-background w-full">
+          {SOURCE_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="text-[11px] uppercase tracking-wider text-muted-foreground block mb-1">Engineers Diverted</label>
+          <input type="number" min={0} value={logEngineers} onChange={(e) => setLogEngineers(parseInt(e.target.value, 10) || 0)} className="w-full text-xs border rounded px-2 py-1.5 bg-background" />
+        </div>
+        <div>
+          <label className="text-[11px] uppercase tracking-wider text-muted-foreground block mb-1">Estimated Days</label>
+          <input type="number" min={0} value={logDays} onChange={(e) => setLogDays(parseInt(e.target.value, 10) || 0)} className="w-full text-xs border rounded px-2 py-1.5 bg-background" />
+        </div>
+      </div>
+      <div>
+        <label className="text-[11px] uppercase tracking-wider text-muted-foreground block mb-1">Impact Note (optional)</label>
+        <input value={logImpact} onChange={(e) => setLogImpact(e.target.value)} className="w-full text-xs border rounded px-2 py-1.5 bg-background" />
+      </div>
+      <div className="flex items-center gap-3">
+        <button onClick={handleLogInterruption} disabled={!logDesc.trim()} className="text-[11px] font-semibold uppercase tracking-wider px-3 py-1 rounded bg-foreground text-background disabled:opacity-50">
+          Save
+        </button>
+        <button onClick={onClose} className="text-xs text-muted-foreground hover:text-foreground">Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+function ResourceRealitySection({
+  decision: d,
+  canWrite,
+  handleInlineSave,
+  logActivity,
+  createInterruption,
+  updateDecision,
+  qc,
+  logFormExpanded,
+  setLogFormExpanded,
+}: {
+  decision: any;
+  canWrite: boolean;
+  handleInlineSave: (id: string, field: string, oldValue: string, newValue: string) => Promise<void>;
+  logActivity: (decisionId: string, field: string, oldValue: string | null, newValue: string | null) => void | Promise<void>;
+  createInterruption: ReturnType<typeof useCreateInterruption>;
+  updateDecision: ReturnType<typeof useUpdateDecision>;
+  qc: ReturnType<typeof useQueryClient>;
+  logFormExpanded: boolean;
+  setLogFormExpanded: (v: boolean) => void;
+}) {
+  const [interruptExpanded, setInterruptExpanded] = useState(false);
+
+  const { data: interruptions = [] } = useInterruptions(d.id);
+  const capacityAllocated = (d.capacity_allocated ?? 0) as number;
+  const capacityDiverted = (d.capacity_diverted ?? 0) as number;
+  const unplannedInterrupts = (d.unplanned_interrupts ?? 0) as number;
+  const escalationCount = (d.escalation_count ?? 0) as number;
+  const netCapacity = Math.max(0, capacityAllocated - capacityDiverted);
+
+  const hasContent = capacityDiverted > 0 || unplannedInterrupts > 0 || interruptions.length > 0;
+  if (!hasContent) return null;
+
+  const netCapacityClass =
+    netCapacity > 60 ? "text-signal-green" : netCapacity > 30 ? "text-signal-amber" : "text-signal-red";
+
+  const grayPct = Math.max(0, 100 - capacityAllocated - capacityDiverted);
+
+  const wrapperClass =
+    capacityDiverted > 20
+      ? "border-l-4 border-signal-red bg-signal-red/5 p-3 rounded-r-md"
+      : capacityDiverted >= 1
+      ? "border-l-4 border-signal-amber bg-signal-amber/5 p-3 rounded-r-md"
+      : "border-l-4 border-muted bg-muted/20 p-3 rounded-r-md";
+
+  return (
+    <div className={cn("mt-3 space-y-3", wrapperClass)}>
       <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Resource Reality</p>
       <div className="space-y-2">
         <div className="h-2 rounded-full overflow-hidden flex bg-muted">
@@ -300,45 +373,14 @@ function ResourceRealitySection({
                     Log Interruption
                   </button>
                 ) : (
-                  <div className="mt-2 p-3 border rounded bg-muted/30 space-y-2">
-                    <div>
-                      <label className="text-[11px] uppercase tracking-wider text-muted-foreground block mb-1">Description</label>
-                      <input
-                        value={logDesc}
-                        onChange={(e) => setLogDesc(e.target.value)}
-                        placeholder="Required"
-                        className="w-full text-xs border rounded px-2 py-1.5 bg-background"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[11px] uppercase tracking-wider text-muted-foreground block mb-1">Source</label>
-                      <select value={logSource} onChange={(e) => setLogSource(e.target.value)} className="text-xs border rounded px-2 py-1.5 bg-background w-full">
-                        {SOURCE_OPTIONS.map((o) => (
-                          <option key={o.value} value={o.value}>{o.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-[11px] uppercase tracking-wider text-muted-foreground block mb-1">Engineers Diverted</label>
-                        <input type="number" min={0} value={logEngineers} onChange={(e) => setLogEngineers(parseInt(e.target.value, 10) || 0)} className="w-full text-xs border rounded px-2 py-1.5 bg-background" />
-                      </div>
-                      <div>
-                        <label className="text-[11px] uppercase tracking-wider text-muted-foreground block mb-1">Estimated Days</label>
-                        <input type="number" min={0} value={logDays} onChange={(e) => setLogDays(parseInt(e.target.value, 10) || 0)} className="w-full text-xs border rounded px-2 py-1.5 bg-background" />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-[11px] uppercase tracking-wider text-muted-foreground block mb-1">Impact Note (optional)</label>
-                      <input value={logImpact} onChange={(e) => setLogImpact(e.target.value)} className="w-full text-xs border rounded px-2 py-1.5 bg-background" />
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <button onClick={handleLogInterruption} disabled={!logDesc.trim()} className="text-[11px] font-semibold uppercase tracking-wider px-3 py-1 rounded bg-foreground text-background disabled:opacity-50">
-                        Save
-                      </button>
-                      <button onClick={() => setLogFormExpanded(false)} className="text-xs text-muted-foreground hover:text-foreground">Cancel</button>
-                    </div>
-                  </div>
+                  <LogInterruptionForm
+                    decision={d}
+                    canWrite={canWrite}
+                    createInterruption={createInterruption}
+                    updateDecision={updateDecision}
+                    qc={qc}
+                    onClose={() => setLogFormExpanded(false)}
+                  />
                 )}
               </>
             )}
@@ -349,18 +391,36 @@ function ResourceRealitySection({
   );
 }
 
-function DecisionActivityFeed({ decisionId }: { decisionId: string }) {
+function DecisionActivityFeed({
+  decisionId,
+  logInterruptionOnClick,
+  canWrite,
+}: {
+  decisionId: string;
+  logInterruptionOnClick?: () => void;
+  canWrite?: boolean;
+}) {
   const [expanded, setExpanded] = useState(false);
   const { data: activity = [], isLoading } = useDecisionActivity(decisionId);
 
   return (
     <div className="mt-3 pt-3 border-t">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="text-[11px] uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-      >
-        Activity ({activity.length})
-      </button>
+      <div className="flex items-center gap-3 flex-wrap">
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="text-[11px] uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+        >
+          Activity ({activity.length})
+        </button>
+        {canWrite && logInterruptionOnClick && (
+          <button
+            onClick={logInterruptionOnClick}
+            className="text-[11px] uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Log Interruption
+          </button>
+        )}
+      </div>
       {expanded && (
         <div className="mt-2 space-y-2 text-xs">
           {isLoading ? (
@@ -388,6 +448,229 @@ function DecisionActivityFeed({ decisionId }: { decisionId: string }) {
   );
 }
 
+function BetCard({
+  d,
+  canWrite,
+  handleInlineSave,
+  logActivity,
+  createInterruption,
+  updateDecision,
+  qc,
+  statusOptions,
+  pendingStatus,
+  setPendingStatus,
+  statusNote,
+  setStatusNote,
+  handleStatusConfirm,
+}: {
+  d: any;
+  canWrite: boolean;
+  handleInlineSave: (id: string, field: string, oldValue: string, newValue: string) => Promise<void>;
+  logActivity: (decisionId: string, field: string, oldValue: string | null, newValue: string | null) => void | Promise<void>;
+  createInterruption: ReturnType<typeof useCreateInterruption>;
+  updateDecision: ReturnType<typeof useUpdateDecision>;
+  qc: ReturnType<typeof useQueryClient>;
+  statusOptions: readonly string[];
+  pendingStatus: { decisionId: string; newStatus: string; oldStatus: string } | null;
+  setPendingStatus: (v: { decisionId: string; newStatus: string; oldStatus: string } | null) => void;
+  statusNote: string;
+  setStatusNote: (v: string) => void;
+  handleStatusConfirm: () => void;
+}) {
+  const [logFormExpanded, setLogFormExpanded] = useState(false);
+  const { data: interruptions = [] } = useInterruptions(d.id);
+
+  const capacityDiverted = (d.capacity_diverted ?? 0) as number;
+  const unplannedInterrupts = (d.unplanned_interrupts ?? 0) as number;
+  const hasResourceReality = capacityDiverted > 0 || unplannedInterrupts > 0 || interruptions.length > 0;
+
+  const isActive = d.status !== "closed";
+
+  return (
+    <div key={d.id} className={cn("border rounded-md p-4 md:p-6", d.is_exceeded ? "border-signal-red/40 bg-signal-red/5" : d.is_aging ? "border-signal-amber/40" : "")}>
+      <div className="flex items-start justify-between gap-2 mb-2 flex-wrap">
+        <div className="flex items-start gap-2 flex-wrap">
+          <StatusBadge status={d.solution_domain} />
+          {d.is_aging && <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider">Aging</span>}
+          {d.is_unbound && <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider">Unbound — no authority</span>}
+          {d.needs_exec_attention && <span className="text-[11px] font-semibold text-signal-red uppercase tracking-wider">Executive Attention Required</span>}
+        </div>
+        {(() => {
+          const s = staleness(d.updated_at);
+          const showNudge = s.isAmber || s.isRed;
+          return (
+            <div className="flex items-center gap-2 shrink-0">
+              <span className={cn("text-[10px] flex items-center gap-1.5", s.textClass, s.pulse && "font-semibold")}>
+                <span className={cn("w-1.5 h-1.5 rounded-full inline-block", s.dotClass, s.pulse && "animate-pulse")} />
+                {s.label}
+              </span>
+              {showNudge && (
+                <a
+                  href={nudgeMailto(d.title ?? "Untitled", s.days, d.owner ?? "", d.exposure_value ?? d.revenue_at_risk ?? "—")}
+                  className={cn(
+                    "text-[10px] uppercase tracking-wider px-2 py-0.5 border rounded transition-colors",
+                    s.isRed ? "border-signal-red text-signal-red hover:bg-signal-red/10" : "border-signal-amber text-signal-amber hover:bg-signal-amber/10"
+                  )}
+                >
+                  Nudge
+                </a>
+              )}
+            </div>
+          );
+        })()}
+      </div>
+
+      <div className="mb-1">
+        <InlineEdit
+          value={d.title ?? ""}
+          field="title"
+          decisionId={d.id}
+          canEdit={canWrite}
+          onSave={handleInlineSave}
+          logActivity={logActivity}
+          variant="title"
+          placeholder="Untitled"
+        />
+      </div>
+      <div className="mb-3">
+        <InlineEdit
+          value={d.trigger_signal ?? ""}
+          field="trigger_signal"
+          decisionId={d.id}
+          canEdit={canWrite}
+          onSave={handleInlineSave}
+          logActivity={logActivity}
+          className="text-xs text-muted-foreground block"
+          placeholder="Add trigger signal…"
+        />
+      </div>
+
+      {canWrite && (
+        <div className="mb-3">
+          <span className="text-muted-foreground text-xs">Status</span>
+          <div className="mt-0.5">
+            <select
+              value={pendingStatus?.decisionId === d.id ? pendingStatus.newStatus : (d.status === "active" ? "piloting" : d.status)}
+              onChange={(e) => {
+                const newStatus = e.target.value;
+                const oldStatus = d.status === "active" ? "piloting" : d.status;
+                if (newStatus === oldStatus) {
+                  setPendingStatus(null);
+                  return;
+                }
+                setPendingStatus({ decisionId: d.id, newStatus, oldStatus: d.status });
+                setStatusNote("");
+              }}
+              className="text-xs border rounded px-2 py-1 bg-background min-h-[44px] w-full"
+            >
+              {statusOptions.map((s) => (
+                <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1).replace("_", " ")}</option>
+              ))}
+            </select>
+            {pendingStatus?.decisionId === d.id && (
+              <div className="mt-2 p-2 border rounded bg-muted/30">
+                <label className="text-[11px] uppercase tracking-wider text-muted-foreground block mb-1">What changed? What&apos;s the evidence?</label>
+                <textarea
+                  rows={2}
+                  placeholder="Required: reason for state change"
+                  value={statusNote}
+                  onChange={(e) => setStatusNote(e.target.value)}
+                  className="w-full text-xs border rounded px-2 py-1.5 bg-background"
+                />
+                <div className="mt-2 flex items-center gap-3">
+                  <button
+                    onClick={handleStatusConfirm}
+                    disabled={!statusNote.trim()}
+                    className="text-[11px] font-semibold uppercase tracking-wider px-3 py-1 rounded bg-foreground text-background disabled:opacity-50"
+                  >
+                    Confirm
+                  </button>
+                  <button onClick={() => setPendingStatus(null)} className="text-xs text-muted-foreground hover:text-foreground">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4 text-xs mb-3">
+        <div><span className="text-muted-foreground">Surface</span><p className="font-medium mt-0.5">{d.surface}</p></div>
+        <div><span className="text-muted-foreground">Outcome Target</span><div className="font-medium mt-0.5"><InlineEdit value={d.outcome_target ?? ""} field="outcome_target" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" /></div></div>
+        {(d.outcome_category_key || d.outcome_category) && (
+          <div><span className="text-muted-foreground">Category</span><p className="font-medium mt-0.5">{categoryLabels[(d.outcome_category_key ?? d.outcome_category) as string] ?? (d.outcome_category_key ?? d.outcome_category)}</p></div>
+        )}
+        <div><span className="text-muted-foreground">Expected Impact</span><div className="font-medium mt-0.5"><InlineEdit value={d.expected_impact ?? ""} field="expected_impact" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" /></div></div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 text-xs mb-3">
+        <div><span className="text-muted-foreground">Exposure</span><div className="font-semibold mt-0.5 text-signal-amber">
+          <InlineEdit value={d.exposure_value ?? ""} field="exposure_value" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" />
+          {(() => {
+            const prev = (d as any).previous_exposure_value;
+            const curr = d.exposure_value ?? "";
+            if (!prev || prev === curr) return null;
+            const increased = String(curr).localeCompare(String(prev), undefined, { numeric: true }) > 0;
+            return (
+              <span className={cn("text-[10px] ml-1", increased ? "text-signal-red" : "text-signal-green")}>
+                {increased ? `↑ from ${prev}` : `↓ from ${prev}`}
+              </span>
+            );
+          })()}
+        </div></div>
+        <div><span className="text-muted-foreground">Enterprise Exposure</span><div className="font-semibold mt-0.5 text-signal-red"><InlineEdit value={d.revenue_at_risk ?? ""} field="revenue_at_risk" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" /></div></div>
+        <div><span className="text-muted-foreground">Owner</span><div className="font-medium mt-0.5"><InlineEdit value={d.owner ?? ""} field="owner" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" /></div></div>
+      </div>
+
+      {hasResourceReality && (
+        <ResourceRealitySection
+          decision={d}
+          canWrite={canWrite}
+          handleInlineSave={handleInlineSave}
+          logActivity={logActivity}
+          createInterruption={createInterruption}
+          updateDecision={updateDecision}
+          qc={qc}
+          logFormExpanded={logFormExpanded}
+          setLogFormExpanded={setLogFormExpanded}
+        />
+      )}
+
+      {!hasResourceReality && canWrite && logFormExpanded && (
+        <div className="mt-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Log Interruption</p>
+          <LogInterruptionForm
+            decision={d}
+            canWrite={canWrite}
+            createInterruption={createInterruption}
+            updateDecision={updateDecision}
+            qc={qc}
+            onClose={() => setLogFormExpanded(false)}
+          />
+        </div>
+      )}
+
+      {d.blocked_reason && (
+        <div className="mt-3 pt-3 border-t text-xs">
+          <p className="text-muted-foreground">Blocked: {d.blocked_reason}</p>
+          {d.blocked_dependency_owner && <p className="text-muted-foreground mt-0.5">Dependency: {d.blocked_dependency_owner}</p>}
+        </div>
+      )}
+
+      {isActive && (
+        <ProjectionPanel decision={d} />
+      )}
+
+      <DecisionActivityFeed
+        decisionId={d.id}
+        logInterruptionOnClick={() => setLogFormExpanded(true)}
+        canWrite={canWrite}
+      />
+    </div>
+  );
+}
+
 export default function Decisions() {
   const qc = useQueryClient();
   const { data: decisions = [], isLoading: decisionsLoading } = useDecisions();
@@ -397,7 +680,6 @@ export default function Decisions() {
   const createInterruption = useCreateInterruption();
   const { currentRole } = useOrg();
   const [showCreate, setShowCreate] = useState(false);
-  const [mode, setMode] = useState<"strategic" | "operational">("strategic");
 
   const canWrite = currentRole === "admin" || currentRole === "pod_lead" || currentRole === "viewer";
 
@@ -438,42 +720,14 @@ export default function Decisions() {
   const atCapacity = activeHighImpact.length >= 5;
   const isEmpty = decisions.length === 0;
 
-  const totalInterrupts = decisions.reduce((s, d) => s + ((d as any).unplanned_interrupts ?? 0), 0);
-  const avgCapacityDiverted = decisions.length
-    ? Math.round(decisions.reduce((s, d) => s + ((d as any).capacity_diverted ?? 0), 0) / decisions.length)
-    : 0;
-  const decisionsAtRisk = decisions.filter((d) => ((d as any).capacity_diverted ?? 0) > 20).length;
-
   return (
     <div>
       <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="flex flex-col md:flex-row md:items-center gap-3">
           <h1 className="text-xl font-bold">Bets</h1>
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-            <span className="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-sm bg-muted text-muted-foreground w-fit">
-              {activeHighImpact.length}/5 Active{atCapacity ? " · At capacity" : ""}
-            </span>
-            <div className="flex rounded-full border border-muted-foreground/30 p-0.5 w-fit">
-              <button
-                onClick={() => setMode("strategic")}
-                className={cn(
-                  "px-3 py-1 text-[10px] uppercase tracking-widest rounded-full transition-colors min-h-[44px] sm:min-h-0",
-                  mode === "strategic" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                Strategic
-              </button>
-              <button
-                onClick={() => setMode("operational")}
-                className={cn(
-                  "px-3 py-1 text-[10px] uppercase tracking-widest rounded-full transition-colors min-h-[44px] sm:min-h-0",
-                  mode === "operational" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                Operational
-              </button>
-            </div>
-          </div>
+          <span className="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-sm bg-muted text-muted-foreground w-fit">
+            {activeHighImpact.length}/5 Active{atCapacity ? " · At capacity" : ""}
+          </span>
           <p className="text-sm text-muted-foreground">
             {decisions.length} total · {activeDecisions.length} active
           </p>
@@ -485,17 +739,6 @@ export default function Decisions() {
           </button>
         )}
       </div>
-
-      {mode === "operational" && (
-        <div className="bg-muted/30 border rounded-lg p-4 mb-6">
-          <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-3">Operational Reality</p>
-          <div className="flex justify-between text-[13px] font-mono">
-            <span>Total Interrupts: {totalInterrupts}</span>
-            <span>Avg Capacity Diverted: {avgCapacityDiverted}%</span>
-            <span>Bets At Risk: {decisionsAtRisk}</span>
-          </div>
-        </div>
-      )}
 
       {showCreate && <CreateDecisionForm onClose={() => setShowCreate(false)} />}
 
@@ -511,173 +754,24 @@ export default function Decisions() {
         <section className="mb-8">
           <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">All Bets ({decisions.length})</h2>
           <div className="space-y-2">
-            {decisions.map((d) => {
-              const isActive = d.status !== "closed";
-
-              return (
-                <div key={d.id} className={cn("border rounded-md p-4 md:p-6", d.is_exceeded ? "border-signal-red/40 bg-signal-red/5" : d.is_aging ? "border-signal-amber/40" : "")}>
-                  <div className="flex items-start justify-between gap-2 mb-2 flex-wrap">
-                    <div className="flex items-start gap-2 flex-wrap">
-                      <StatusBadge status={d.solution_domain} />
-                      {d.is_aging && <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider">Aging</span>}
-                      {d.is_unbound && <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider">Unbound — no authority</span>}
-                      {d.needs_exec_attention && <span className="text-[11px] font-semibold text-signal-red uppercase tracking-wider">Executive Attention Required</span>}
-                    </div>
-                    {(() => {
-                      const s = staleness(d.updated_at);
-                      const showNudge = s.isAmber || s.isRed;
-                      return (
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className={cn("text-[10px] flex items-center gap-1.5", s.textClass, s.pulse && "font-semibold")}>
-                            <span className={cn("w-1.5 h-1.5 rounded-full inline-block", s.dotClass, s.pulse && "animate-pulse")} />
-                            {s.label}
-                          </span>
-                          {showNudge && (
-                            <a
-                              href={nudgeMailto(d.title ?? "Untitled", s.days, d.owner ?? "", d.exposure_value ?? d.revenue_at_risk ?? "—")}
-                              className={cn(
-                                "text-[10px] uppercase tracking-wider px-2 py-0.5 border rounded transition-colors",
-                                s.isRed ? "border-signal-red text-signal-red hover:bg-signal-red/10" : "border-signal-amber text-signal-amber hover:bg-signal-amber/10"
-                              )}
-                            >
-                              Nudge
-                            </a>
-                          )}
-                        </div>
-                      );
-                    })()}
-                  </div>
-
-                  <div className="mb-1">
-                    <InlineEdit
-                      value={d.title ?? ""}
-                      field="title"
-                      decisionId={d.id}
-                      canEdit={canWrite}
-                      onSave={handleInlineSave}
-                      logActivity={logActivity}
-                      variant="title"
-                      placeholder="Untitled"
-                    />
-                  </div>
-                  <div className="mb-3">
-                    <InlineEdit
-                      value={d.trigger_signal ?? ""}
-                      field="trigger_signal"
-                      decisionId={d.id}
-                      canEdit={canWrite}
-                      onSave={handleInlineSave}
-                      logActivity={logActivity}
-                      className="text-xs text-muted-foreground block"
-                      placeholder="Add trigger signal…"
-                    />
-                  </div>
-
-                  {canWrite && (
-                    <div className="mb-3">
-                      <span className="text-muted-foreground text-xs">Status</span>
-                      <div className="mt-0.5">
-                        <select
-                          value={pendingStatus?.decisionId === d.id ? pendingStatus.newStatus : (d.status === "active" ? "piloting" : d.status)}
-                          onChange={(e) => {
-                            const newStatus = e.target.value;
-                            const oldStatus = d.status === "active" ? "piloting" : d.status;
-                            if (newStatus === oldStatus) {
-                              setPendingStatus(null);
-                              return;
-                            }
-                            setPendingStatus({ decisionId: d.id, newStatus, oldStatus: d.status });
-                            setStatusNote("");
-                          }}
-                          className="text-xs border rounded px-2 py-1 bg-background min-h-[44px] w-full"
-                        >
-                          {statusOptions.map((s) => (
-                            <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1).replace("_", " ")}</option>
-                          ))}
-                        </select>
-                        {pendingStatus?.decisionId === d.id && (
-                          <div className="mt-2 p-2 border rounded bg-muted/30">
-                            <label className="text-[11px] uppercase tracking-wider text-muted-foreground block mb-1">What changed? What&apos;s the evidence?</label>
-                            <textarea
-                              rows={2}
-                              placeholder="Required: reason for state change"
-                              value={statusNote}
-                              onChange={(e) => setStatusNote(e.target.value)}
-                              className="w-full text-xs border rounded px-2 py-1.5 bg-background"
-                            />
-                            <div className="mt-2 flex items-center gap-3">
-                              <button
-                                onClick={handleStatusConfirm}
-                                disabled={!statusNote.trim()}
-                                className="text-[11px] font-semibold uppercase tracking-wider px-3 py-1 rounded bg-foreground text-background disabled:opacity-50"
-                              >
-                                Confirm
-                              </button>
-                              <button onClick={() => setPendingStatus(null)} className="text-xs text-muted-foreground hover:text-foreground">
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4 text-xs mb-3">
-                    <div><span className="text-muted-foreground">Surface</span><p className="font-medium mt-0.5">{d.surface}</p></div>
-                    <div><span className="text-muted-foreground">Outcome Target</span><div className="font-medium mt-0.5"><InlineEdit value={d.outcome_target ?? ""} field="outcome_target" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" /></div></div>
-                    {(d.outcome_category_key || d.outcome_category) && (
-                      <div><span className="text-muted-foreground">Category</span><p className="font-medium mt-0.5">{categoryLabels[(d.outcome_category_key ?? d.outcome_category) as string] ?? (d.outcome_category_key ?? d.outcome_category)}</p></div>
-                    )}
-                    <div><span className="text-muted-foreground">Expected Impact</span><div className="font-medium mt-0.5"><InlineEdit value={d.expected_impact ?? ""} field="expected_impact" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" /></div></div>
-                  </div>
-
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 text-xs mb-3">
-                    <div><span className="text-muted-foreground">Exposure</span><div className="font-semibold mt-0.5 text-signal-amber">
-                      <InlineEdit value={d.exposure_value ?? ""} field="exposure_value" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" />
-                      {(() => {
-                        const prev = (d as any).previous_exposure_value;
-                        const curr = d.exposure_value ?? "";
-                        if (!prev || prev === curr) return null;
-                        const increased = String(curr).localeCompare(String(prev), undefined, { numeric: true }) > 0;
-                        return (
-                          <span className={cn("text-[10px] ml-1", increased ? "text-signal-red" : "text-signal-green")}>
-                            {increased ? `↑ from ${prev}` : `↓ from ${prev}`}
-                          </span>
-                        );
-                      })()}
-                    </div></div>
-                    <div><span className="text-muted-foreground">Enterprise Exposure</span><div className="font-semibold mt-0.5 text-signal-red"><InlineEdit value={d.revenue_at_risk ?? ""} field="revenue_at_risk" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" /></div></div>
-                    <div><span className="text-muted-foreground">Owner</span><div className="font-medium mt-0.5"><InlineEdit value={d.owner ?? ""} field="owner" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" /></div></div>
-                  </div>
-
-                  {mode === "operational" && (
-                    <ResourceRealitySection
-                      decision={d}
-                      canWrite={canWrite}
-                      handleInlineSave={handleInlineSave}
-                      logActivity={logActivity}
-                      createInterruption={createInterruption}
-                      updateDecision={updateDecision}
-                      qc={qc}
-                    />
-                  )}
-
-                  {d.blocked_reason && (
-                    <div className="mt-3 pt-3 border-t text-xs">
-                      <p className="text-muted-foreground">Blocked: {d.blocked_reason}</p>
-                      {d.blocked_dependency_owner && <p className="text-muted-foreground mt-0.5">Dependency: {d.blocked_dependency_owner}</p>}
-                    </div>
-                  )}
-
-                  {isActive && (
-                    <ProjectionPanel decision={d} />
-                  )}
-
-                  <DecisionActivityFeed decisionId={d.id} />
-                </div>
-              );
-            })}
+            {decisions.map((d) => (
+              <BetCard
+                key={d.id}
+                d={d}
+                canWrite={canWrite}
+                handleInlineSave={handleInlineSave}
+                logActivity={logActivity}
+                createInterruption={createInterruption}
+                updateDecision={updateDecision}
+                qc={qc}
+                statusOptions={statusOptions}
+                pendingStatus={pendingStatus}
+                setPendingStatus={setPendingStatus}
+                statusNote={statusNote}
+                setStatusNote={setStatusNote}
+                handleStatusConfirm={handleStatusConfirm}
+              />
+            ))}
           </div>
         </section>
       )}
