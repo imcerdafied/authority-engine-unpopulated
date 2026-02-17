@@ -37,9 +37,20 @@ function ConfidenceDot({ level }: { level: string }) {
   );
 }
 
-export default function ProjectionPanel({ decision }: { decision: DecisionComputed }) {
+export default function ProjectionPanel({
+  decision,
+  canWrite,
+  qc,
+  onPodGenerated,
+}: {
+  decision: DecisionComputed;
+  canWrite?: boolean;
+  qc?: { invalidateQueries: (opts: { queryKey: string[] }) => void };
+  onPodGenerated?: () => void;
+}) {
   const [projection, setProjection] = useState<ProjectionData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [podLoading, setPodLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadingExisting, setLoadingExisting] = useState(true);
 
@@ -135,17 +146,41 @@ export default function ProjectionPanel({ decision }: { decision: DecisionComput
     }
   };
 
+  const hasPod = !!(decision as any).pod_configuration;
+
+  const handleGeneratePod = async () => {
+    if (!canWrite || !qc) return;
+    setPodLoading(true);
+    try {
+      const { data, error: invokeErr } = await supabase.functions.invoke("generate-pod", {
+        body: { bet: decision },
+      });
+      if (invokeErr) throw invokeErr;
+      if (data?.pod) {
+        await supabase.from("decisions").update({ pod_configuration: data.pod } as any).eq("id", decision.id);
+        qc.invalidateQueries({ queryKey: ["decisions"] });
+        onPodGenerated?.();
+      } else {
+        throw new Error("No pod config returned");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to generate pod.");
+    } finally {
+      setPodLoading(false);
+    }
+  };
+
   const labelClass = "text-[11px] font-semibold uppercase tracking-wider text-muted-foreground";
 
   return (
     <div className="mt-4 pt-4 border-t">
-      <div className="flex justify-end mb-1">
+      <div className="flex justify-end gap-2 mb-1 flex-wrap">
         {loadingExisting ? null : canGenerate ? (
           <button
             disabled={loading}
             onClick={handleGenerate}
             className={cn(
-              "text-[11px] font-semibold uppercase tracking-wider px-3 py-1.5 rounded-sm border transition-colors",
+              "text-[11px] font-semibold uppercase tracking-wider px-3 py-1 rounded-sm border transition-colors",
               "border-foreground text-foreground hover:bg-foreground hover:text-background",
               loading && "opacity-50 cursor-not-allowed"
             )}
@@ -174,6 +209,19 @@ export default function ProjectionPanel({ decision }: { decision: DecisionComput
               <p>Requires outcome category, expected impact, and exposure value</p>
             </TooltipContent>
           </Tooltip>
+        )}
+        {canWrite && (
+          <button
+            disabled={podLoading}
+            onClick={handleGeneratePod}
+            className={cn(
+              "text-[11px] uppercase tracking-wider border rounded px-3 py-1 transition-colors",
+              "border-foreground text-foreground hover:bg-foreground hover:text-background",
+              podLoading && "opacity-50 cursor-not-allowed"
+            )}
+          >
+            {podLoading ? "Generating…" : hasPod ? "Regenerate Pod" : "Generate Pod"}
+          </button>
         )}
       </div>
 

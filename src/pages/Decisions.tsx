@@ -7,7 +7,24 @@ import { useOrg } from "@/contexts/OrgContext";
 import StatusBadge from "@/components/StatusBadge";
 import CreateDecisionForm from "@/components/CreateDecisionForm";
 import ProjectionPanel from "@/components/ProjectionPanel";
+import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+
+interface PodConfig {
+  pod_name: string;
+  pod_type: string;
+  mandate: string;
+  composition: { role: string; count: number; note: string }[];
+  total_headcount: number;
+  financial_accountability?: {
+    revenue_unlocked?: string | null;
+    revenue_defended?: string | null;
+    cost_reduced?: string | null;
+    renewal_risk_mitigated?: string | null;
+  };
+  dependencies?: string[];
+  sizing_rationale?: string;
+}
 
 const SOURCE_OPTIONS = [
   { value: "ad_hoc", label: "Ad Hoc" },
@@ -451,6 +468,103 @@ function DecisionActivityFeed({
   );
 }
 
+function PodConfigurationSection({
+  pod,
+  expanded,
+  onToggle,
+  justGenerated,
+}: {
+  pod: PodConfig;
+  expanded: boolean;
+  onToggle: () => void;
+  justGenerated: boolean;
+}) {
+  const fa = pod.financial_accountability ?? {};
+  const hasFinancial = [fa.revenue_unlocked, fa.revenue_defended, fa.cost_reduced, fa.renewal_risk_mitigated].some(Boolean);
+
+  return (
+    <div className="mt-3 border rounded-md overflow-hidden">
+      <button
+        onClick={onToggle}
+        className="w-full px-4 py-2 flex items-center justify-between text-left hover:bg-muted/30 transition-colors"
+      >
+        <span className="text-[11px] uppercase tracking-widest font-semibold text-muted-foreground">
+          POD · {pod.pod_name} · {pod.total_headcount} people
+        </span>
+        <span className="text-muted-foreground text-[10px]">{expanded ? "−" : "+"}</span>
+      </button>
+      {expanded && (
+        <div className="px-4 pb-4 pt-0 space-y-3 border-t">
+          <div className="flex items-center gap-2 flex-wrap pt-3">
+            <span className="text-[11px] uppercase tracking-widest font-semibold text-muted-foreground">
+              POD CONFIGURATION
+            </span>
+            <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-sm bg-muted text-foreground">
+              {pod.pod_name}
+            </span>
+            <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-sm bg-muted/80 text-muted-foreground">
+              {pod.pod_type?.replace(/_/g, " ")}
+            </span>
+          </div>
+          {pod.mandate && (
+            <p className="text-sm italic text-muted-foreground border-l-2 border-muted-foreground/20 pl-3">
+              {pod.mandate}
+            </p>
+          )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {(pod.composition ?? []).map((c, i) => (
+              <div key={i} className="border rounded p-2">
+                <p className="text-sm font-medium">
+                  {c.role}
+                  {c.count > 1 && <span className="text-muted-foreground"> ×{c.count}</span>}
+                </p>
+                {c.note && <p className="text-[10px] text-muted-foreground mt-0.5">{c.note}</p>}
+              </div>
+            ))}
+          </div>
+          <p className="text-sm font-semibold text-right">Total: {pod.total_headcount}</p>
+          {hasFinancial && (
+            <div className="grid grid-cols-2 gap-2">
+              {fa.revenue_unlocked && (
+                <div>
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Revenue Unlocked</span>
+                  <p className="text-[12px]">{fa.revenue_unlocked}</p>
+                </div>
+              )}
+              {fa.revenue_defended && (
+                <div>
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Revenue Defended</span>
+                  <p className="text-[12px]">{fa.revenue_defended}</p>
+                </div>
+              )}
+              {fa.cost_reduced && (
+                <div>
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Cost Reduced</span>
+                  <p className="text-[12px]">{fa.cost_reduced}</p>
+                </div>
+              )}
+              {fa.renewal_risk_mitigated && (
+                <div>
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Renewal Risk Mitigated</span>
+                  <p className="text-[12px]">{fa.renewal_risk_mitigated}</p>
+                </div>
+              )}
+            </div>
+          )}
+          {(pod.dependencies?.length ?? 0) > 0 && (
+            <p className="text-[11px] text-muted-foreground">
+              Dependencies: {pod.dependencies!.join(", ")}
+            </p>
+          )}
+          {pod.sizing_rationale && (
+            <p className="text-[11px] text-muted-foreground italic">{pod.sizing_rationale}</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function BetCard({
   d,
   canWrite,
@@ -481,6 +595,8 @@ function BetCard({
   handleStatusConfirm: () => void;
 }) {
   const [logFormExpanded, setLogFormExpanded] = useState(false);
+  const [podExpanded, setPodExpanded] = useState(false);
+  const [podJustGenerated, setPodJustGenerated] = useState(false);
 
   const capacityDiverted = (d.capacity_diverted ?? 0) as number;
   const unplannedInterrupts = (d.unplanned_interrupts ?? 0) as number;
@@ -654,6 +770,22 @@ function BetCard({
         </div>
       )}
 
+      {(d as any).pod_configuration && (
+        <PodConfigurationSection
+          pod={(d as any).pod_configuration as PodConfig}
+          expanded={podExpanded || podJustGenerated}
+          onToggle={() => {
+            if (podExpanded || podJustGenerated) {
+              setPodExpanded(false);
+              setPodJustGenerated(false);
+            } else {
+              setPodExpanded(true);
+            }
+          }}
+          justGenerated={podJustGenerated}
+        />
+      )}
+
       {d.blocked_reason && (
         <div className="mt-3 pt-3 border-t text-xs">
           <p className="text-muted-foreground">Blocked: {d.blocked_reason}</p>
@@ -662,7 +794,12 @@ function BetCard({
       )}
 
       {isActive && (
-        <ProjectionPanel decision={d} />
+        <ProjectionPanel
+          decision={d}
+          canWrite={canWrite}
+          qc={qc}
+          onPodGenerated={() => setPodJustGenerated(true)}
+        />
       )}
 
       <DecisionActivityFeed
