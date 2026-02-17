@@ -159,11 +159,19 @@ function relativeTime(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-function staleness(updatedAt: string): { label: string; dotClass: string; textClass: string; pulse: boolean } {
+function staleness(updatedAt: string): { days: number; label: string; dotClass: string; textClass: string; pulse: boolean; isAmber: boolean; isRed: boolean } {
   const days = Math.floor((Date.now() - new Date(updatedAt).getTime()) / (1000 * 60 * 60 * 24));
-  if (days <= 3) return { label: `Updated ${days}d ago`, dotClass: "bg-signal-green", textClass: "text-signal-green", pulse: false };
-  if (days <= 7) return { label: `${days}d since update`, dotClass: "bg-signal-amber", textClass: "text-signal-amber", pulse: false };
-  return { label: `No movement in ${days}d`, dotClass: "bg-signal-red", textClass: "text-signal-red", pulse: true };
+  if (days <= 3) return { days, label: `Updated ${days}d ago`, dotClass: "bg-signal-green", textClass: "text-signal-green", pulse: false, isAmber: false, isRed: false };
+  if (days <= 7) return { days, label: `${days}d since update`, dotClass: "bg-signal-amber", textClass: "text-signal-amber", pulse: false, isAmber: true, isRed: false };
+  return { days, label: `No movement in ${days}d`, dotClass: "bg-signal-red", textClass: "text-signal-red", pulse: true, isAmber: false, isRed: true };
+}
+
+function nudgeMailto(betTitle: string, days: number, owner: string, exposure: string): string {
+  const subject = encodeURIComponent(`Build Authority — ${betTitle} needs attention`);
+  const body = encodeURIComponent(
+    `${betTitle} has had no movement in ${days} days.\nOwner: ${owner}\nExposure: ${exposure}\n\nPlease update your bet at https://buildauthorityos.com`
+  );
+  return `mailto:?subject=${subject}&body=${body}`;
 }
 
 function ResourceRealitySection({
@@ -517,11 +525,25 @@ export default function Decisions() {
                     </div>
                     {(() => {
                       const s = staleness(d.updated_at);
+                      const showNudge = s.isAmber || s.isRed;
                       return (
-                        <span className={cn("text-[10px] flex items-center gap-1.5 shrink-0", s.textClass, s.pulse && "font-semibold")}>
-                          <span className={cn("w-1.5 h-1.5 rounded-full inline-block", s.dotClass, s.pulse && "animate-pulse")} />
-                          {s.label}
-                        </span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className={cn("text-[10px] flex items-center gap-1.5", s.textClass, s.pulse && "font-semibold")}>
+                            <span className={cn("w-1.5 h-1.5 rounded-full inline-block", s.dotClass, s.pulse && "animate-pulse")} />
+                            {s.label}
+                          </span>
+                          {showNudge && (
+                            <a
+                              href={nudgeMailto(d.title ?? "Untitled", s.days, d.owner ?? "", d.exposure_value ?? d.revenue_at_risk ?? "—")}
+                              className={cn(
+                                "text-[10px] uppercase tracking-wider px-2 py-0.5 border rounded transition-colors",
+                                s.isRed ? "border-signal-red text-signal-red hover:bg-signal-red/10" : "border-signal-amber text-signal-amber hover:bg-signal-amber/10"
+                              )}
+                            >
+                              Nudge
+                            </a>
+                          )}
+                        </div>
                       );
                     })()}
                   </div>
