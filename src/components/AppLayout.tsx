@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useOrg } from "@/contexts/OrgContext";
 import logo from "@/assets/logo.png";
 import { cn } from "@/lib/utils";
+import ChatAdvisor from "@/components/ChatAdvisor";
 
 const roleLabels: Record<string, string> = {
   admin: "Admin",
@@ -93,6 +94,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           {children}
         </div>
       </main>
+
+      <ChatAdvisor />
     </div>
   );
 }
