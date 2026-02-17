@@ -106,6 +106,9 @@ export default function Team() {
                 {createInvitation.isPending ? "Sending..." : "Send Invite"}
               </button>
             </form>
+            <p className="text-[11px] text-muted-foreground italic mt-2">
+              After inviting, share this link with your team: buildauthorityos.com — they&apos;ll be auto-added to the org when they sign up with the invited email address.
+            </p>
           </div>
         </section>
       )}
