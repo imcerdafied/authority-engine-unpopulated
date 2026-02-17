@@ -210,17 +210,20 @@ export default function ProjectionPanel({
             </TooltipContent>
           </Tooltip>
         )}
-        {canWrite && (
+        {canWrite && !hasPod && (
           <button
             disabled={podLoading}
             onClick={handleGeneratePod}
             className={cn(
-              "text-[11px] uppercase tracking-wider border rounded px-3 py-1 transition-colors",
+              "text-[11px] uppercase tracking-wider border rounded px-3 py-1 transition-colors flex items-center gap-2",
               "border-foreground text-foreground hover:bg-foreground hover:text-background",
               podLoading && "opacity-50 cursor-not-allowed"
             )}
           >
-            {podLoading ? "Generating…" : hasPod ? "Regenerate Pod" : "Generate Pod"}
+            {podLoading && (
+              <span className="border-2 border-foreground border-t-transparent rounded-full w-4 h-4 inline-block animate-spin shrink-0" />
+            )}
+            {podLoading ? "Generating pod configuration..." : "Generate Pod"}
           </button>
         )}
       </div>

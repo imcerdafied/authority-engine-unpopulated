@@ -468,19 +468,150 @@ function DecisionActivityFeed({
   );
 }
 
+function PodInlineEdit({
+  value,
+  onSave,
+  canEdit,
+  asTextarea,
+  inputType = "text",
+  className,
+  placeholder,
+}: {
+  value: string;
+  onSave: (v: string) => void;
+  canEdit: boolean;
+  asTextarea?: boolean;
+  inputType?: "text" | "number";
+  className?: string;
+  placeholder?: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [editValue, setEditValue] = useState(value);
+  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (editing) {
+      setEditValue(value);
+      inputRef.current?.focus();
+    }
+  }, [editing, value]);
+
+  const handleSave = () => {
+    const trimmed = asTextarea ? editValue.trim() : editValue.trim();
+    if (trimmed !== (value ?? "").trim()) {
+      onSave(inputType === "number" ? String(Math.max(1, parseInt(editValue, 10) || 1)) : trimmed);
+    }
+    setEditing(false);
+  };
+
+  if (!canEdit) {
+    return <span className={cn(className, !value && "text-muted-foreground/50 italic")}>{value || placeholder ?? "—"}</span>;
+  }
+
+  if (editing) {
+    if (asTextarea) {
+      return (
+        <textarea
+          ref={inputRef as React.RefObject<HTMLTextAreaElement>}
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          onBlur={handleSave}
+          className={cn("w-full text-sm border rounded px-2 py-1 bg-background", className)}
+          rows={3}
+        />
+      );
+    }
+    return (
+      <input
+        ref={inputRef as React.RefObject<HTMLInputElement>}
+        type={inputType}
+        min={inputType === "number" ? 1 : undefined}
+        value={editValue}
+        onChange={(e) => setEditValue(e.target.value)}
+        onBlur={handleSave}
+        onKeyDown={(e) => e.key === "Enter" && handleSave()}
+        className={cn("w-full text-sm border rounded px-2 py-1 bg-background", className)}
+      />
+    );
+  }
+
+  return (
+    <span
+      role="button"
+      tabIndex={0}
+      onClick={() => setEditing(true)}
+      onKeyDown={(e) => e.key === "Enter" && setEditing(true)}
+      className={cn(
+        "cursor-pointer hover:bg-accent/50 rounded px-1 -mx-1 inline-block min-h-[1.5em]",
+        asTextarea && "block whitespace-pre-wrap",
+        !value && "text-muted-foreground/50 italic",
+        className
+      )}
+    >
+      {value || placeholder ?? "—"}
+    </span>
+  );
+}
+
 function PodConfigurationSection({
-  pod,
+  pod: initialPod,
   expanded,
   onToggle,
   justGenerated,
+  decisionId,
+  canWrite,
+  onSave,
 }: {
   pod: PodConfig;
   expanded: boolean;
   onToggle: () => void;
   justGenerated: boolean;
+  decisionId: string;
+  canWrite: boolean;
+  onSave: (updated: PodConfig) => Promise<void>;
 }) {
+  const [pod, setPod] = useState<PodConfig>(() => ({ ...initialPod, composition: [...(initialPod.composition ?? [])] }));
+  useEffect(() => {
+    setPod({ ...initialPod, composition: [...(initialPod.composition ?? [])] });
+  }, [decisionId, initialPod]);
+
+  const savePod = async (updated: PodConfig) => {
+    const total = (updated.composition ?? []).reduce((s, c) => s + (c.count || 1), 0);
+    const toSave = { ...updated, total_headcount: total };
+    setPod(toSave);
+    await onSave(toSave);
+  };
+
+  const updateComposition = (i: number, patch: Partial<{ role: string; count: number; note: string }>) => {
+    const comp = [...(pod.composition ?? [])];
+    comp[i] = { ...comp[i], ...patch };
+    savePod({ ...pod, composition: comp });
+  };
+
+  const removeRole = (i: number) => {
+    const comp = (pod.composition ?? []).filter((_, j) => j !== i);
+    savePod({ ...pod, composition: comp });
+  };
+
+  const addRole = () => {
+    const comp = [...(pod.composition ?? []), { role: "New Role", count: 1, note: "" }];
+    savePod({ ...pod, composition: comp });
+  };
+
+  const updateMandate = (v: string) => savePod({ ...pod, mandate: v });
+  const updateFa = (k: keyof NonNullable<PodConfig["financial_accountability"]>, v: string) => {
+    const fa = { ...(pod.financial_accountability ?? {}), [k]: v || null };
+    savePod({ ...pod, financial_accountability: fa });
+  };
+
   const fa = pod.financial_accountability ?? {};
-  const hasFinancial = [fa.revenue_unlocked, fa.revenue_defended, fa.cost_reduced, fa.renewal_risk_mitigated].some(Boolean);
+  const faKeys = ["revenue_unlocked", "revenue_defended", "cost_reduced", "renewal_risk_mitigated"] as const;
+  const faLabels: Record<string, string> = {
+    revenue_unlocked: "Revenue Unlocked",
+    revenue_defended: "Revenue Defended",
+    cost_reduced: "Cost Reduced",
+    renewal_risk_mitigated: "Renewal Risk Mitigated",
+  };
 
   return (
     <div className="mt-3 border rounded-md overflow-hidden">
@@ -506,51 +637,82 @@ function PodConfigurationSection({
               {pod.pod_type?.replace(/_/g, " ")}
             </span>
           </div>
-          {pod.mandate && (
-            <p className="text-sm italic text-muted-foreground border-l-2 border-muted-foreground/20 pl-3">
-              {pod.mandate}
-            </p>
-          )}
+          <div className="border-l-2 border-muted-foreground/20 pl-3">
+            <PodInlineEdit
+              value={pod.mandate ?? ""}
+              onSave={updateMandate}
+              canEdit={canWrite}
+              asTextarea
+              className="text-sm italic text-muted-foreground block w-full min-h-[4rem]"
+              placeholder="Pod mandate…"
+            />
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {(pod.composition ?? []).map((c, i) => (
-              <div key={i} className="border rounded p-2">
-                <p className="text-sm font-medium">
-                  {c.role}
-                  {c.count > 1 && <span className="text-muted-foreground"> ×{c.count}</span>}
-                </p>
-                {c.note && <p className="text-[10px] text-muted-foreground mt-0.5">{c.note}</p>}
+              <div key={i} className="border rounded p-2 flex items-start gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1 flex-wrap">
+                    <PodInlineEdit
+                      value={c.role}
+                      onSave={(v) => updateComposition(i, { role: v })}
+                      canEdit={canWrite}
+                      className="text-sm font-medium"
+                    />
+                    <span className="text-muted-foreground text-sm">
+                      ×
+                      <PodInlineEdit
+                        value={String(c.count)}
+                        onSave={(v) => updateComposition(i, { count: Math.max(1, parseInt(v, 10) || 1) })}
+                        canEdit={canWrite}
+                        inputType="number"
+                        className="text-muted-foreground"
+                        placeholder="1"
+                      />
+                    </span>
+                  </div>
+                  <PodInlineEdit
+                    value={c.note ?? ""}
+                    onSave={(v) => updateComposition(i, { note: v })}
+                    canEdit={canWrite}
+                    className="text-[10px] text-muted-foreground mt-0.5 block"
+                    placeholder="Note…"
+                  />
+                </div>
+                {canWrite && (
+                  <button
+                    onClick={() => removeRole(i)}
+                    className="text-muted-foreground hover:text-signal-red text-lg p-1 shrink-0"
+                    aria-label="Remove role"
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
             ))}
           </div>
-          <p className="text-sm font-semibold text-right">Total: {pod.total_headcount}</p>
-          {hasFinancial && (
-            <div className="grid grid-cols-2 gap-2">
-              {fa.revenue_unlocked && (
-                <div>
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Revenue Unlocked</span>
-                  <p className="text-[12px]">{fa.revenue_unlocked}</p>
-                </div>
-              )}
-              {fa.revenue_defended && (
-                <div>
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Revenue Defended</span>
-                  <p className="text-[12px]">{fa.revenue_defended}</p>
-                </div>
-              )}
-              {fa.cost_reduced && (
-                <div>
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Cost Reduced</span>
-                  <p className="text-[12px]">{fa.cost_reduced}</p>
-                </div>
-              )}
-              {fa.renewal_risk_mitigated && (
-                <div>
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Renewal Risk Mitigated</span>
-                  <p className="text-[12px]">{fa.renewal_risk_mitigated}</p>
-                </div>
-              )}
-            </div>
+          {canWrite && (
+            <button
+              onClick={addRole}
+              className="text-[11px] uppercase tracking-wider text-muted-foreground hover:text-foreground cursor-pointer"
+            >
+              Add Role
+            </button>
           )}
+          <p className="text-sm font-semibold text-right">Total: {pod.total_headcount}</p>
+          <div className="grid grid-cols-2 gap-2">
+            {faKeys.map((k) => (
+              <div key={k}>
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground block">{faLabels[k]}</span>
+                <PodInlineEdit
+                  value={fa[k] ?? ""}
+                  onSave={(v) => updateFa(k, v)}
+                  canEdit={canWrite}
+                  className="text-[12px] block"
+                  placeholder="—"
+                />
+              </div>
+            ))}
+          </div>
           {(pod.dependencies?.length ?? 0) > 0 && (
             <p className="text-[11px] text-muted-foreground">
               Dependencies: {pod.dependencies!.join(", ")}
@@ -783,6 +945,12 @@ function BetCard({
             }
           }}
           justGenerated={podJustGenerated}
+          decisionId={d.id}
+          canWrite={canWrite}
+          onSave={async (updated) => {
+            await supabase.from("decisions").update({ pod_configuration: updated } as any).eq("id", d.id);
+            qc.invalidateQueries({ queryKey: ["decisions"] });
+          }}
         />
       )}
 

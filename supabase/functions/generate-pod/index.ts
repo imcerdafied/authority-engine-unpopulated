@@ -15,11 +15,13 @@ POD CONFIGURATION PRINCIPLES:
 5. Every pod must answer: What revenue does this unlock? What revenue does this defend? What cost does this reduce? What renewal risk does this mitigate?
 
 COMPOSITION PATTERNS BY BET TYPE:
-- Revenue defense / migration bets: Senior PM (commercially sharp), Engineering Lead (platform depth), 4-6 engineers, 1 Data Scientist, 1 Design Lead, 1 Customer Success Lead, 0.5 Finance Partner
-- Product expansion / growth bets: Senior PM (growth-oriented), Engineering Lead (application + analytics), 5-7 engineers, 2 Data Scientists, 1 Design Lead, 1 Sales Engineer / GTM Partner, 0.5 Finance Partner
-- Infrastructure / platform bets: PM (platform mindset), Engineering Lead (data infrastructure), 5-6 engineers, 1 Data Engineer, 1 Data Scientist, 0.5 Platform SRE
-- Executive / positioning bets: PM (executive empathy), Engineering Lead (frontend + API), 3-4 engineers, 1 Design Director, 1 Data Partner, 1 Sales/Marketing Partner
-- Strategic differentiation / AI bets: PM (technical, AI-fluent), Engineering Lead (architecture-heavy), 4-6 engineers, 2 Data Scientists, 1 Platform Architect, 1 GTM Strategist, 0.5 Finance Partner
+- Revenue defense / migration bets: Senior PM (commercially sharp), Engineering Lead (platform depth), 6-10 engineers (backend + infra + frontend), 2 Data Scientists, 1 Design Lead, 1 Customer Success Lead, 0.5 Finance Partner. Typical total: 12-16.
+- Product expansion / growth bets: Senior PM (growth-oriented), Engineering Lead (application + analytics), 8-12 engineers (analytics + API + UI + backend), 2-3 Data Scientists, 1 Design Lead, 1 Sales Engineer / GTM Partner, 0.5 Finance Partner. Typical total: 14-19.
+- Infrastructure / platform bets: PM (platform mindset), Engineering Lead (data infrastructure), 8-10 engineers (identity, query engine, APIs, data pipeline), 2 Data Engineers, 1 Data Scientist, 1 Platform SRE. Typical total: 13-16.
+- Executive / positioning bets: PM (executive empathy), Engineering Lead (frontend + API), 5-7 engineers, 1 Design Director (high craft), 1 Data Partner, 1 Sales/Marketing Partner. Typical total: 10-12.
+- Strategic differentiation / AI bets: PM (technical, AI-fluent), Engineering Lead (architecture-heavy), 8-12 engineers (event ingestion + outcome modeling + platform), 3 Data Scientists (outcome attribution + learning loops), 1 Platform Architect, 1 GTM Strategist, 0.5 Finance Partner. Typical total: 16-20.
+
+These are enterprise-scale pods for a company with 10+ engineering teams. Do not understaff. Each bet represents millions in exposure and requires serious engineering investment.
 
 STRUCTURAL RULES:
 - Shared layers (telemetry, identity, event ingestion, pattern engine) remain coordinated through weekly Pod-of-Pods sync
