@@ -1,11 +1,13 @@
 import { ReactNode, useState } from "react";
 import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrg } from "@/contexts/OrgContext";
 import logo from "@/assets/logo.png";
 import { cn } from "@/lib/utils";
 import ChatAdvisor from "@/components/ChatAdvisor";
 import FeedbackButton from "@/components/FeedbackButton";
+import { supabase } from "@/integrations/supabase/client";
 
 const roleLabels: Record<string, string> = {
   admin: "Admin",
@@ -22,6 +24,23 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const [chatOpen, setChatOpen] = useState(false);
   const { user, signOut } = useAuth();
   const { currentOrg, currentRole } = useOrg();
+
+  const lastViewed = typeof window !== "undefined" ? (localStorage.getItem("feedback_last_viewed") || "1970-01-01") : "1970-01-01";
+  const { data: unreadCount } = useQuery({
+    queryKey: ["unread_feedback", currentOrg?.id, lastViewed],
+    queryFn: async () => {
+      if (!currentOrg) return 0;
+      const viewed = localStorage.getItem("feedback_last_viewed") || "1970-01-01";
+      const { count } = await supabase
+        .from("feedback")
+        .select("*", { count: "exact", head: true })
+        .eq("org_id", currentOrg.id)
+        .gt("created_at", viewed);
+      return count || 0;
+    },
+    enabled: !!currentOrg && currentRole === "admin",
+    refetchInterval: 30000,
+  });
 
   const closeMenu = () => setMenuOpen(false);
 
@@ -74,9 +93,22 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               {currentRole && (
                 <>
                   <Sep />
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground py-2 md:py-0">
-                    {roleLabels[currentRole] || currentRole}
-                  </span>
+                  {currentRole === "admin" ? (
+                    <Link
+                      to="/feedback"
+                      onClick={closeMenu}
+                      className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors py-2 md:py-0 flex items-center"
+                    >
+                      {roleLabels[currentRole] || currentRole}
+                      {unreadCount != null && unreadCount > 0 && (
+                        <span className="w-2 h-2 rounded-full bg-signal-red inline-block ml-1" />
+                      )}
+                    </Link>
+                  ) : (
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground py-2 md:py-0">
+                      {roleLabels[currentRole] || currentRole}
+                    </span>
+                  )}
                 </>
               )}
               <Sep />

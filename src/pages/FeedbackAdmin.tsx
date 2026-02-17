@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useOrg } from "@/contexts/OrgContext";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -19,7 +20,15 @@ const TYPE_STYLES: Record<string, string> = {
 };
 
 export default function FeedbackAdmin() {
+  const qc = useQueryClient();
   const { currentOrg, currentRole } = useOrg();
+
+  useEffect(() => {
+    if (currentRole === "admin") {
+      localStorage.setItem("feedback_last_viewed", new Date().toISOString());
+      qc.invalidateQueries({ queryKey: ["unread_feedback"] });
+    }
+  }, [currentRole, qc]);
 
   const { data: feedback = [], isLoading, error } = useQuery({
     queryKey: ["feedback", currentOrg?.id],
