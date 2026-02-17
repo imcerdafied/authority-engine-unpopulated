@@ -7,7 +7,6 @@ import logo from "@/assets/logo.png";
 
 const navItems = [
   { label: "Decisions", path: "/" },
-  { label: "Team", path: "/team" },
 ];
 
 const roleLabels: Record<string, string> = {
@@ -107,9 +106,15 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               {roleLabels[currentRole] || currentRole}
             </p>
           )}
+          <Link
+            to="/team"
+            className="block text-[10px] text-sidebar-muted hover:text-sidebar-primary uppercase tracking-wider transition-colors mb-1 mt-1"
+          >
+            Team
+          </Link>
           <button
             onClick={signOut}
-            className="text-[10px] text-sidebar-muted hover:text-sidebar-primary mt-1 uppercase tracking-wider transition-colors"
+            className="text-[10px] text-sidebar-muted hover:text-sidebar-primary uppercase tracking-wider transition-colors"
           >
             Sign Out
           </button>
