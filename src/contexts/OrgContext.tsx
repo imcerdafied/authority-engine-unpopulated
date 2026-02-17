@@ -33,6 +33,7 @@ const OrgContext = createContext<OrgContextType>({
 });
 
 const ORG_STORAGE_KEY = "ba_current_org";
+const PENDING_ORG_JOIN_KEY = "pending_org_join";
 
 export function OrgProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -87,6 +88,29 @@ export function OrgProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     fetchMemberships();
   }, [fetchMemberships]);
+
+  useEffect(() => {
+    const pendingOrgId = localStorage.getItem(PENDING_ORG_JOIN_KEY);
+    if (!user || !pendingOrgId) return;
+
+    const processPendingJoin = async () => {
+      try {
+        const { error } = await supabase.functions.invoke("join-org", {
+          body: { orgId: pendingOrgId },
+        });
+        if (!error) {
+          localStorage.removeItem(PENDING_ORG_JOIN_KEY);
+          await fetchMemberships();
+          setCurrentOrgId(pendingOrgId);
+          localStorage.setItem(ORG_STORAGE_KEY, pendingOrgId);
+        }
+      } catch {
+        // leave key for retry
+      }
+    };
+
+    processPendingJoin();
+  }, [user, fetchMemberships]);
 
   const handleSetCurrentOrgId = (orgId: string) => {
     setCurrentOrgId(orgId);

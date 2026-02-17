@@ -14,6 +14,7 @@ import Pods from "@/pages/Pods";
 import Memory from "@/pages/Memory";
 import Ask from "@/pages/Ask";
 import Team from "@/pages/Team";
+import Join from "@/pages/Join";
 import Auth from "@/pages/Auth";
 import OrgSetup from "@/components/OrgSetup";
 import NotFound from "./pages/NotFound";
@@ -40,22 +41,27 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
 function AppContent() {
   return (
-    <AuthGate>
-      <AppLayout>
-        <Routes>
-          <Route path="/" element={<Decisions />} />
-          <Route path="/decisions" element={<Decisions />} />
-          <Route path="/review" element={<Review />} />
-          <Route path="/how-it-works" element={<HowItWorks />} />
-          <Route path="/signals" element={<Signals />} />
-          <Route path="/pods" element={<Pods />} />
-          <Route path="/memory" element={<Memory />} />
-          <Route path="/ask" element={<Ask />} />
-          <Route path="/team" element={<Team />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </AppLayout>
-    </AuthGate>
+    <Routes>
+      <Route path="/join/:orgId" element={<Join />} />
+      <Route path="*" element={
+        <AuthGate>
+          <AppLayout>
+            <Routes>
+              <Route path="/" element={<Decisions />} />
+              <Route path="/decisions" element={<Decisions />} />
+              <Route path="/review" element={<Review />} />
+              <Route path="/how-it-works" element={<HowItWorks />} />
+              <Route path="/signals" element={<Signals />} />
+              <Route path="/pods" element={<Pods />} />
+              <Route path="/memory" element={<Memory />} />
+              <Route path="/ask" element={<Ask />} />
+              <Route path="/team" element={<Team />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </AppLayout>
+        </AuthGate>
+      } />
+    </Routes>
   );
 }
 
