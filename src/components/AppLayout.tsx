@@ -20,16 +20,17 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     <div className="min-h-screen flex flex-col">
       <header className="border-b px-6 py-3 flex items-center justify-between">
         <div className="flex items-center">
-          <Link to="/" className="flex items-center">
+          <Link to="/" className="flex items-center gap-2.5">
             <img src={logo} alt="Build Authority" className="w-6 h-6" />
-            <span className="text-xs font-bold tracking-widest uppercase ml-2.5">
-              BUILD AUTHORITY
-            </span>
+            <div className="flex flex-col">
+              <span className="text-xs font-bold tracking-widest uppercase leading-tight">
+                BUILD AUTHORITY
+              </span>
+              <span className="text-[9px] uppercase tracking-widest text-muted-foreground leading-tight">
+                {currentOrg?.name ?? "Organization"}
+              </span>
+            </div>
           </Link>
-          <Sep />
-          <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
-            {currentOrg?.name ?? "Organization"}
-          </span>
           <Sep />
           <Link
             to="/"
