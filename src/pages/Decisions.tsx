@@ -1,10 +1,106 @@
-import { useState } from "react";
-import { useDecisions, useDecisionRisks } from "@/hooks/useOrgData";
+import { useState, useRef, useEffect } from "react";
+import { useDecisions, useUpdateDecision, useDecisionRisks } from "@/hooks/useOrgData";
 import { useOrg } from "@/contexts/OrgContext";
 import StatusBadge from "@/components/StatusBadge";
 import CreateDecisionForm from "@/components/CreateDecisionForm";
 import ProjectionPanel from "@/components/ProjectionPanel";
 import { cn } from "@/lib/utils";
+
+function InlineEdit({
+  value,
+  field,
+  decisionId,
+  canEdit,
+  onSave,
+  className,
+  placeholder = "—",
+  variant = "default",
+}: {
+  value: string;
+  field: string;
+  decisionId: string;
+  canEdit: boolean;
+  onSave: (id: string, field: string, newValue: string) => void;
+  className?: string;
+  placeholder?: string;
+  variant?: "default" | "title";
+}) {
+  const [editing, setEditing] = useState(false);
+  const [editValue, setEditValue] = useState(value);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing) {
+      setEditValue(value);
+      inputRef.current?.focus();
+    }
+  }, [editing, value]);
+
+  const handleSave = () => {
+    const trimmed = editValue.trim();
+    if (trimmed !== (value ?? "").trim()) {
+      onSave(decisionId, field, trimmed);
+    }
+    setEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleSave();
+    } else if (e.key === "Escape") {
+      setEditValue(value);
+      setEditing(false);
+    }
+  };
+
+  if (!canEdit) {
+    const display = value || placeholder;
+    const isEmpty = !value;
+    return (
+      <span className={cn(isEmpty && "text-muted-foreground/50 italic", className)}>
+        {display}
+      </span>
+    );
+  }
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        type="text"
+        value={editValue}
+        onChange={(e) => setEditValue(e.target.value)}
+        onBlur={handleSave}
+        onKeyDown={handleKeyDown}
+        className={cn(
+          "border rounded bg-background w-full",
+          variant === "title" ? "text-sm font-semibold px-2 py-1.5" : "text-sm px-2 py-1"
+        )}
+      />
+    );
+  }
+
+  const display = value || placeholder;
+  const isEmpty = !value;
+  return (
+    <span
+      role="button"
+      tabIndex={0}
+      onClick={() => setEditing(true)}
+      onKeyDown={(e) => e.key === "Enter" && setEditing(true)}
+      className={cn(
+        "cursor-pointer hover:bg-accent/50 rounded px-1 -mx-1 min-h-[1.5em] inline-block",
+        variant === "title" && "text-sm font-semibold",
+        isEmpty && "text-muted-foreground/50 italic",
+        className
+      )}
+    >
+      {display}
+    </span>
+  );
+}
+
 const categoryLabels: Record<string, string> = {
   arr: "ARR",
   renewal_retention: "Renewal & Retention",
@@ -18,10 +114,15 @@ const categoryLabels: Record<string, string> = {
 export default function Decisions() {
   const { data: decisions = [], isLoading: decisionsLoading } = useDecisions();
   const { isLoading: risksLoading } = useDecisionRisks();
+  const updateDecision = useUpdateDecision();
   const { currentRole } = useOrg();
   const [showCreate, setShowCreate] = useState(false);
 
   const canWrite = currentRole === "admin" || currentRole === "pod_lead";
+
+  const handleInlineSave = (id: string, field: string, newValue: string) => {
+    updateDecision.mutate({ id, [field]: newValue || null } as any);
+  };
 
   if (decisionsLoading || risksLoading) return <p className="text-xs text-muted-foreground uppercase tracking-widest">Loading...</p>;
 
@@ -78,24 +179,44 @@ export default function Decisions() {
                     {d.needs_exec_attention && <span className="text-[11px] font-semibold text-signal-red uppercase tracking-wider ml-auto">Executive Attention Required</span>}
                   </div>
 
-                  <h3 className="text-sm font-semibold mb-1">{d.title}</h3>
-                  {d.trigger_signal && <p className="text-xs text-muted-foreground mb-3">{d.trigger_signal}</p>}
-
-                  <div className="grid grid-cols-4 gap-4 text-xs mb-3">
-                    <div><span className="text-muted-foreground">Surface</span><p className="font-medium mt-0.5">{d.surface}</p></div>
-                    <div><span className="text-muted-foreground">Outcome Target</span><p className="font-medium mt-0.5">{d.outcome_target || "—"}</p></div>
-                    {(d.outcome_category_key || d.outcome_category) && (
-                      <div><span className="text-muted-foreground">Category</span><p className="font-medium mt-0.5">{categoryLabels[(d.outcome_category_key ?? d.outcome_category) as string] ?? (d.outcome_category_key ?? d.outcome_category)}</p></div>
-                    )}
-                    {d.expected_impact && <div><span className="text-muted-foreground">Expected Impact</span><p className="font-medium mt-0.5">{d.expected_impact}</p></div>}
+                  <div className="mb-1">
+                    <InlineEdit
+                      value={d.title ?? ""}
+                      field="title"
+                      decisionId={d.id}
+                      canEdit={canWrite}
+                      onSave={handleInlineSave}
+                      variant="title"
+                      placeholder="Untitled"
+                    />
+                  </div>
+                  <div className="mb-3">
+                    <InlineEdit
+                      value={d.trigger_signal ?? ""}
+                      field="trigger_signal"
+                      decisionId={d.id}
+                      canEdit={canWrite}
+                      onSave={handleInlineSave}
+                      className="text-xs text-muted-foreground block"
+                      placeholder="Add trigger signal…"
+                    />
                   </div>
 
                   <div className="grid grid-cols-4 gap-4 text-xs mb-3">
-                    {d.exposure_value && <div><span className="text-muted-foreground">Exposure</span><p className="font-semibold mt-0.5 text-signal-amber">{d.exposure_value}</p></div>}
-                    {d.current_delta && <div><span className="text-muted-foreground">Current Delta</span><p className="font-semibold mt-0.5 text-signal-amber">{d.current_delta}</p></div>}
-                    {d.revenue_at_risk && <div><span className="text-muted-foreground">Enterprise Exposure</span><p className="font-semibold mt-0.5 text-signal-red">{d.revenue_at_risk}</p></div>}
-                    {d.segment_impact && <div><span className="text-muted-foreground">Segment</span><p className="font-medium mt-0.5">{d.segment_impact}</p></div>}
-                    <div><span className="text-muted-foreground">Owner</span><p className="font-medium mt-0.5">{d.owner}</p></div>
+                    <div><span className="text-muted-foreground">Surface</span><p className="font-medium mt-0.5">{d.surface}</p></div>
+                    <div><span className="text-muted-foreground">Outcome Target</span><div className="font-medium mt-0.5"><InlineEdit value={d.outcome_target ?? ""} field="outcome_target" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} /></div></div>
+                    {(d.outcome_category_key || d.outcome_category) && (
+                      <div><span className="text-muted-foreground">Category</span><p className="font-medium mt-0.5">{categoryLabels[(d.outcome_category_key ?? d.outcome_category) as string] ?? (d.outcome_category_key ?? d.outcome_category)}</p></div>
+                    )}
+                    <div><span className="text-muted-foreground">Expected Impact</span><div className="font-medium mt-0.5"><InlineEdit value={d.expected_impact ?? ""} field="expected_impact" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} /></div></div>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-4 text-xs mb-3">
+                    <div><span className="text-muted-foreground">Exposure</span><div className="font-semibold mt-0.5 text-signal-amber"><InlineEdit value={d.exposure_value ?? ""} field="exposure_value" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} /></div></div>
+                    <div><span className="text-muted-foreground">Current Delta</span><div className="font-semibold mt-0.5 text-signal-amber"><InlineEdit value={d.current_delta ?? ""} field="current_delta" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} /></div></div>
+                    <div><span className="text-muted-foreground">Enterprise Exposure</span><div className="font-semibold mt-0.5 text-signal-red"><InlineEdit value={d.revenue_at_risk ?? ""} field="revenue_at_risk" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} /></div></div>
+                    <div><span className="text-muted-foreground">Segment</span><div className="font-medium mt-0.5"><InlineEdit value={d.segment_impact ?? ""} field="segment_impact" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} /></div></div>
+                    <div><span className="text-muted-foreground">Owner</span><div className="font-medium mt-0.5"><InlineEdit value={d.owner ?? ""} field="owner" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} /></div></div>
                   </div>
 
                   {d.blocked_reason && (

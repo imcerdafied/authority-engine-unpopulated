@@ -31,6 +31,13 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         </div>
         <div className="flex items-center gap-4">
           <Link
+            to="/how-it-works"
+            className="text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+          >
+            How It Works
+          </Link>
+          <Sep />
+          <Link
             to="/team"
             className="text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
           >
