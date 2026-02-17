@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDecisions, useUpdateDecision, useDecisionRisks } from "@/hooks/useOrgData";
 import { useLogActivity, useDecisionActivity } from "@/hooks/useDecisionActivity";
 import { useInterruptions, useCreateInterruption } from "@/hooks/useInterruptions";
@@ -737,9 +737,91 @@ function PodConfigurationSection({
   );
 }
 
+function CategorySelect({
+  value,
+  categories,
+  decisionId,
+  canEdit,
+  onSave,
+  logActivity,
+  className,
+}: {
+  value: string;
+  categories: { key: string; label: string }[];
+  decisionId: string;
+  canEdit: boolean;
+  onSave: (id: string, field: string, oldValue: string, newValue: string) => Promise<void>;
+  logActivity?: (decisionId: string, field: string, oldValue: string | null, newValue: string | null) => void | Promise<void>;
+  className?: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const selectRef = useRef<HTMLSelectElement>(null);
+
+  useEffect(() => {
+    if (editing) selectRef.current?.focus();
+  }, [editing]);
+
+  const labelMap = Object.fromEntries(categories.map((c) => [c.key, c.label]));
+  const displayLabel = value ? (labelMap[value] ?? categoryLabels[value] ?? value.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())) : "";
+  const isEmpty = !value;
+
+  const handleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newKey = e.target.value || "";
+    if (newKey !== value) {
+      await onSave(decisionId, "outcome_category_key", value || "", newKey);
+      logActivity?.(decisionId, "outcome_category_key", value || null, newKey || null)?.catch(() => {});
+    }
+    setEditing(false);
+  };
+
+  if (!canEdit) {
+    return (
+      <span className={cn(isEmpty && "text-muted-foreground/50 italic", className)}>
+        {displayLabel || "—"}
+      </span>
+    );
+  }
+
+  if (editing) {
+    return (
+      <select
+        ref={selectRef}
+        value={value || ""}
+        onChange={handleChange}
+        onBlur={() => setEditing(false)}
+        className="text-sm border rounded px-2 py-1 w-full bg-background"
+      >
+        <option value="">—</option>
+        {categories.map((c) => (
+          <option key={c.key} value={c.key}>
+            {c.label}
+          </option>
+        ))}
+      </select>
+    );
+  }
+
+  return (
+    <span
+      role="button"
+      tabIndex={0}
+      onClick={() => setEditing(true)}
+      onKeyDown={(e) => e.key === "Enter" && setEditing(true)}
+      className={cn(
+        "cursor-pointer hover:bg-accent/50 rounded px-1 -mx-1 min-h-[1.5em] inline-block",
+        isEmpty && "text-muted-foreground/50 italic",
+        className
+      )}
+    >
+      {displayLabel || "—"}
+    </span>
+  );
+}
+
 function BetCard({
   d,
   canWrite,
+  categories,
   handleInlineSave,
   logActivity,
   createInterruption,
@@ -754,6 +836,7 @@ function BetCard({
 }: {
   d: any;
   canWrite: boolean;
+  categories: { key: string; label: string }[];
   handleInlineSave: (id: string, field: string, oldValue: string, newValue: string) => Promise<void>;
   logActivity: (decisionId: string, field: string, oldValue: string | null, newValue: string | null) => void | Promise<void>;
   createInterruption: ReturnType<typeof useCreateInterruption>;
@@ -889,7 +972,7 @@ function BetCard({
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4 mb-3">
         <div><span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Surface</span><p className="text-sm font-medium mt-0.5">{d.surface}</p></div>
         <div><span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Outcome Target</span><div className="text-sm font-medium mt-0.5"><InlineEdit value={d.outcome_target ?? ""} field="outcome_target" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" /></div></div>
-        <div><span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Category</span><div className="text-sm font-medium mt-0.5"><InlineEdit value={(d.outcome_category_key ?? d.outcome_category) ?? ""} field="outcome_category_key" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" placeholder="—" displayTransform={(v) => categoryLabels[v] ?? v.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())} /></div></div>
+        <div><span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Category</span><div className="text-sm font-medium mt-0.5"><CategorySelect value={(d.outcome_category_key ?? d.outcome_category) ?? ""} categories={categories} decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" /></div></div>
         <div><span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Expected Impact</span><div className="text-sm font-medium mt-0.5"><InlineEdit value={d.expected_impact ?? ""} field="expected_impact" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" /></div></div>
       </div>
 
@@ -990,6 +1073,13 @@ function BetCard({
 export default function Decisions() {
   const qc = useQueryClient();
   const { data: decisions = [], isLoading: decisionsLoading } = useDecisions();
+  const { data: categories = [] } = useQuery({
+    queryKey: ["outcome_categories"],
+    queryFn: async () => {
+      const { data } = await supabase.from("outcome_categories").select("key, label").order("label");
+      return data || [];
+    },
+  });
   const { isLoading: risksLoading } = useDecisionRisks();
   const updateDecision = useUpdateDecision();
   const logActivity = useLogActivity();
@@ -1075,6 +1165,7 @@ export default function Decisions() {
                 key={d.id}
                 d={d}
                 canWrite={canWrite}
+                categories={categories}
                 handleInlineSave={handleInlineSave}
                 logActivity={logActivity}
                 createInterruption={createInterruption}
