@@ -83,11 +83,22 @@ export default function ChatAdvisor() {
         ].join(" ")}
       >
         {/* Header */}
-        <div className="px-4 py-3 border-b flex-shrink-0">
-          <h2 className="text-sm font-semibold">Build Authority Advisor</h2>
-          <p className="text-[10px] text-muted-foreground mt-0.5">
-            Ask about your bets, the program, or tradeoffs
-          </p>
+        <div className="px-4 py-3 border-b flex-shrink-0 flex flex-col">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex-1 min-w-0">
+              <h2 className="text-sm font-semibold">Build Authority Advisor</h2>
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                Ask about your bets, the program, or tradeoffs
+              </p>
+            </div>
+            <button
+              onClick={() => setIsOpen(false)}
+              className="text-muted-foreground hover:text-foreground text-lg cursor-pointer p-1 shrink-0"
+              aria-label="Close"
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
         {/* Message area */}
