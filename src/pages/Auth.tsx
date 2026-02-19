@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLocation, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
-const VALID_INVITE_CODE = "buildauthority2026";
+const VALID_INVITE_CODE = "conviva2026";
 const PENDING_ORG_JOIN_KEY = "pending_org_join";
 
 interface AuthProps {
