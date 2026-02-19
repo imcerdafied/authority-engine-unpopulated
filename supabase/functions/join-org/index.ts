@@ -6,6 +6,14 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+function isAllowedDomain(email: string | null | undefined, domain: string | null | undefined): boolean {
+  if (!domain) return true;
+  if (!email) return false;
+  const normalizedDomain = domain.trim().toLowerCase();
+  if (!normalizedDomain) return true;
+  return email.toLowerCase().endsWith(`@${normalizedDomain}`);
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -45,6 +53,19 @@ serve(async (req) => {
     }
 
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
+    const { data: authSettings } = await serviceClient
+      .from("auth_settings")
+      .select("workspace_domain")
+      .eq("id", 1)
+      .maybeSingle();
+
+    const workspaceDomain = authSettings?.workspace_domain ?? null;
+    if (!isAllowedDomain(user.email, workspaceDomain)) {
+      return new Response(
+        JSON.stringify({ error: "Forbidden: workspace domain required" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const { data: existing } = await serviceClient
       .from("organization_memberships")

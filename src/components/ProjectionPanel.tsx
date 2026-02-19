@@ -104,9 +104,18 @@ export default function ProjectionPanel({
     setLoading(true);
     setError(null);
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) {
+        throw new Error("You must be signed in to generate a projection.");
+      }
+
       const res = await fetch("/api/projection-and-risk", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
         body: JSON.stringify({
           org_id: decision.org_id,
           decision_id: decision.id,

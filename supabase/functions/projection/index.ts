@@ -46,8 +46,69 @@ Deno.serve(async (req) => {
     }
 
     const { decision } = (await req.json()) as { decision: DecisionInput };
+    if (!decision?.id) {
+      return new Response(
+        JSON.stringify({ error: "Missing required field: decision.id" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
-    if (!decision?.outcome_category || !decision?.expected_impact || !decision?.exposure_value) {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey =
+      Deno.env.get("SUPABASE_ANON_KEY") ??
+      Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
+    if (!supabaseAnonKey) {
+      return new Response(JSON.stringify({ error: "Server not configured" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const {
+      data: { user },
+      error: userError,
+    } = await userClient.auth.getUser();
+    if (userError || !user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { data: trustedDecision, error: decisionReadError } = await userClient
+      .from("decisions")
+      .select(
+        "id, org_id, title, outcome_category, expected_impact, exposure_value, outcome_target, impact_tier, solution_domain, surface, current_delta, revenue_at_risk, segment_impact, owner, slice_deadline_days"
+      )
+      .eq("id", decision.id)
+      .maybeSingle();
+    if (decisionReadError) {
+      return new Response(JSON.stringify({ error: "Failed to load decision" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (!trustedDecision) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (decision.org_id && decision.org_id !== trustedDecision.org_id) {
+      return new Response(JSON.stringify({ error: "Invalid org_id for decision" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (
+      !trustedDecision.outcome_category ||
+      !trustedDecision.expected_impact ||
+      !trustedDecision.exposure_value
+    ) {
       return new Response(
         JSON.stringify({ error: "Missing required fields: outcome_category, expected_impact, exposure_value" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -58,18 +119,18 @@ Deno.serve(async (req) => {
     const prompt = `You are an enterprise decision-impact analyst. Given the following decision metadata, produce exactly 3 scenario projections. Return ONLY valid JSON, no markdown, no explanation.
 
 Decision:
-- Title: ${decision.title}
-- Outcome Category: ${decision.outcome_category}
-- Expected Impact: ${decision.expected_impact}
-- Exposure Value: ${decision.exposure_value}
-- Outcome Target: ${decision.outcome_target || "Not specified"}
-- Impact Tier: ${decision.impact_tier || "Medium"}
-- Domain: ${decision.solution_domain || "Cross"}
-- Surface: ${decision.surface || "Not specified"}
-- Current Delta: ${decision.current_delta || "None"}
-- Revenue at Risk: ${decision.revenue_at_risk || "Not specified"}
-- Segment Impact: ${decision.segment_impact || "Not specified"}
-- Slice Window: ${decision.slice_deadline_days || 10} days
+- Title: ${trustedDecision.title}
+- Outcome Category: ${trustedDecision.outcome_category}
+- Expected Impact: ${trustedDecision.expected_impact}
+- Exposure Value: ${trustedDecision.exposure_value}
+- Outcome Target: ${trustedDecision.outcome_target || "Not specified"}
+- Impact Tier: ${trustedDecision.impact_tier || "Medium"}
+- Domain: ${trustedDecision.solution_domain || "Cross"}
+- Surface: ${trustedDecision.surface || "Not specified"}
+- Current Delta: ${trustedDecision.current_delta || "None"}
+- Revenue at Risk: ${trustedDecision.revenue_at_risk || "Not specified"}
+- Segment Impact: ${trustedDecision.segment_impact || "Not specified"}
+- Slice Window: ${trustedDecision.slice_deadline_days || 10} days
 
 Return this exact JSON structure:
 {
@@ -141,11 +202,10 @@ Be analytical, concise, and credible. No hype. No speculation beyond reasonable 
 
     // Compute metadata hash for change detection
     const metadataHash = btoa(
-      `${decision.outcome_category}|${decision.expected_impact}|${decision.exposure_value}|${decision.outcome_target || ""}|${decision.current_delta || ""}`
+      `${trustedDecision.outcome_category}|${trustedDecision.expected_impact}|${trustedDecision.exposure_value}|${trustedDecision.outcome_target || ""}|${trustedDecision.current_delta || ""}`
     );
 
     // Store in DB
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -153,13 +213,14 @@ Be analytical, concise, and credible. No hype. No speculation beyond reasonable 
     await supabase
       .from("decision_projections")
       .delete()
-      .eq("decision_id", decision.id);
+      .eq("decision_id", trustedDecision.id)
+      .eq("org_id", trustedDecision.org_id);
 
     const { data: inserted, error: insertError } = await supabase
       .from("decision_projections")
       .insert({
-        decision_id: decision.id,
-        org_id: decision.org_id,
+        decision_id: trustedDecision.id,
+        org_id: trustedDecision.org_id,
         scenarios: scenarios,
         decision_metadata_hash: metadataHash,
         generated_at: new Date().toISOString(),

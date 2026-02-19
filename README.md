@@ -71,3 +71,26 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+
+## Google Workspace SSO setup
+
+1. In Supabase Dashboard, open `Authentication -> Providers -> Google` and enable Google provider.
+2. In Supabase Dashboard, disable Email provider/password login if you want strict Google-only auth.
+3. In Google Cloud Console, create OAuth Client ID (Web application).
+4. Add authorized redirect URI:
+   - `https://<YOUR_PROJECT_REF>.supabase.co/auth/v1/callback`
+5. Copy Google Client ID/Secret into Supabase Google provider config.
+6. In Supabase `Authentication -> URL Configuration`, ensure Site URL matches your app domain.
+7. Set frontend env vars:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+   - `VITE_GOOGLE_WORKSPACE_DOMAIN` (optional, e.g. `yourcompany.com`)
+8. Apply DB migrations, then set enforced workspace domain:
+
+```sql
+UPDATE public.auth_settings
+SET workspace_domain = 'yourcompany.com', updated_at = now()
+WHERE id = 1;
+```
+
+The auth page supports Google SSO only. Invite code gating is still used for non-join onboarding before OAuth redirect.

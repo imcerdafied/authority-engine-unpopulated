@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useLocation, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { cn } from "@/lib/utils";
 
 const VALID_INVITE_CODE = "buildauthority2026";
 const PENDING_ORG_JOIN_KEY = "pending_org_join";
@@ -15,52 +14,49 @@ export default function Auth({ skipInviteCode }: AuthProps = {}) {
   const { orgId } = useParams<{ orgId?: string }>();
   const isJoinFlow = skipInviteCode || /^\/join\/[^/]+$/.test(location.pathname);
 
-  const [mode, setMode] = useState<"login" | "signup">("login");
   const [inviteCode, setInviteCode] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const getOAuthRedirectTo = () => {
+    if (isJoinFlow && orgId) return `${window.location.origin}/join/${orgId}`;
+    return window.location.origin;
+  };
+
+  const handleGoogleSSO = async () => {
     setError(null);
     setMessage(null);
     setLoading(true);
 
-    if (mode === "signup") {
-      if (!isJoinFlow) {
-        if (inviteCode.trim().toLowerCase() !== VALID_INVITE_CODE) {
-          setError("Invalid invite code. Contact your admin for access.");
-          setLoading(false);
-          return;
-        }
-      }
-      if (isJoinFlow && orgId) {
-        localStorage.setItem(PENDING_ORG_JOIN_KEY, orgId);
-      }
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: window.location.origin,
-          data: { display_name: email.split("@")[0] },
-        },
-      });
-      if (error) {
-        setError(error.message);
-      } else {
-        setMessage("Check your email for the confirmation link.");
-      }
-    } else {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
-        setError(error.message);
-      }
+    if (!isJoinFlow && inviteCode.trim().toLowerCase() !== VALID_INVITE_CODE) {
+      setError("Invalid invite code. Contact your admin for access.");
+      setLoading(false);
+      return;
     }
 
-    setLoading(false);
+    if (isJoinFlow && orgId) {
+      localStorage.setItem(PENDING_ORG_JOIN_KEY, orgId);
+    }
+
+    const workspaceDomain = import.meta.env.VITE_GOOGLE_WORKSPACE_DOMAIN as
+      | string
+      | undefined;
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: getOAuthRedirectTo(),
+        queryParams: workspaceDomain ? { hd: workspaceDomain } : undefined,
+      },
+    });
+
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+      return;
+    }
+    setMessage("Redirecting to Google...");
   };
 
   return (
@@ -76,85 +72,40 @@ export default function Auth({ skipInviteCode }: AuthProps = {}) {
         </div>
 
         <div className="border rounded-md p-6">
-          <div className="flex gap-4 mb-6">
-            <button
-              onClick={() => { setMode("login"); setError(null); setMessage(null); }}
-              className={cn(
-                "text-[11px] font-semibold uppercase tracking-wider pb-1 border-b-2 transition-colors",
-                mode === "login" ? "border-foreground text-foreground" : "border-transparent text-muted-foreground"
-              )}
-            >
-              Sign In
-            </button>
-            <button
-              onClick={() => { setMode("signup"); setError(null); setMessage(null); }}
-              className={cn(
-                "text-[11px] font-semibold uppercase tracking-wider pb-1 border-b-2 transition-colors",
-                mode === "signup" ? "border-foreground text-foreground" : "border-transparent text-muted-foreground"
-              )}
-            >
-              Create Account
-            </button>
-          </div>
+          <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-4">
+            Google Workspace SSO only
+          </p>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {mode === "signup" && !isJoinFlow && (
-              <div>
-                <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">
-                  Invite Code
-                </label>
-                <input
-                  type="text"
-                  value={inviteCode}
-                  onChange={(e) => setInviteCode(e.target.value)}
-                  className="w-full border rounded-sm px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-foreground"
-                  placeholder="Enter invite code"
-                />
-              </div>
-            )}
-            <div>
+          {!isJoinFlow && (
+            <div className="mb-4">
               <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">
-                Email
+                Invite Code
               </label>
               <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                type="text"
+                value={inviteCode}
+                onChange={(e) => setInviteCode(e.target.value)}
                 className="w-full border rounded-sm px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-foreground"
-                placeholder="you@company.com"
+                placeholder="Enter invite code"
               />
             </div>
-            <div>
-              <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">
-                Password
-              </label>
-              <input
-                type="password"
-                required
-                minLength={6}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full border rounded-sm px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-foreground"
-                placeholder="••••••••"
-              />
-            </div>
+          )}
 
-            {error && (
-              <p className="text-xs text-signal-red font-medium">{error}</p>
-            )}
-            {message && (
-              <p className="text-xs text-signal-green font-medium">{message}</p>
-            )}
+          <button
+            type="button"
+            disabled={loading}
+            onClick={handleGoogleSSO}
+            className="w-full text-[11px] font-semibold uppercase tracking-wider border border-foreground text-foreground px-4 py-2.5 rounded-sm hover:bg-foreground hover:text-background transition-colors disabled:opacity-50"
+          >
+            Continue with Google
+          </button>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full text-[11px] font-semibold uppercase tracking-wider text-white bg-black px-4 py-2.5 rounded-sm hover:bg-black/90 transition-colors disabled:opacity-50"
-            >
-              {loading ? "..." : mode === "login" ? "Sign In" : "Create Account"}
-            </button>
-          </form>
+          {error && (
+            <p className="text-xs text-signal-red font-medium mt-3">{error}</p>
+          )}
+          {message && (
+            <p className="text-xs text-signal-green font-medium mt-3">{message}</p>
+          )}
         </div>
       </div>
     </div>

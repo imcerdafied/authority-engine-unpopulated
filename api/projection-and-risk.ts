@@ -4,16 +4,19 @@ import { createClient } from "@supabase/supabase-js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const hasSupabaseUrl = Boolean(process.env.SUPABASE_URL);
+  const hasSupabaseAnonKey = Boolean(
+    process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY
+  );
   const hasServiceRoleKey = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
   const hasAnthropicKey = Boolean(process.env.ANTHROPIC_API_KEY);
 
-  if (!hasSupabaseUrl || !hasServiceRoleKey || !hasAnthropicKey) {
+  if (!hasSupabaseUrl || !hasSupabaseAnonKey || !hasServiceRoleKey || !hasAnthropicKey) {
     return res.status(500).json({
       error: "Missing env vars",
       hasSupabaseUrl,
+      hasSupabaseAnonKey,
       hasServiceRoleKey,
       hasAnthropicKey,
-      envKeysSample: Object.keys(process.env).filter(Boolean).slice(0, 50),
     });
   }
 
@@ -22,14 +25,70 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const supabaseUrl = process.env.SUPABASE_URL as string;
+  const supabaseAnonKey = (process.env.SUPABASE_ANON_KEY ||
+    process.env.SUPABASE_PUBLISHABLE_KEY) as string;
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY as string;
   const anthropic = new Anthropic({
     apiKey: process.env.ANTHROPIC_API_KEY as string,
   });
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  const serviceSupabase = createClient(supabaseUrl, supabaseKey);
 
   try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const userSupabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const {
+      data: { user },
+      error: userError,
+    } = await userSupabase.auth.getUser();
+    if (userError || !user) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
     const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+    if (!body?.org_id || !body?.decision_id) {
+      return res.status(400).json({ error: "Missing org_id or decision_id" });
+    }
+
+    const { data: membership, error: membershipErr } = await serviceSupabase
+      .from("organization_memberships")
+      .select("org_id")
+      .eq("org_id", body.org_id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (membershipErr) {
+      return res.status(500).json({
+        error: "Membership check failed",
+        detail: membershipErr.message,
+      });
+    }
+    if (!membership) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const { data: trustedDecision, error: decisionErr } = await serviceSupabase
+      .from("decisions")
+      .select(
+        "id, org_id, title, solution_domain, surface, outcome_category, expected_impact, exposure_value"
+      )
+      .eq("id", body.decision_id)
+      .eq("org_id", body.org_id)
+      .maybeSingle();
+    if (decisionErr) {
+      return res.status(500).json({
+        error: "Decision lookup failed",
+        detail: decisionErr.message,
+      });
+    }
+    if (!trustedDecision) {
+      return res.status(404).json({ error: "Decision not found for org" });
+    }
 
     const prompt = `
 You are an enterprise decision analyst.
@@ -50,12 +109,12 @@ Rules:
 - Return raw JSON only.
 
 Decision:
-Title: ${body.title}
-Domain: ${body.domain}
-Surface: ${body.surface}
-Outcome Category: ${body.outcome_category}
-Expected Impact: ${body.expected_impact}
-Exposure Value: ${body.exposure_value}
+Title: ${trustedDecision.title}
+Domain: ${trustedDecision.solution_domain}
+Surface: ${trustedDecision.surface}
+Outcome Category: ${trustedDecision.outcome_category}
+Expected Impact: ${trustedDecision.expected_impact}
+Exposure Value: ${trustedDecision.exposure_value}
 
 Return JSON exactly:
 
@@ -108,7 +167,7 @@ Return JSON exactly:
     if (delayed === "Medium") score += 12;
     if (depr === "High") score += 25;
     if (depr === "Medium") score += 15;
-    if (String(body.exposure_value ?? "").toLowerCase().includes("renewal"))
+    if (String(trustedDecision.exposure_value ?? "").toLowerCase().includes("renewal"))
       score += 10;
 
     score = Math.min(100, score);
@@ -122,11 +181,11 @@ Return JSON exactly:
       risk_reason: "AI projection + deterministic rules",
     };
 
-    const { error: projErr } = await supabase
+    const { error: projErr } = await serviceSupabase
       .from("decision_projections")
       .insert({
-        org_id: body.org_id,
-        decision_id: body.decision_id,
+        org_id: trustedDecision.org_id,
+        decision_id: trustedDecision.id,
         model: "claude-opus-4-6",
         projection,
       });
@@ -138,9 +197,9 @@ Return JSON exactly:
       });
     }
 
-    const { error: riskErr } = await supabase.from("decision_risk").upsert({
-      org_id: body.org_id,
-      decision_id: body.decision_id,
+    const { error: riskErr } = await serviceSupabase.from("decision_risk").upsert({
+      org_id: trustedDecision.org_id,
+      decision_id: trustedDecision.id,
       risk_score: risk.risk_score,
       risk_indicator: risk.risk_indicator,
       risk_reason: risk.risk_reason,
