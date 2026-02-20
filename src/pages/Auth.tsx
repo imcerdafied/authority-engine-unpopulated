@@ -106,6 +106,25 @@ export default function Auth({ skipInviteCode }: AuthProps = {}) {
           {message && (
             <p className="text-xs text-signal-green font-medium mt-3">{message}</p>
           )}
+
+          <div className="mt-4 pt-4 border-t flex items-center justify-center gap-4 text-[11px]">
+            <a
+              href="/privacy-policy.pdf"
+              target="_blank"
+              rel="noreferrer"
+              className="text-muted-foreground hover:text-foreground underline"
+            >
+              Privacy Policy
+            </a>
+            <a
+              href="/terms-of-service.pdf"
+              target="_blank"
+              rel="noreferrer"
+              className="text-muted-foreground hover:text-foreground underline"
+            >
+              Terms of Service
+            </a>
+          </div>
         </div>
       </div>
     </div>
