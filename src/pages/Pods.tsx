@@ -38,7 +38,7 @@ export default function Pods() {
   const authorityActive = activeHighImpact.length >= 5;
   const activeDecisions = decisions.filter((d) => d.status !== "closed");
 
-  // Group active decisions by solution_domain for pod matching
+  // Group active decisions by solution_domain for unit matching
   const decisionsByDomain: Record<string, typeof decisions> = {};
   activeDecisions.forEach((d) => {
     const domain = d.solution_domain || "Cross";
@@ -50,17 +50,17 @@ export default function Pods() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold">Builder Pods</h1>
+          <h1 className="text-xl font-bold">Bet Units</h1>
           <p className="text-sm text-muted-foreground mt-1">
             {authorityActive
-              ? "Authority allocates. Pods execute."
-              : `${pods.length} pods · ${pods.reduce((sum: number, p: any) => sum + (p.pod_initiatives?.length || 0), 0)} initiatives`}
+              ? "Authority allocates. Cross-functional units execute."
+              : `${pods.length} units · ${pods.reduce((sum: number, p: any) => sum + (p.pod_initiatives?.length || 0), 0)} initiatives`}
           </p>
         </div>
         {isAdmin && !showCreate && (
           <button onClick={() => setShowCreate(true)}
             className="text-[11px] font-semibold uppercase tracking-wider text-foreground border border-foreground px-3 py-1.5 rounded-sm hover:bg-foreground hover:text-background transition-colors">
-            + Create Pod
+            + Create Unit
           </button>
         )}
       </div>
@@ -71,7 +71,7 @@ export default function Pods() {
           <div className="flex items-center gap-3">
             <div className="w-2 h-2 bg-foreground rounded-full shrink-0" />
             <div>
-              <p className="text-sm font-semibold">Pods executing {activeHighImpact.length} active strategic commitments.</p>
+              <p className="text-sm font-semibold">Units executing {activeHighImpact.length} active strategic commitments.</p>
               <p className="text-xs text-muted-foreground mt-0.5">
                 Authority Mode Active — all slots occupied.
               </p>
@@ -84,10 +84,10 @@ export default function Pods() {
 
       {isEmpty && !showCreate ? (
         <div className="border border-dashed rounded-md px-6 py-10 text-center">
-          <p className="text-sm font-medium text-muted-foreground">No Builder Pods Active.</p>
-          <p className="text-xs text-muted-foreground/70 mt-1.5">Activate a pod to begin execution compression.</p>
+          <p className="text-sm font-medium text-muted-foreground">No Bet Units Active.</p>
+          <p className="text-xs text-muted-foreground/70 mt-1.5">Activate a unit to begin execution compression.</p>
           <div className="flex justify-center gap-6 mt-4 text-xs text-muted-foreground/50">
-            <span>Pod Name</span><span>Active Bets</span><span>Slice Status</span><span>Velocity</span>
+            <span>Unit Name</span><span>Active Bets</span><span>Slice Status</span><span>Velocity</span>
           </div>
         </div>
       ) : (
@@ -103,7 +103,7 @@ export default function Pods() {
             const resolved = total ? Math.round((shipped / total) * 100) : 0;
             const zeroVelocity = shipped === 0 && total > 0;
 
-            // Match decisions to pod by solution_domain
+            // Match decisions to unit by solution_domain
             const podDecisions = decisionsByDomain[pod.solution_domain] || [];
 
             // Compute slices shipped in last 7 days
@@ -122,7 +122,7 @@ export default function Pods() {
 
             return (
               <div key={pod.id} className="border rounded-md">
-                {/* Pod Header */}
+                {/* Unit Header */}
                 <div className={cn("px-4 py-3 border-b", zeroVelocity ? "bg-signal-amber/5" : "bg-surface-elevated")}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -135,7 +135,7 @@ export default function Pods() {
                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
                       {zeroVelocity && <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider">Zero velocity</span>}
                       {isAdmin && (
-                        <button onClick={() => { if (confirm(`Delete pod "${pod.name}"?`)) deletePod.mutate(pod.id); }}
+                        <button onClick={() => { if (confirm(`Delete unit "${pod.name}"?`)) deletePod.mutate(pod.id); }}
                           className="text-[11px] font-semibold uppercase tracking-wider text-signal-red hover:underline ml-2">Delete</button>
                       )}
                     </div>

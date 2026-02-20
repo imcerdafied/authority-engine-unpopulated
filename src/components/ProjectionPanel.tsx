@@ -173,7 +173,7 @@ export default function ProjectionPanel({
         throw new Error("No pod config returned");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to generate pod.");
+      setError(err instanceof Error ? err.message : "Failed to generate bet unit.");
     } finally {
       setPodLoading(false);
     }
@@ -232,7 +232,7 @@ export default function ProjectionPanel({
             {podLoading && (
               <span className="border-2 border-foreground border-t-transparent rounded-full w-4 h-4 inline-block animate-spin shrink-0" />
             )}
-            {podLoading ? "Generating pod configuration..." : "Generate Pod"}
+            {podLoading ? "Generating bet unit..." : "Generate Bet Unit"}
           </button>
         )}
       </div>

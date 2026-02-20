@@ -27,13 +27,13 @@ export default function CreatePodForm({ onClose }: { onClose: () => void }) {
   return (
     <div className="border rounded-md p-5 mb-6 bg-surface-elevated">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Create Pod</h2>
+        <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Create Unit</h2>
         <button onClick={onClose} className="text-xs text-muted-foreground hover:text-foreground">Cancel</button>
       </div>
       <form onSubmit={handleSubmit} className="space-y-3">
         <div className="grid grid-cols-3 gap-3">
           <div>
-            <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">Pod Name *</label>
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">Unit Name *</label>
             <input required value={name} onChange={(e) => setName(e.target.value)}
               className="w-full border rounded-sm px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-foreground" />
           </div>
@@ -53,7 +53,7 @@ export default function CreatePodForm({ onClose }: { onClose: () => void }) {
         <div className="flex justify-end pt-2">
           <button type="submit" disabled={createPod.isPending}
             className="text-[11px] font-semibold uppercase tracking-wider text-background bg-foreground px-4 py-2 rounded-sm hover:bg-foreground/90 transition-colors disabled:opacity-50">
-            {createPod.isPending ? "Creating..." : "Create Pod"}
+            {createPod.isPending ? "Creating..." : "Create Unit"}
           </button>
         </div>
       </form>

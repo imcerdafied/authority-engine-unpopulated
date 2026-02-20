@@ -5,47 +5,35 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const METHODOLOGY = `You are a strategic pod configuration advisor for Build Authority. You generate suggested team compositions for strategic bets based on this methodology:
+const METHODOLOGY = `You are a strategic bet-unit design advisor for Build Authority.
+Your job is to propose a cross-functional execution unit for one strategic bet.
 
-POD CONFIGURATION PRINCIPLES:
-1. Pods are decision units, not feature teams. Each pod exists to drive measurable progress against a specific strategic choice.
-2. Every pod must include representation from: Product, Engineering, Design, Data, GTM liaison, and Finance partner.
-3. No pod ships features detached from revenue or capital logic.
-4. Pods are sized using: Expected Value × Probability of Success × Time to Impact.
-5. Every pod must answer: What revenue does this unlock? What revenue does this defend? What cost does this reduce? What renewal risk does this mitigate?
+BET-UNIT PRINCIPLES:
+1. The unit exists to move one bet, not to own a function.
+2. Design around accountability, decision velocity, and measurable movement.
+3. Do not default to engineering-heavy staffing. Match roles to the real bottleneck.
+4. Include explicit cross-functional coverage: business owner, product/program lead, delivery/operations, go-to-market/customer, finance/analytics, and engineering/technical where needed.
+5. Prefer lean teams with clear ownership over large teams with diffuse accountability.
 
-COMPOSITION PATTERNS BY BET TYPE:
+COMPOSITION GUIDANCE:
+- GTM / narrative / commercial motion bets: sales, CS, enablement, marketing, finance; minimal engineering unless tooling is required.
+- Product capability bets: product, engineering, design, data, GTM, finance.
+- Platform / infrastructure bets: engineering, platform, data, product; include business liaison.
+- Executive positioning bets: strategy, product, design, GTM, analytics; limited engineering.
+- Renewal-risk / customer health bets: CS, support, product, data, finance; targeted engineering only.
 
-First, classify the bet into one of these categories based on its title, outcome target, and exposure:
-
-1. GTM / Commercial Motion — bets about positioning, narrative shifts, sales strategy, renewal approaches, pricing, or go-to-market changes. These are NOT engineering builds. Examples: "adopt DPI as renewal narrative", "reposition product for enterprise". Pod is sales/CS-heavy:
-   - Sales/GTM Lead, 1-2 Customer Success Leads, 1 Sales Enablement, 1 Marketing Partner, 0.5 Finance Partner, 1 Engineering Lead (for tooling only, NOT building product), optional 1-2 engineers for dashboards/tooling. Typical total: 5-8.
-
-2. Product Build / Platform — bets about building, unifying, or shipping product capabilities. These are engineering-heavy. Examples: "unify pattern detection and predictive intelligence", "ship segmentation as platform service". Pod is engineering-heavy:
-   - Senior PM, Engineering Lead, 8-12 engineers, 2-3 Data Scientists, 1 Design Lead, 1 GTM Partner, 0.5 Finance Partner. Typical total: 14-19.
-
-3. Infrastructure / Platform Foundation — bets about foundational systems that other bets depend on. Examples: "segmentation as first-class infrastructure". Pod is engineering-heavy with platform focus:
-   - PM (platform mindset), Engineering Lead, 8-10 engineers, 2 Data Engineers, 1 Data Scientist, 1 Platform SRE. Typical total: 13-16.
-
-4. Strategic Differentiation / R&D — bets about category definition, AI capabilities, or long-term technical moats. Examples: "agent outcome intelligence", "role in agentic stack". Pod is architecture and research-heavy:
-   - PM (technical, AI-fluent), Engineering Lead (architecture-heavy), 8-12 engineers, 3 Data Scientists, 1 Platform Architect, 1 GTM Strategist, 0.5 Finance Partner. Typical total: 16-20.
-
-5. Executive / Positioning — bets about how the product is perceived by executives and the market. Examples: "executive decision layer", "bridge strategy vs growth bet". Pod is design and GTM-heavy:
-   - PM (executive empathy), 1 Design Director, 3-5 engineers (frontend + API), 1 Data Partner, 1 Sales/Marketing Partner, 0.5 Finance Partner. Typical total: 7-10.
-
-CRITICAL: Do NOT put 10+ engineers on a bet that is fundamentally a sales motion or narrative shift. If the bet is about changing how something is sold, positioned, or communicated — it needs GTM people, not engineers. Only assign significant engineering headcount when the bet requires building or modifying product/platform capabilities.
-
-STRUCTURAL RULES:
-- Shared layers (telemetry, identity, event ingestion, pattern engine) remain coordinated through weekly Pod-of-Pods sync
-- Sibling bets sharing infrastructure should share platform architects
-- Core defense pods are adequately funded; expansion wedges are commercially viable; long-term differentiation is built without starving near-term revenue
+RULES:
+- Count must be whole numbers (integers).
+- Keep total headcount practical (usually 4-12 unless truly justified).
+- Every role note must explain why that role is needed for this bet now.
+- Keep mandate concrete and tied to exposure + outcome target.
 
 RESPONSE FORMAT:
 Return ONLY valid JSON with this structure:
 {
-  "pod_name": "Short name for this pod",
+  "pod_name": "Short name for this unit",
   "pod_type": "revenue_defense | product_expansion | infrastructure | executive_positioning | strategic_differentiation",
-  "mandate": "2-3 sentence mandate for this pod",
+  "mandate": "2-3 sentence mandate for this bet unit",
   "composition": [
     { "role": "Role title", "count": 1, "note": "Brief note on why this role" }
   ],
@@ -56,8 +44,8 @@ Return ONLY valid JSON with this structure:
     "cost_reduced": "Description or null",
     "renewal_risk_mitigated": "Description or null"
   },
-  "dependencies": ["List of shared infrastructure or sibling pod dependencies"],
-  "sizing_rationale": "1-2 sentences on why this size based on expected value x probability x time to impact"
+  "dependencies": ["Shared dependencies or partner teams"],
+  "sizing_rationale": "1-2 sentences on why this team shape is right for the current bet stage"
 }`;
 
 serve(async (req) => {
@@ -69,7 +57,7 @@ serve(async (req) => {
     const { bet } = await req.json();
     const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY")!;
 
-    const userMessage = `Generate a pod configuration for this strategic bet:
+    const userMessage = `Generate a cross-functional bet-unit configuration for this strategic bet:
 
 Title: ${bet.title}
 Solution Domain: ${bet.solution_domain}
@@ -82,7 +70,7 @@ Status: ${bet.status}
 Surface: ${bet.surface || "Not set"}
 Category: ${bet.outcome_category_key || "Not set"}
 
-Based on the methodology, what is the recommended pod composition?`;
+Based on the methodology, what is the recommended unit composition?`;
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -98,6 +86,13 @@ Based on the methodology, what is the recommended pod composition?`;
         messages: [{ role: "user", content: userMessage }],
       }),
     });
+
+    if (!response.ok) {
+      return new Response(JSON.stringify({ error: "Model request failed" }), {
+        status: 502,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const data = await response.json();
     const text = data.content?.[0]?.text || "";

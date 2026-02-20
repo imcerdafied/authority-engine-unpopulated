@@ -630,7 +630,7 @@ function PodConfigurationSection({
         className="w-full px-4 py-2 flex items-center justify-between text-left hover:bg-muted/30 transition-colors"
       >
         <span className="text-[11px] uppercase tracking-widest font-semibold text-muted-foreground">
-          POD · {pod.pod_name} · {pod.total_headcount} people
+          BET UNIT · {pod.pod_name} · {pod.total_headcount} people
         </span>
         <span className="text-muted-foreground text-[10px]">{expanded ? "−" : "+"}</span>
       </button>
@@ -638,7 +638,7 @@ function PodConfigurationSection({
         <div className="px-4 pb-4 pt-0 space-y-3 border-t">
           <div className="flex items-center gap-2 flex-wrap pt-3">
             <span className="text-[11px] uppercase tracking-widest font-semibold text-muted-foreground">
-              POD CONFIGURATION
+              BET UNIT CONFIGURATION
             </span>
             <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-sm bg-muted text-foreground">
               {pod.pod_name}
@@ -654,7 +654,7 @@ function PodConfigurationSection({
               canEdit={canWrite}
               asTextarea
               className="text-sm italic text-muted-foreground block w-full min-h-[4rem]"
-              placeholder="Pod mandate…"
+              placeholder="Bet unit mandate..."
             />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
