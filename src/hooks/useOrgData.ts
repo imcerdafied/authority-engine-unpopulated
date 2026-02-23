@@ -108,7 +108,7 @@ export function useDecisions() {
       if (!currentOrg) return [];
       const { data, error } = await supabase
         .from("decisions")
-        .select("id, org_id, title, owner, surface, solution_domain, impact_tier, outcome_target, outcome_category_key, expected_impact, exposure_value, trigger_signal, revenue_at_risk, status, created_at, updated_at, outcome_category, current_delta, segment_impact, decision_health, blocked_reason, blocked_dependency_owner, slice_deadline_days, slice_due_at, activated_at, created_by, shipped_slice_date, measured_outcome_result, capacity_allocated, capacity_diverted, unplanned_interrupts, escalation_count, previous_exposure_value, state_changed_at, state_change_note")
+        .select("id, org_id, title, owner, surface, solution_domain, impact_tier, outcome_target, outcome_category_key, expected_impact, exposure_value, trigger_signal, revenue_at_risk, status, created_at, updated_at, outcome_category, current_delta, segment_impact, decision_health, blocked_reason, blocked_dependency_owner, slice_deadline_days, slice_due_at, activated_at, created_by, shipped_slice_date, measured_outcome_result, capacity_allocated, capacity_diverted, unplanned_interrupts, escalation_count, previous_exposure_value, state_changed_at, state_change_note, pod_configuration")
         .eq("org_id", currentOrg.id)
         .order("created_at", { ascending: false });
       if (error) throw error;

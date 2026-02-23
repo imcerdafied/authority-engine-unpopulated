@@ -878,6 +878,8 @@ function BetCard({
   handleStatusConfirm: () => void;
 }) {
   const [logFormExpanded, setLogFormExpanded] = useState(false);
+  const [podExpanded, setPodExpanded] = useState(false);
+  const [podJustGenerated, setPodJustGenerated] = useState(false);
 
   const capacityDiverted = (d.capacity_diverted ?? 0) as number;
   const unplannedInterrupts = (d.unplanned_interrupts ?? 0) as number;
@@ -1010,9 +1012,9 @@ function BetCard({
 
         <div>
           <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground block">Expected Impact</span>
-          <InlineEdit value={d.expected_impact ?? ""} field="expected_impact" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="text-base leading-relaxed mt-2 block" />
+          <InlineEdit value={d.expected_impact ?? ""} field="expected_impact" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="text-sm font-medium mt-2 block" />
           {expectedImpactItems.length > 1 && (
-            <ul className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 text-base text-foreground/90">
+            <ul className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 text-sm text-foreground/90">
               {expectedImpactItems.map((item, idx) => (
                 <li key={`${d.id}-impact-${idx}`} className="flex items-start gap-2">
                   <span className="text-muted-foreground mt-[2px]">•</span>
@@ -1099,6 +1101,28 @@ function BetCard({
         </div>
       )}
 
+      {(d as any).pod_configuration && (
+        <PodConfigurationSection
+          pod={(d as any).pod_configuration as PodConfig}
+          expanded={podExpanded || podJustGenerated}
+          onToggle={() => {
+            if (podExpanded || podJustGenerated) {
+              setPodExpanded(false);
+              setPodJustGenerated(false);
+            } else {
+              setPodExpanded(true);
+            }
+          }}
+          justGenerated={podJustGenerated}
+          decisionId={d.id}
+          canWrite={canWrite}
+          onSave={async (updated) => {
+            await supabase.from("decisions").update({ pod_configuration: updated } as any).eq("id", d.id);
+            qc.invalidateQueries({ queryKey: ["decisions"] });
+          }}
+        />
+      )}
+
       {d.blocked_reason && (
         <div className="mt-3 pt-3 border-t text-xs">
           <p className="text-muted-foreground">Blocked: {d.blocked_reason}</p>
@@ -1111,6 +1135,7 @@ function BetCard({
           decision={d}
           canWrite={canWrite}
           qc={qc}
+          onPodGenerated={() => setPodJustGenerated(true)}
         />
       )}
 
@@ -1220,7 +1245,7 @@ export default function Decisions() {
                 key={d.id}
                 d={d}
                 canWrite={canWrite}
-                canUpdateStatus={canWrite && (isDecisionOwner(d, user) || currentRole === "admin")}
+                canUpdateStatus={canWrite && isDecisionOwner(d, user)}
                 canManageOwner={canManageOwner}
                 categories={categories}
                 handleInlineSave={handleInlineSave}

@@ -41,13 +41,16 @@ export default function ProjectionPanel({
   decision,
   canWrite,
   qc,
+  onPodGenerated,
 }: {
   decision: DecisionComputed;
   canWrite?: boolean;
   qc?: { invalidateQueries: (opts: { queryKey: string[] }) => void };
+  onPodGenerated?: () => void;
 }) {
   const [projection, setProjection] = useState<ProjectionData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [podLoading, setPodLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadingExisting, setLoadingExisting] = useState(true);
 
@@ -101,46 +104,78 @@ export default function ProjectionPanel({
     setLoading(true);
     setError(null);
     try {
-      const { data, error: invokeErr } = await supabase.functions.invoke("projection", {
-        body: {
-          decision: {
-            id: decision.id,
-            org_id: decision.org_id,
-            title: decision.title,
-            outcome_category: (decision.outcome_category || decision.outcome_category_key) ?? "",
-            expected_impact: decision.expected_impact ?? "",
-            exposure_value: (decision as { exposure_value?: string }).exposure_value ?? "",
-            outcome_target: decision.outcome_target ?? "",
-            impact_tier: decision.impact_tier ?? "Medium",
-            solution_domain: decision.solution_domain,
-            surface: decision.surface,
-            current_delta: decision.current_delta ?? "",
-            revenue_at_risk: decision.revenue_at_risk ?? "",
-            segment_impact: decision.segment_impact ?? "",
-            owner: decision.owner ?? "",
-            slice_deadline_days: decision.slice_deadline_days ?? 10,
-          },
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) {
+        throw new Error("You must be signed in to generate a projection.");
+      }
+
+      const res = await fetch("/api/projection-and-risk", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
         },
+        body: JSON.stringify({
+          org_id: decision.org_id,
+          decision_id: decision.id,
+          title: decision.title,
+          domain: decision.solution_domain,
+          surface: decision.surface,
+          outcome_category: (decision.outcome_category || decision.outcome_category_key) ?? "",
+          expected_impact: decision.expected_impact ?? "",
+          exposure_value: (decision as { exposure_value?: string }).exposure_value ?? "",
+          slice_overdue: decision.is_exceeded ?? false,
+          blocked_days: decision.status === "Blocked" ? (decision.age_days ?? 0) : 0,
+        }),
       });
 
-      if (invokeErr) {
-        throw invokeErr;
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.detail ?? data.error ?? "Projection failed");
       }
 
-      const scenarios = (data?.scenarios as Scenario[]) ?? [];
-      if (!Array.isArray(scenarios) || scenarios.length === 0) {
-        throw new Error(data?.error ?? "Projection failed");
-      }
+      const raw = data.projection as Record<string, { impact_summary?: string; exposure_shift?: string; confidence?: string }>;
+      const scenarios: Scenario[] = [
+        { label: "On-Time Delivery", impact_summary: raw.on_time?.impact_summary ?? "", exposure_shift: raw.on_time?.exposure_shift ?? "", confidence: raw.on_time?.confidence ?? "" },
+        { label: "Delayed by 10 Days", impact_summary: raw.delayed_10_days?.impact_summary ?? "", exposure_shift: raw.delayed_10_days?.exposure_shift ?? "", confidence: raw.delayed_10_days?.confidence ?? "" },
+        { label: "Deprioritized", impact_summary: raw.deprioritized?.impact_summary ?? "", exposure_shift: raw.deprioritized?.exposure_shift ?? "", confidence: raw.deprioritized?.confidence ?? "" },
+      ];
 
       setProjection({
         scenarios,
-        generated_at: (data?.generated_at as string) ?? new Date().toISOString(),
-        metadata_hash: (data?.metadata_hash as string) ?? currentHash,
+        generated_at: new Date().toISOString(),
+        metadata_hash: currentHash,
       });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to generate projection.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const hasPod = !!(decision as any).pod_configuration;
+
+  const handleGeneratePod = async () => {
+    if (!canWrite || !qc) return;
+    setPodLoading(true);
+    try {
+      const { data, error: invokeErr } = await supabase.functions.invoke("generate-pod", {
+        body: { bet: decision },
+      });
+      if (invokeErr) throw invokeErr;
+      if (data?.pod) {
+        await supabase.from("decisions").update({ pod_configuration: data.pod } as any).eq("id", decision.id);
+        qc.invalidateQueries({ queryKey: ["decisions"] });
+        onPodGenerated?.();
+      } else {
+        throw new Error("No pod config returned");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to generate bet outcome pod.");
+    } finally {
+      setPodLoading(false);
     }
   };
 
@@ -183,6 +218,22 @@ export default function ProjectionPanel({
               <p>Requires outcome category, expected impact, and exposure value</p>
             </TooltipContent>
           </Tooltip>
+        )}
+        {canWrite && (
+          <button
+            disabled={podLoading}
+            onClick={handleGeneratePod}
+            className={cn(
+              "text-[11px] uppercase tracking-wider border rounded px-3 py-1 transition-colors flex items-center gap-2",
+              "border-foreground text-foreground hover:bg-foreground hover:text-background",
+              podLoading && "opacity-50 cursor-not-allowed"
+            )}
+          >
+            {podLoading && (
+              <span className="border-2 border-foreground border-t-transparent rounded-full w-4 h-4 inline-block animate-spin shrink-0" />
+            )}
+            {podLoading ? "Generating bet outcome pod..." : hasPod ? "Regenerate Bet Outcome Pod" : "Generate Bet Outcome Pod"}
+          </button>
         )}
       </div>
 
