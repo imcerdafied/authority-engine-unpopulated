@@ -445,7 +445,7 @@ function DecisionActivityFeed({
   const { data: activity = [], isLoading } = useDecisionActivity(decisionId);
 
   return (
-    <div className="mt-3 pt-3 pb-3 border-t">
+    <div className="mt-4 pt-4 pb-5 px-4 md:px-6 border-t">
       <div className="flex items-center gap-2 flex-wrap">
         <button
           onClick={() => setExpanded(!expanded)}
@@ -668,6 +668,9 @@ function PodConfigurationSection({
               {pod.pod_type?.replace(/_/g, " ")}
             </span>
           </div>
+          <p className="text-[11px] text-muted-foreground">
+            Cross-functional outcome pod (not an engineering delivery pod).
+          </p>
           <div className="border-l-2 border-muted-foreground/20 pl-3">
             <PodInlineEdit
               value={pod.mandate ?? ""}
@@ -994,18 +997,13 @@ function BetCard({
           canEdit={canWrite}
           onSave={handleInlineSave}
           logActivity={logActivity}
-          className="text-lg md:text-xl font-medium leading-snug block"
+          className="text-base md:text-lg font-medium leading-snug block"
           placeholder="Add trigger signal…"
         />
       </div>
 
       <div className="px-4 md:px-6 py-5 space-y-5">
-        <div className="grid grid-cols-1 gap-4">
-          <div>
-            <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground block">Surface</span>
-            <p className="text-lg font-medium mt-1">{d.surface || "—"}</p>
-          </div>
-        </div>
+        
 
         <div className="rounded-lg border bg-muted/20 p-4">
           <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground block mb-1">Outcome Target</span>
