@@ -183,7 +183,7 @@ export default function ProjectionPanel({
 
   return (
     <div className="mt-4 pt-4 border-t">
-      <div className="flex justify-end gap-2 mb-1 flex-wrap">
+      <div className="flex justify-end gap-2 mb-1 flex-wrap pr-2 md:pr-4">
         {loadingExisting ? null : canGenerate ? (
           <button
             disabled={loading}

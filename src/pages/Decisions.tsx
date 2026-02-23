@@ -5,7 +5,6 @@ import { useLogActivity, useDecisionActivity } from "@/hooks/useDecisionActivity
 import { useInterruptions, useCreateInterruption } from "@/hooks/useInterruptions";
 import { useOrg } from "@/contexts/OrgContext";
 import { useAuth } from "@/contexts/AuthContext";
-import StatusBadge from "@/components/StatusBadge";
 import CreateDecisionForm from "@/components/CreateDecisionForm";
 import ProjectionPanel from "@/components/ProjectionPanel";
 import { supabase } from "@/integrations/supabase/client";
@@ -170,6 +169,9 @@ const categoryLabels: Record<string, string> = {
   operational_efficiency: "Operational Efficiency",
   platform_integrity: "Platform Integrity",
 };
+
+const solutionDomainOptions = ["S1", "S2", "S3"] as const;
+const surfaceOptions = ["Video", "DPI", "Agent"] as const;
 
 function relativeTime(dateStr: string): string {
   const sec = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
@@ -839,8 +841,79 @@ function CategorySelect({
   );
 }
 
+function PillSelect({
+  value,
+  options,
+  field,
+  decisionId,
+  canEdit,
+  onSave,
+  logActivity,
+}: {
+  value: string;
+  options: readonly string[];
+  field: "solution_domain" | "surface";
+  decisionId: string;
+  canEdit: boolean;
+  onSave: (id: string, field: string, oldValue: string, newValue: string) => Promise<void>;
+  logActivity?: (decisionId: string, field: string, oldValue: string | null, newValue: string | null) => void | Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const selectRef = useRef<HTMLSelectElement>(null);
+  const currentValue = value || "";
+
+  useEffect(() => {
+    if (editing) selectRef.current?.focus();
+  }, [editing]);
+
+  const handleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newValue = e.target.value || "";
+    if (newValue !== currentValue) {
+      await onSave(decisionId, field, currentValue, newValue);
+      logActivity?.(decisionId, field, currentValue || null, newValue || null)?.catch(() => {});
+    }
+    setEditing(false);
+  };
+
+  if (editing && canEdit) {
+    return (
+      <select
+        ref={selectRef}
+        value={currentValue}
+        onChange={handleChange}
+        onBlur={() => setEditing(false)}
+        className="text-[11px] border rounded-full px-2 py-0.5 bg-background"
+      >
+        <option value="">—</option>
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    );
+  }
+
+  return (
+    <span
+      role={canEdit ? "button" : undefined}
+      tabIndex={canEdit ? 0 : undefined}
+      onClick={() => canEdit && setEditing(true)}
+      onKeyDown={(e) => canEdit && e.key === "Enter" && setEditing(true)}
+      className={cn(
+        "inline-flex items-center text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border",
+        canEdit && "cursor-pointer hover:bg-accent/50",
+        !currentValue && "text-muted-foreground/70"
+      )}
+    >
+      {currentValue || "—"}
+    </span>
+  );
+}
+
 function BetCard({
   d,
+  index,
   canWrite,
   canUpdateStatus,
   canManageOwner,
@@ -858,6 +931,7 @@ function BetCard({
   handleStatusConfirm,
 }: {
   d: any;
+  index: number;
   canWrite: boolean;
   canUpdateStatus: boolean;
   canManageOwner: boolean;
@@ -897,22 +971,42 @@ function BetCard({
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
           <div className="min-w-0">
             <div className="flex items-start gap-2 flex-wrap mb-2">
-              <StatusBadge status={d.solution_domain} className="text-[10px]" />
+              <PillSelect
+                value={d.solution_domain ?? ""}
+                options={solutionDomainOptions}
+                field="solution_domain"
+                decisionId={d.id}
+                canEdit={canWrite}
+                onSave={handleInlineSave}
+                logActivity={logActivity}
+              />
+              <PillSelect
+                value={d.surface ?? ""}
+                options={surfaceOptions}
+                field="surface"
+                decisionId={d.id}
+                canEdit={canWrite}
+                onSave={handleInlineSave}
+                logActivity={logActivity}
+              />
               {d.is_aging && <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider">Aging</span>}
               {d.is_unbound && <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider">Unbound — no authority</span>}
               {d.needs_exec_attention && <span className="text-[11px] font-semibold text-signal-red uppercase tracking-wider">Executive Attention Required</span>}
             </div>
-            <InlineEdit
-              value={d.title ?? ""}
-              field="title"
-              decisionId={d.id}
-              canEdit={canWrite}
-              onSave={handleInlineSave}
-              logActivity={logActivity}
-              variant="title"
-              placeholder="Untitled"
-              className="text-xl font-semibold leading-snug block"
-            />
+            <div className="flex items-start gap-2">
+              <span className="text-xl font-semibold leading-snug text-muted-foreground">{index}.</span>
+              <InlineEdit
+                value={d.title ?? ""}
+                field="title"
+                decisionId={d.id}
+                canEdit={canWrite}
+                onSave={handleInlineSave}
+                logActivity={logActivity}
+                variant="title"
+                placeholder="Untitled"
+                className="text-xl font-semibold leading-snug block"
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 lg:min-w-[520px]">
@@ -1000,13 +1094,6 @@ function BetCard({
       </div>
 
       <div className="px-4 md:px-6 py-5 space-y-5">
-        <div className="grid grid-cols-1 gap-4">
-          <div>
-            <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground block">Surface</span>
-            <p className="text-lg font-medium mt-1">{d.surface || "—"}</p>
-          </div>
-        </div>
-
         <div className="rounded-lg border bg-muted/20 p-4">
           <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground block mb-1">Outcome Target</span>
           <InlineEdit value={d.outcome_target ?? ""} field="outcome_target" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="text-base leading-relaxed block" />
@@ -1242,10 +1329,11 @@ export default function Decisions() {
         <section className="mb-8">
           <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">All Bets ({decisions.length})</h2>
           <div className="space-y-2">
-            {decisions.map((d) => (
+            {decisions.map((d, index) => (
               <BetCard
                 key={d.id}
                 d={d}
+                index={index + 1}
                 canWrite={canWrite}
                 canUpdateStatus={canWrite && isDecisionOwner(d, user)}
                 canManageOwner={canManageOwner}
