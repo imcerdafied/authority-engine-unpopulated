@@ -110,21 +110,10 @@ export function useDecisions() {
         .from("decisions")
         .select("id, org_id, title, owner, surface, solution_domain, impact_tier, outcome_target, outcome_category_key, expected_impact, exposure_value, trigger_signal, revenue_at_risk, status, created_at, updated_at, outcome_category, current_delta, segment_impact, decision_health, blocked_reason, blocked_dependency_owner, slice_deadline_days, slice_due_at, activated_at, created_by, shipped_slice_date, measured_outcome_result, capacity_allocated, capacity_diverted, unplanned_interrupts, escalation_count, previous_exposure_value, state_changed_at, state_change_note")
         .eq("org_id", currentOrg.id)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: true });
       if (error) throw error;
       const rows = (data || []) as Record<string, unknown>[];
-      const computed = rows.map(computeDecisionFields);
-      const statusOrder = { active: 0, accepted: 1, rejected: 2, archived: 3 };
-      const tierOrder = { High: 3, Medium: 2, Low: 1 };
-      return computed.sort((a, b) => {
-        const sa = statusOrder[a.status as keyof typeof statusOrder] ?? 4;
-        const sb = statusOrder[b.status as keyof typeof statusOrder] ?? 4;
-        if (sa !== sb) return sa - sb;
-        const ta = tierOrder[a.impact_tier as keyof typeof tierOrder] ?? 0;
-        const tb = tierOrder[b.impact_tier as keyof typeof tierOrder] ?? 0;
-        if (tb !== ta) return tb - ta;
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      });
+      return rows.map(computeDecisionFields);
     },
     enabled: !!currentOrg,
   });
