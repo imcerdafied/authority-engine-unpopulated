@@ -55,7 +55,7 @@ export default function ProjectionPanel({
   const [loadingExisting, setLoadingExisting] = useState(true);
 
   const canGenerate = !!(
-    (decision.outcome_category || decision.outcome_category_key) &&
+    decision.outcome_category &&
     decision.expected_impact &&
     (decision as any).exposure_value
   );
@@ -122,7 +122,7 @@ export default function ProjectionPanel({
           title: decision.title,
           domain: decision.solution_domain,
           surface: decision.surface,
-          outcome_category: (decision.outcome_category || decision.outcome_category_key) ?? "",
+          outcome_category: decision.outcome_category ?? "",
           expected_impact: decision.expected_impact ?? "",
           exposure_value: (decision as { exposure_value?: string }).exposure_value ?? "",
           slice_overdue: decision.is_exceeded ?? false,
@@ -173,7 +173,7 @@ export default function ProjectionPanel({
         throw new Error("No pod config returned");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to generate bet outcome pod.");
+      setError(err instanceof Error ? err.message : "Failed to generate bet unit.");
     } finally {
       setPodLoading(false);
     }
@@ -219,7 +219,7 @@ export default function ProjectionPanel({
             </TooltipContent>
           </Tooltip>
         )}
-        {canWrite && (
+        {canWrite && !hasPod && (
           <button
             disabled={podLoading}
             onClick={handleGeneratePod}
@@ -232,7 +232,7 @@ export default function ProjectionPanel({
             {podLoading && (
               <span className="border-2 border-foreground border-t-transparent rounded-full w-4 h-4 inline-block animate-spin shrink-0" />
             )}
-            {podLoading ? "Generating bet outcome pod..." : hasPod ? "Regenerate Bet Outcome Pod" : "Generate Bet Outcome Pod"}
+            {podLoading ? "Generating bet outcome pod..." : "Generate Bet Outcome Pod"}
           </button>
         )}
       </div>
