@@ -445,7 +445,7 @@ function DecisionActivityFeed({
   const { data: activity = [], isLoading } = useDecisionActivity(decisionId);
 
   return (
-    <div className="mt-3 pt-3 border-t">
+    <div className="mt-3 pt-3 pb-3 border-t">
       <div className="flex items-center gap-2 flex-wrap">
         <button
           onClick={() => setExpanded(!expanded)}
@@ -930,30 +930,31 @@ function BetCard({
             </div>
             <div>
               <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground block">Status</span>
-              {canUpdateStatus ? (
-                <div className="mt-1">
-                  <select
-                    value={pendingStatus?.decisionId === d.id ? pendingStatus.newStatus : (d.status === "active" ? "piloting" : d.status)}
-                    onChange={(e) => {
-                      const newStatus = e.target.value;
-                      const oldStatus = d.status === "active" ? "piloting" : d.status;
-                      if (newStatus === oldStatus) {
-                        setPendingStatus(null);
-                        return;
-                      }
-                      setPendingStatus({ decisionId: d.id, newStatus, oldStatus: d.status });
-                      setStatusNote("");
-                    }}
-                    className="text-xs border rounded-full px-3 py-1.5 bg-background min-h-[36px] w-full"
-                  >
-                    {statusOptions.map((s) => (
-                      <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1).replace("_", " ")}</option>
-                    ))}
-                  </select>
-                </div>
-              ) : (
-                <p className="text-sm font-medium mt-1">{statusDisplay}</p>
-              )}
+              <div className="mt-1">
+                <select
+                  value={pendingStatus?.decisionId === d.id ? pendingStatus.newStatus : (d.status === "active" ? "piloting" : d.status)}
+                  disabled={!canUpdateStatus}
+                  onChange={(e) => {
+                    if (!canUpdateStatus) return;
+                    const newStatus = e.target.value;
+                    const oldStatus = d.status === "active" ? "piloting" : d.status;
+                    if (newStatus === oldStatus) {
+                      setPendingStatus(null);
+                      return;
+                    }
+                    setPendingStatus({ decisionId: d.id, newStatus, oldStatus: d.status });
+                    setStatusNote("");
+                  }}
+                  className={cn(
+                    "text-xs border rounded-full px-3 py-1.5 bg-background min-h-[36px] w-full",
+                    !canUpdateStatus && "opacity-60 cursor-not-allowed"
+                  )}
+                >
+                  {statusOptions.map((s) => (
+                    <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1).replace("_", " ")}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
         </div>
@@ -993,28 +994,16 @@ function BetCard({
           canEdit={canWrite}
           onSave={handleInlineSave}
           logActivity={logActivity}
-          className="text-xl md:text-2xl font-medium leading-snug block"
+          className="text-lg md:text-xl font-medium leading-snug block"
           placeholder="Add trigger signal…"
         />
       </div>
 
       <div className="px-4 md:px-6 py-5 space-y-5">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4">
           <div>
             <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground block">Surface</span>
             <p className="text-lg font-medium mt-1">{d.surface || "—"}</p>
-          </div>
-          <div>
-            <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground block">Category</span>
-            <div className="text-lg font-medium mt-1">
-              <CategorySelect value={(d.outcome_category_key ?? d.outcome_category) ?? ""} categories={categories} decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" />
-            </div>
-          </div>
-          <div>
-            <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground block">Owner</span>
-            <div className="text-lg font-medium mt-1">
-              <InlineEdit value={d.owner ?? ""} field="owner" decisionId={d.id} canEdit={canManageOwner} onSave={handleInlineSave} logActivity={logActivity} className="w-full" />
-            </div>
           </div>
         </div>
 
@@ -1153,10 +1142,10 @@ function BetCard({
       )}
 
       <DecisionActivityFeed
-        decisionId={d.id}
-        logInterruptionOnClick={() => setLogFormExpanded(true)}
-        canWrite={canWrite}
-      />
+          decisionId={d.id}
+          logInterruptionOnClick={() => setLogFormExpanded(true)}
+          canWrite={canWrite}
+        />
     </div>
   );
 }

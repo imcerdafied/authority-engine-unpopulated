@@ -5,6 +5,60 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+type RoleLine = { role: string; count: number; note: string };
+
+function enforceCrossFunctionalComposition(raw: unknown, bet: Record<string, unknown>) {
+  const textContext = `${bet.title ?? ""} ${bet.surface ?? ""} ${bet.outcome_target ?? ""} ${bet.expected_impact ?? ""}`.toLowerCase();
+  const isBuildHeavy = /(platform|infrastructure|architecture|api|backend|frontend|system|build|engineering)/i.test(textContext);
+
+  const roleLines: RoleLine[] = Array.isArray(raw)
+    ? raw
+        .map((r) => ({
+          role: String((r as { role?: string }).role ?? "").trim(),
+          count: Math.max(1, Number((r as { count?: number }).count ?? 1)),
+          note: String((r as { note?: string }).note ?? "").trim(),
+        }))
+        .filter((r) => r.role.length > 0)
+    : [];
+
+  const buckets = {
+    product: /(product|program)/i,
+    engineering: /(engineer|engineering|platform|sre|devops|developer)/i,
+    design: /(design|ux|ui)/i,
+    data: /(data|analytics|analyst)/i,
+    gtm: /(sales|customer success|cs |csm|marketing|enablement|gtm)/i,
+    finance: /(finance|fp&a|financial)/i,
+  };
+
+  const hasBucket = (pattern: RegExp) => roleLines.some((r) => pattern.test(r.role));
+
+  const addRole = (role: string, note: string) => roleLines.push({ role, count: 1, note });
+
+  if (!hasBucket(buckets.product)) addRole("Product Lead", "Owns bet framing, sequencing, and decision cadence.");
+  if (!hasBucket(buckets.design)) addRole("Design Lead", "Ensures outcome usability, adoption, and clarity.");
+  if (!hasBucket(buckets.data)) addRole("Data/Analytics Lead", "Defines measurement and tracks outcome movement.");
+  if (!hasBucket(buckets.gtm)) addRole("GTM Lead", "Aligns customer-facing execution across sales/CS/marketing.");
+  if (!hasBucket(buckets.finance)) addRole("Finance Partner", "Tracks economic impact and tradeoff quality.");
+  if (!hasBucket(buckets.engineering)) addRole("Engineering Liaison", "Coordinates required technical dependencies.");
+
+  if (!isBuildHeavy) {
+    const engineeringRoles = roleLines.filter((r) => buckets.engineering.test(r.role));
+    const engTotal = engineeringRoles.reduce((s, r) => s + r.count, 0);
+    if (engTotal > 2) {
+      let reduceBy = engTotal - 2;
+      for (const role of engineeringRoles) {
+        if (reduceBy <= 0) break;
+        const canReduce = Math.max(0, role.count - 1);
+        const delta = Math.min(canReduce, reduceBy);
+        role.count -= delta;
+        reduceBy -= delta;
+      }
+    }
+  }
+
+  return roleLines;
+}
+
 const METHODOLOGY = `You are a strategic outcome-pod advisor for Build Authority.
 
 Your job is to design a BET OUTCOME POD: a cross-functional SWAT team accountable for moving one bet outcome, not an engineering delivery pod.
@@ -93,7 +147,11 @@ Based on the methodology, what is the recommended cross-functional outcome pod c
 
     // Parse JSON from response, stripping any markdown fences
     const clean = text.replace(/```json|```/g, "").trim();
-    const podConfig = JSON.parse(clean);
+    const podConfig = JSON.parse(clean) as Record<string, unknown>;
+    const balancedComposition = enforceCrossFunctionalComposition(podConfig.composition, bet as Record<string, unknown>);
+    podConfig.composition = balancedComposition;
+    podConfig.total_headcount = balancedComposition.reduce((sum, r) => sum + r.count, 0);
+    podConfig.pod_type = "outcome_pod";
 
     return new Response(JSON.stringify({ pod: podConfig }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
