@@ -881,58 +881,111 @@ function BetCard({
   const capacityDiverted = (d.capacity_diverted ?? 0) as number;
   const unplannedInterrupts = (d.unplanned_interrupts ?? 0) as number;
   const hasResourceReality = capacityDiverted > 0 || unplannedInterrupts > 0;
+  const expectedImpactItems = String(d.expected_impact ?? "")
+    .split(/\n|;/)
+    .map((v) => v.trim())
+    .filter(Boolean);
 
   const isActive = d.status !== "closed";
+  const statusDisplay = String(d.status ?? "").charAt(0).toUpperCase() + String(d.status ?? "").slice(1).replace("_", " ");
+  const stale = staleness(d.updated_at);
+  const showNudge = stale.isAmber || stale.isRed;
 
   return (
-    <div key={d.id} className={cn("border rounded-md p-4 md:p-6", d.is_exceeded ? "border-signal-red/40 bg-signal-red/5" : d.is_aging ? "border-signal-amber/40" : "")}>
-      <div className="flex items-start justify-between gap-2 mb-2 flex-wrap">
-        <div className="flex items-start gap-2 flex-wrap">
-          <StatusBadge status={d.solution_domain} className="text-[10px]" />
-          {d.is_aging && <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider">Aging</span>}
-          {d.is_unbound && <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider">Unbound — no authority</span>}
-          {d.needs_exec_attention && <span className="text-[11px] font-semibold text-signal-red uppercase tracking-wider">Executive Attention Required</span>}
-        </div>
-        {(() => {
-          const s = staleness(d.updated_at);
-          const showNudge = s.isAmber || s.isRed;
-          return (
-            <div className="flex items-center gap-2 shrink-0">
-              <span className={cn("text-[10px] flex items-center gap-1.5", s.textClass, s.pulse && "font-semibold")}>
-                <span className={cn("w-1.5 h-1.5 rounded-full inline-block", s.dotClass, s.pulse && "animate-pulse")} />
-                {s.label}
-              </span>
-              {showNudge && (
-                <a
-                  href={nudgeMailto(d.title ?? "Untitled", s.days, d.owner ?? "", d.exposure_value ?? d.revenue_at_risk ?? "—")}
-                  className={cn(
-                    "text-[10px] uppercase tracking-wider px-2 py-0.5 border rounded transition-colors",
-                    s.isRed ? "border-signal-red text-signal-red hover:bg-signal-red/10" : "border-signal-amber text-signal-amber hover:bg-signal-amber/10"
-                  )}
-                >
-                  Nudge
-                </a>
+    <div key={d.id} className={cn("border rounded-xl overflow-hidden", d.is_exceeded ? "border-signal-red/40 bg-signal-red/5" : d.is_aging ? "border-signal-amber/40" : "")}>
+      <div className="px-4 md:px-6 py-4 border-b bg-muted/20">
+        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-start gap-2 flex-wrap mb-2">
+              <StatusBadge status={d.solution_domain} className="text-[10px]" />
+              {d.is_aging && <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider">Aging</span>}
+              {d.is_unbound && <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider">Unbound — no authority</span>}
+              {d.needs_exec_attention && <span className="text-[11px] font-semibold text-signal-red uppercase tracking-wider">Executive Attention Required</span>}
+            </div>
+            <InlineEdit
+              value={d.title ?? ""}
+              field="title"
+              decisionId={d.id}
+              canEdit={canWrite}
+              onSave={handleInlineSave}
+              logActivity={logActivity}
+              variant="title"
+              placeholder="Untitled"
+              className="text-xl font-semibold leading-snug block"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 lg:min-w-[520px]">
+            <div>
+              <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground block">Category</span>
+              <div className="mt-1 text-base font-medium">
+                <CategorySelect value={(d.outcome_category_key ?? d.outcome_category) ?? ""} categories={categories} decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" />
+              </div>
+            </div>
+            <div>
+              <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground block">Owner</span>
+              <div className="mt-1 text-base font-medium">
+                <InlineEdit value={d.owner ?? ""} field="owner" decisionId={d.id} canEdit={canManageOwner} onSave={handleInlineSave} logActivity={logActivity} className="w-full" />
+              </div>
+            </div>
+            <div>
+              <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground block">Status</span>
+              {canUpdateStatus ? (
+                <div className="mt-1">
+                  <select
+                    value={pendingStatus?.decisionId === d.id ? pendingStatus.newStatus : (d.status === "active" ? "piloting" : d.status)}
+                    onChange={(e) => {
+                      const newStatus = e.target.value;
+                      const oldStatus = d.status === "active" ? "piloting" : d.status;
+                      if (newStatus === oldStatus) {
+                        setPendingStatus(null);
+                        return;
+                      }
+                      setPendingStatus({ decisionId: d.id, newStatus, oldStatus: d.status });
+                      setStatusNote("");
+                    }}
+                    className="text-xs border rounded-full px-3 py-1.5 bg-background min-h-[36px] w-full"
+                  >
+                    {statusOptions.map((s) => (
+                      <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1).replace("_", " ")}</option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <p className="text-sm font-medium mt-1">{statusDisplay}</p>
               )}
             </div>
-          );
-        })()}
+          </div>
+        </div>
+
+        {pendingStatus?.decisionId === d.id && (
+          <div className="mt-3 p-3 border rounded bg-muted/30 max-w-xl">
+            <label className="text-[11px] uppercase tracking-wider text-muted-foreground block mb-1">What changed? What&apos;s the evidence?</label>
+            <textarea
+              rows={2}
+              placeholder="Required: reason for state change"
+              value={statusNote}
+              onChange={(e) => setStatusNote(e.target.value)}
+              className="w-full text-xs border rounded px-2 py-1.5 bg-background"
+            />
+            <div className="mt-2 flex items-center gap-3">
+              <button
+                onClick={handleStatusConfirm}
+                disabled={!statusNote.trim()}
+                className="text-[11px] font-semibold uppercase tracking-wider px-3 py-1 rounded bg-foreground text-background disabled:opacity-50"
+              >
+                Confirm
+              </button>
+              <button onClick={() => setPendingStatus(null)} className="text-xs text-muted-foreground hover:text-foreground">
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className="mb-1">
-        <InlineEdit
-          value={d.title ?? ""}
-          field="title"
-          decisionId={d.id}
-          canEdit={canWrite}
-          onSave={handleInlineSave}
-          logActivity={logActivity}
-          variant="title"
-          placeholder="Untitled"
-          className="text-lg font-semibold leading-snug block"
-        />
-      </div>
-      <div className="mb-3">
-        <span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Trigger Signal</span>
+      <div className="px-4 md:px-6 py-5 border-b bg-background">
+        <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground block mb-1">Trigger Signal</span>
         <InlineEdit
           value={d.trigger_signal ?? ""}
           field="trigger_signal"
@@ -940,96 +993,97 @@ function BetCard({
           canEdit={canWrite}
           onSave={handleInlineSave}
           logActivity={logActivity}
-          className="text-sm text-muted-foreground block mt-0.5"
+          className="text-xl md:text-2xl font-medium leading-snug block"
           placeholder="Add trigger signal…"
         />
       </div>
 
-      {canUpdateStatus && (
-        <div className="mb-3">
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Status</span>
-          <div className="mt-0.5">
-            <select
-              value={pendingStatus?.decisionId === d.id ? pendingStatus.newStatus : (d.status === "active" ? "piloting" : d.status)}
-              onChange={(e) => {
-                const newStatus = e.target.value;
-                const oldStatus = d.status === "active" ? "piloting" : d.status;
-                if (newStatus === oldStatus) {
-                  setPendingStatus(null);
-                  return;
-                }
-                setPendingStatus({ decisionId: d.id, newStatus, oldStatus: d.status });
-                setStatusNote("");
-              }}
-              className="text-xs border rounded px-2 py-1 bg-background min-h-[44px] w-48 max-w-48"
-            >
-              {statusOptions.map((s) => (
-                <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1).replace("_", " ")}</option>
-              ))}
-            </select>
-            {pendingStatus?.decisionId === d.id && (
-              <div className="mt-2 p-2 border rounded bg-muted/30">
-                <label className="text-[11px] uppercase tracking-wider text-muted-foreground block mb-1">What changed? What&apos;s the evidence?</label>
-                <textarea
-                  rows={2}
-                  placeholder="Required: reason for state change"
-                  value={statusNote}
-                  onChange={(e) => setStatusNote(e.target.value)}
-                  className="w-full text-xs border rounded px-2 py-1.5 bg-background"
-                />
-                <div className="mt-2 flex items-center gap-3">
-                  <button
-                    onClick={handleStatusConfirm}
-                    disabled={!statusNote.trim()}
-                    className="text-[11px] font-semibold uppercase tracking-wider px-3 py-1 rounded bg-foreground text-background disabled:opacity-50"
-                  >
-                    Confirm
-                  </button>
-                  <button onClick={() => setPendingStatus(null)} className="text-xs text-muted-foreground hover:text-foreground">
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
+      <div className="px-4 md:px-6 py-5 space-y-5">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground block">Surface</span>
+            <p className="text-lg font-medium mt-1">{d.surface || "—"}</p>
+          </div>
+          <div>
+            <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground block">Category</span>
+            <div className="text-lg font-medium mt-1">
+              <CategorySelect value={(d.outcome_category_key ?? d.outcome_category) ?? ""} categories={categories} decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" />
+            </div>
+          </div>
+          <div>
+            <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground block">Owner</span>
+            <div className="text-lg font-medium mt-1">
+              <InlineEdit value={d.owner ?? ""} field="owner" decisionId={d.id} canEdit={canManageOwner} onSave={handleInlineSave} logActivity={logActivity} className="w-full" />
+            </div>
           </div>
         </div>
-      )}
-      {!canUpdateStatus && (
-        <div className="mb-3">
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Status</span>
-          <p className="text-xs font-medium mt-0.5">
-            {String(d.status ?? "").charAt(0).toUpperCase() + String(d.status ?? "").slice(1).replace("_", " ")}
-          </p>
-          <p className="text-[10px] text-muted-foreground mt-1">
-            Only the bet owner can report status updates.
-          </p>
+
+        <div className="rounded-lg border bg-muted/20 p-4">
+          <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground block mb-1">Outcome Target</span>
+          <InlineEdit value={d.outcome_target ?? ""} field="outcome_target" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="text-base leading-relaxed block" />
         </div>
-      )}
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4 mb-3">
-        <div><span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Surface</span><p className="text-sm font-medium mt-0.5">{d.surface}</p></div>
-        <div><span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Outcome Target</span><div className="text-sm font-medium mt-0.5"><InlineEdit value={d.outcome_target ?? ""} field="outcome_target" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" /></div></div>
-        <div><span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Category</span><div className="text-sm font-medium mt-0.5"><CategorySelect value={(d.outcome_category_key ?? d.outcome_category) ?? ""} categories={categories} decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" /></div></div>
-        <div><span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Expected Impact</span><div className="text-sm font-medium mt-0.5"><InlineEdit value={d.expected_impact ?? ""} field="expected_impact" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" /></div></div>
-      </div>
+        <div>
+          <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground block">Expected Impact</span>
+          <InlineEdit value={d.expected_impact ?? ""} field="expected_impact" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="text-sm font-medium mt-2 block" />
+          {expectedImpactItems.length > 1 && (
+            <ul className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 text-sm text-foreground/90">
+              {expectedImpactItems.map((item, idx) => (
+                <li key={`${d.id}-impact-${idx}`} className="flex items-start gap-2">
+                  <span className="text-muted-foreground mt-[2px]">•</span>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 mb-3">
-        <div><span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Exposure</span><div className="text-sm font-medium mt-0.5 text-signal-amber">
-          <InlineEdit value={d.exposure_value ?? ""} field="exposure_value" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" />
-          {(() => {
-            const prev = (d as any).previous_exposure_value;
-            const curr = d.exposure_value ?? "";
-            if (!prev || prev === curr) return null;
-            const increased = String(curr).localeCompare(String(prev), undefined, { numeric: true }) > 0;
-            return (
-              <span className={cn("text-[10px] ml-1", increased ? "text-signal-red" : "text-signal-green")}>
-                {increased ? `↑ from ${prev}` : `↓ from ${prev}`}
-              </span>
-            );
-          })()}
-        </div></div>
-        <div><span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Enterprise Exposure</span><div className="text-sm font-medium mt-0.5 text-signal-red"><InlineEdit value={d.revenue_at_risk ?? ""} field="revenue_at_risk" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" /></div></div>
-        <div><span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Owner</span><div className="text-sm font-medium mt-0.5"><InlineEdit value={d.owner ?? ""} field="owner" decisionId={d.id} canEdit={canManageOwner} onSave={handleInlineSave} logActivity={logActivity} className="w-full" /></div></div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="border rounded-xl p-4 bg-emerald-50/40 border-emerald-200/70">
+            <span className="text-[11px] uppercase tracking-[0.16em] text-emerald-700/90 block">Upside Exposure</span>
+            <div className="text-emerald-800 mt-2">
+              <InlineEdit value={d.exposure_value ?? ""} field="exposure_value" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="text-base leading-relaxed block" />
+              {(() => {
+                const prev = (d as any).previous_exposure_value;
+                const curr = d.exposure_value ?? "";
+                if (!prev || prev === curr) return null;
+                const increased = String(curr).localeCompare(String(prev), undefined, { numeric: true }) > 0;
+                return (
+                  <span className={cn("text-[11px] mt-1 inline-block", increased ? "text-signal-red" : "text-signal-green")}>
+                    {increased ? `↑ from ${prev}` : `↓ from ${prev}`}
+                  </span>
+                );
+              })()}
+            </div>
+          </div>
+          <div className="border rounded-xl p-4 bg-signal-red/5 border-signal-red/30">
+            <span className="text-[11px] uppercase tracking-[0.16em] text-signal-red/90 block">Risk Exposure</span>
+            <div className="text-signal-red mt-2">
+              <InlineEdit value={d.revenue_at_risk ?? ""} field="revenue_at_risk" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="text-base leading-relaxed block" />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <span className={cn("text-xs flex items-center gap-1.5", stale.textClass, stale.pulse && "font-semibold")}>
+            <span className={cn("w-1.5 h-1.5 rounded-full inline-block", stale.dotClass, stale.pulse && "animate-pulse")} />
+            {stale.label}
+          </span>
+          {!canUpdateStatus && (
+            <p className="text-[11px] text-muted-foreground">Only the bet owner can report status updates.</p>
+          )}
+          {showNudge && (
+            <a
+              href={nudgeMailto(d.title ?? "Untitled", stale.days, d.owner ?? "", d.exposure_value ?? d.revenue_at_risk ?? "—")}
+              className={cn(
+                "text-[10px] uppercase tracking-wider px-2 py-0.5 border rounded transition-colors",
+                stale.isRed ? "border-signal-red text-signal-red hover:bg-signal-red/10" : "border-signal-amber text-signal-amber hover:bg-signal-amber/10"
+              )}
+            >
+              Nudge
+            </a>
+          )}
+        </div>
       </div>
 
       {hasResourceReality && (

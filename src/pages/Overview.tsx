@@ -159,6 +159,9 @@ function SeededDecisionsList({
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{d.title}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">{d.owner}</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+                    Trigger Signal: {d.trigger_signal || "—"}
+                  </p>
                 </div>
                 {isDraft && canWrite && (
                   <button
@@ -476,6 +479,9 @@ export default function Overview() {
                           <span className="text-mono">{age}d old</span>
                           {d.revenue_at_risk && <span className="text-signal-amber font-semibold">{d.revenue_at_risk}</span>}
                         </div>
+                        <p className="text-[11px] text-muted-foreground mt-1">
+                          Trigger Signal: {d.trigger_signal || "—"}
+                        </p>
                       </div>
                     );
                   })}
@@ -655,6 +661,9 @@ export default function Overview() {
                         <span>{d.surface}</span>
                         {d.revenue_at_risk && <span className="text-signal-amber font-semibold">{d.revenue_at_risk}</span>}
                       </div>
+                      <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+                        Trigger Signal: {d.trigger_signal || "—"}
+                      </p>
                     </div>
                     <div className="text-right shrink-0">
                       <p className={cn(
