@@ -4,6 +4,7 @@ import { useDecisions, useUpdateDecision, useDecisionRisks } from "@/hooks/useOr
 import { useLogActivity, useDecisionActivity } from "@/hooks/useDecisionActivity";
 import { useInterruptions, useCreateInterruption } from "@/hooks/useInterruptions";
 import { useOrg } from "@/contexts/OrgContext";
+import { useAuth } from "@/contexts/AuthContext";
 import StatusBadge from "@/components/StatusBadge";
 import CreateDecisionForm from "@/components/CreateDecisionForm";
 import ProjectionPanel from "@/components/ProjectionPanel";
@@ -192,6 +193,26 @@ function nudgeMailto(betTitle: string, days: number, owner: string, exposure: st
     `${betTitle} has had no movement in ${days} days.\nOwner: ${owner}\nExposure: ${exposure}\n\nPlease update your bet at https://buildauthorityos.com`
   );
   return `mailto:?subject=${subject}&body=${body}`;
+}
+
+function normalizeIdentity(value: unknown): string {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function isDecisionOwner(decision: any, user: any): boolean {
+  if (!user) return false;
+  const owner = normalizeIdentity(decision?.owner);
+  const identities = [
+    user?.email,
+    user?.user_metadata?.name,
+    user?.user_metadata?.full_name,
+    user?.user_metadata?.display_name,
+  ]
+    .map(normalizeIdentity)
+    .filter(Boolean);
+
+  if (owner && identities.includes(owner)) return true;
+  return !owner && decision?.created_by === user?.id;
 }
 
 function LogInterruptionForm({
@@ -630,7 +651,7 @@ function PodConfigurationSection({
         className="w-full px-4 py-2 flex items-center justify-between text-left hover:bg-muted/30 transition-colors"
       >
         <span className="text-[11px] uppercase tracking-widest font-semibold text-muted-foreground">
-          BET UNIT · {pod.pod_name} · {pod.total_headcount} people
+          BET OUTCOME POD · {pod.pod_name} · {pod.total_headcount} people
         </span>
         <span className="text-muted-foreground text-[10px]">{expanded ? "−" : "+"}</span>
       </button>
@@ -638,7 +659,7 @@ function PodConfigurationSection({
         <div className="px-4 pb-4 pt-0 space-y-3 border-t">
           <div className="flex items-center gap-2 flex-wrap pt-3">
             <span className="text-[11px] uppercase tracking-widest font-semibold text-muted-foreground">
-              BET UNIT CONFIGURATION
+              OUTCOME POD CONFIGURATION
             </span>
             <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-sm bg-muted text-foreground">
               {pod.pod_name}
@@ -821,6 +842,8 @@ function CategorySelect({
 function BetCard({
   d,
   canWrite,
+  canUpdateStatus,
+  canManageOwner,
   categories,
   handleInlineSave,
   logActivity,
@@ -836,6 +859,8 @@ function BetCard({
 }: {
   d: any;
   canWrite: boolean;
+  canUpdateStatus: boolean;
+  canManageOwner: boolean;
   categories: { key: string; label: string }[];
   handleInlineSave: (id: string, field: string, oldValue: string, newValue: string) => Promise<void>;
   logActivity: (decisionId: string, field: string, oldValue: string | null, newValue: string | null) => void | Promise<void>;
@@ -907,6 +932,7 @@ function BetCard({
         />
       </div>
       <div className="mb-3">
+        <span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Trigger Signal</span>
         <InlineEdit
           value={d.trigger_signal ?? ""}
           field="trigger_signal"
@@ -914,12 +940,12 @@ function BetCard({
           canEdit={canWrite}
           onSave={handleInlineSave}
           logActivity={logActivity}
-          className="text-sm text-muted-foreground block"
+          className="text-sm text-muted-foreground block mt-0.5"
           placeholder="Add trigger signal…"
         />
       </div>
 
-      {canWrite && (
+      {canUpdateStatus && (
         <div className="mb-3">
           <span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Status</span>
           <div className="mt-0.5">
@@ -968,6 +994,17 @@ function BetCard({
           </div>
         </div>
       )}
+      {!canUpdateStatus && (
+        <div className="mb-3">
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Status</span>
+          <p className="text-xs font-medium mt-0.5">
+            {String(d.status ?? "").charAt(0).toUpperCase() + String(d.status ?? "").slice(1).replace("_", " ")}
+          </p>
+          <p className="text-[10px] text-muted-foreground mt-1">
+            Only the bet owner can report status updates.
+          </p>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4 mb-3">
         <div><span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Surface</span><p className="text-sm font-medium mt-0.5">{d.surface}</p></div>
@@ -992,7 +1029,7 @@ function BetCard({
           })()}
         </div></div>
         <div><span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Enterprise Exposure</span><div className="text-sm font-medium mt-0.5 text-signal-red"><InlineEdit value={d.revenue_at_risk ?? ""} field="revenue_at_risk" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" /></div></div>
-        <div><span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Owner</span><div className="text-sm font-medium mt-0.5"><InlineEdit value={d.owner ?? ""} field="owner" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" /></div></div>
+        <div><span className="text-[10px] uppercase tracking-wider text-muted-foreground block">Owner</span><div className="text-sm font-medium mt-0.5"><InlineEdit value={d.owner ?? ""} field="owner" decisionId={d.id} canEdit={canManageOwner} onSave={handleInlineSave} logActivity={logActivity} className="w-full" /></div></div>
       </div>
 
       {hasResourceReality && (
@@ -1085,9 +1122,11 @@ export default function Decisions() {
   const logActivity = useLogActivity();
   const createInterruption = useCreateInterruption();
   const { currentRole } = useOrg();
+  const { user } = useAuth();
   const [showCreate, setShowCreate] = useState(false);
 
   const canWrite = currentRole === "admin" || currentRole === "pod_lead" || currentRole === "viewer";
+  const canManageOwner = currentRole === "admin" || currentRole === "pod_lead";
 
   const statusOptions = ["hypothesis", "defined", "piloting", "scaling", "at_risk", "closed"] as const;
   const [pendingStatus, setPendingStatus] = useState<{ decisionId: string; newStatus: string; oldStatus: string } | null>(null);
@@ -1165,6 +1204,8 @@ export default function Decisions() {
                 key={d.id}
                 d={d}
                 canWrite={canWrite}
+                canUpdateStatus={canWrite && isDecisionOwner(d, user)}
+                canManageOwner={canManageOwner}
                 categories={categories}
                 handleInlineSave={handleInlineSave}
                 logActivity={logActivity}

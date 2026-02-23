@@ -232,7 +232,7 @@ export default function ProjectionPanel({
             {podLoading && (
               <span className="border-2 border-foreground border-t-transparent rounded-full w-4 h-4 inline-block animate-spin shrink-0" />
             )}
-            {podLoading ? "Generating bet unit..." : "Generate Bet Unit"}
+            {podLoading ? "Generating bet outcome pod..." : "Generate Bet Outcome Pod"}
           </button>
         )}
       </div>
