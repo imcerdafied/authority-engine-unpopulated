@@ -1,0 +1,56 @@
+name: QA Monitor Report
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 14:00 UTC daily
+    - cron: "0 14 * * *"
+
+jobs:
+  qa-monitor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate QA report
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npm run qa:report
+
+      - name: Upload report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-monitor-report
+          path: reports/qa-monitor-latest.md
+          if-no-files-found: error
+
+      - name: Post to Slack (optional)
+        if: ${{ secrets.SLACK_WEBHOOK_URL != '' }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          node --input-type=module -e "
+          import fs from 'node:fs/promises';
+          const body = await fs.readFile('reports/qa-monitor-latest.md', 'utf8');
+          const text = body.length > 3500 ? body.slice(0, 3500) + '\n\n(Truncated. See workflow artifact for full report.)' : body;
+          const res = await fetch(process.env.SLACK_WEBHOOK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: '*Daily QA Monitor Report*\n```' + text + '```' }),
+          });
+          if (!res.ok) {
+            const err = await res.text();
+            throw new Error('Slack post failed: ' + err);
+          }
+          "
