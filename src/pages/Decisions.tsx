@@ -7,7 +7,6 @@ import { useOrgMembers, type OrgMember } from "@/hooks/useTeam";
 import { useOrg } from "@/contexts/OrgContext";
 import { useAuth } from "@/contexts/AuthContext";
 import CreateDecisionForm from "@/components/CreateDecisionForm";
-import ProjectionPanel from "@/components/ProjectionPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -1240,12 +1239,6 @@ function BetCard({
           <p className="text-muted-foreground">Blocked: {d.blocked_reason}</p>
           {d.blocked_dependency_owner && <p className="text-muted-foreground mt-0.5">Dependency: {d.blocked_dependency_owner}</p>}
         </div>
-      )}
-
-      {isActive && (
-        <ProjectionPanel
-          decision={d}
-        />
       )}
 
       <DecisionActivityFeed
