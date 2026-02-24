@@ -109,36 +109,25 @@ export default function ProjectionPanel({
       };
 
       let data: any = null;
-      const { data: edgeData, error: invokeErr } = await supabase.functions.invoke("projection", {
-        body: payload,
-      });
-
-      if (invokeErr) {
-        const message = invokeErr.message || "Projection failed";
-        if (message.includes("Failed to send a request to the Edge Function")) {
-          const { data: sessionData } = await supabase.auth.getSession();
-          const accessToken = sessionData.session?.access_token;
-          if (!accessToken) throw new Error("You must be signed in to generate a projection.");
-
-          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-          const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
-          const res = await fetch(`${supabaseUrl}/functions/v1/projection`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${accessToken}`,
-              apikey: supabaseAnonKey,
-            },
-            body: JSON.stringify(payload),
-          });
-          const fallbackData = await res.json().catch(() => ({}));
-          if (!res.ok) throw new Error(fallbackData?.error || `Projection failed (${res.status})`);
-          data = fallbackData;
-        } else {
-          throw new Error(message);
+      let lastErrorMessage = "Projection failed";
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const { data: edgeData, error: invokeErr } = await supabase.functions.invoke("projection", {
+          body: payload,
+        });
+        if (!invokeErr) {
+          data = edgeData;
+          break;
         }
-      } else {
-        data = edgeData;
+        lastErrorMessage = invokeErr.message || "Projection failed";
+        const isTransportFailure = lastErrorMessage.includes("Failed to send a request to the Edge Function");
+        if (!isTransportFailure || attempt === 1) {
+          throw new Error(
+            isTransportFailure
+              ? "Projection service is temporarily unreachable. Please retry in a few seconds."
+              : lastErrorMessage
+          );
+        }
+        await new Promise((resolve) => setTimeout(resolve, 350));
       }
 
       if (!data) throw new Error("Projection failed");
