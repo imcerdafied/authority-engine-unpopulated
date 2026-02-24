@@ -101,49 +101,35 @@ export default function ProjectionPanel({
     setLoading(true);
     setError(null);
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData.session?.access_token;
-      if (!accessToken) {
-        throw new Error("You must be signed in to generate a projection.");
-      }
-
-      const res = await fetch("/api/projection-and-risk", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
+      const { data, error: invokeErr } = await supabase.functions.invoke("projection", {
+        body: {
+          decision: {
+            id: decision.id,
+            org_id: decision.org_id,
+          },
         },
-        body: JSON.stringify({
-          org_id: decision.org_id,
-          decision_id: decision.id,
-          title: decision.title,
-          domain: decision.solution_domain,
-          surface: decision.surface,
-          outcome_category: category,
-          expected_impact: decision.expected_impact ?? "",
-          exposure_value: exposure,
-          slice_overdue: decision.is_exceeded ?? false,
-          blocked_days: decision.status === "Blocked" ? (decision.age_days ?? 0) : 0,
-        }),
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.detail ?? data.error ?? "Projection failed");
+      if (invokeErr) {
+        throw new Error(invokeErr.message || "Projection failed");
       }
+      if (!data) throw new Error("Projection failed");
 
-      const raw = data.projection as Record<string, { impact_summary?: string; exposure_shift?: string; confidence?: string }>;
-      const scenarios: Scenario[] = [
-        { label: "On-Time Delivery", impact_summary: raw.on_time?.impact_summary ?? "", exposure_shift: raw.on_time?.exposure_shift ?? "", confidence: raw.on_time?.confidence ?? "" },
-        { label: "Delayed by 10 Days", impact_summary: raw.delayed_10_days?.impact_summary ?? "", exposure_shift: raw.delayed_10_days?.exposure_shift ?? "", confidence: raw.delayed_10_days?.confidence ?? "" },
-        { label: "Deprioritized", impact_summary: raw.deprioritized?.impact_summary ?? "", exposure_shift: raw.deprioritized?.exposure_shift ?? "", confidence: raw.deprioritized?.confidence ?? "" },
-      ];
+      const scenarios: Scenario[] = Array.isArray((data as any).scenarios)
+        ? ((data as any).scenarios as Scenario[])
+        : (() => {
+            const raw = (data as any).projection as Record<string, { impact_summary?: string; exposure_shift?: string; confidence?: string }>;
+            return [
+              { label: "On-Time Delivery", impact_summary: raw?.on_time?.impact_summary ?? "", exposure_shift: raw?.on_time?.exposure_shift ?? "", confidence: raw?.on_time?.confidence ?? "" },
+              { label: "Delayed by 10 Days", impact_summary: raw?.delayed_10_days?.impact_summary ?? "", exposure_shift: raw?.delayed_10_days?.exposure_shift ?? "", confidence: raw?.delayed_10_days?.confidence ?? "" },
+              { label: "Deprioritized", impact_summary: raw?.deprioritized?.impact_summary ?? "", exposure_shift: raw?.deprioritized?.exposure_shift ?? "", confidence: raw?.deprioritized?.confidence ?? "" },
+            ];
+          })();
 
       setProjection({
         scenarios,
-        generated_at: new Date().toISOString(),
-        metadata_hash: currentHash,
+        generated_at: (data as any).generated_at ?? new Date().toISOString(),
+        metadata_hash: (data as any).metadata_hash ?? currentHash,
       });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to generate projection.");

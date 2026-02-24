@@ -949,7 +949,6 @@ function BetCard({
   handleStatusConfirm: () => void;
 }) {
   const [logFormExpanded, setLogFormExpanded] = useState(false);
-  const [podExpanded, setPodExpanded] = useState(false);
 
   const capacityDiverted = (d.capacity_diverted ?? 0) as number;
   const unplannedInterrupts = (d.unplanned_interrupts ?? 0) as number;
@@ -966,7 +965,7 @@ function BetCard({
 
   return (
     <div key={d.id} className={cn("border rounded-xl overflow-hidden font-sans", d.is_exceeded ? "border-signal-red/40 bg-signal-red/5" : d.is_aging ? "border-signal-amber/40" : "")}>
-      <div className="px-4 md:px-6 py-4 border-b bg-muted/45">
+      <div className="px-4 md:px-6 py-4 border-b bg-black/90">
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
           <div className="min-w-0">
             <div className="flex items-start gap-2 flex-wrap mb-2">
@@ -1187,23 +1186,6 @@ function BetCard({
             onClose={() => setLogFormExpanded(false)}
           />
         </div>
-      )}
-
-      {(d as any).pod_configuration && (
-        <PodConfigurationSection
-          pod={(d as any).pod_configuration as PodConfig}
-          expanded={podExpanded}
-          onToggle={() => {
-            setPodExpanded(!podExpanded);
-          }}
-          justGenerated={false}
-          decisionId={d.id}
-          canWrite={canWrite}
-          onSave={async (updated) => {
-            await supabase.from("decisions").update({ pod_configuration: updated } as any).eq("id", d.id);
-            qc.invalidateQueries({ queryKey: ["decisions"] });
-          }}
-        />
       )}
 
       {d.blocked_reason && (

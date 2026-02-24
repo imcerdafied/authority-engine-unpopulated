@@ -11,6 +11,7 @@ interface DecisionInput {
   org_id: string;
   title: string;
   outcome_category: string;
+  outcome_category_key?: string;
   expected_impact: string;
   exposure_value: string;
   outcome_target?: string;
@@ -81,7 +82,7 @@ Deno.serve(async (req) => {
     const { data: trustedDecision, error: decisionReadError } = await userClient
       .from("decisions")
       .select(
-        "id, org_id, title, outcome_category, expected_impact, exposure_value, outcome_target, impact_tier, solution_domain, surface, current_delta, revenue_at_risk, segment_impact, owner, slice_deadline_days"
+        "id, org_id, title, outcome_category, outcome_category_key, expected_impact, exposure_value, outcome_target, impact_tier, solution_domain, surface, current_delta, revenue_at_risk, segment_impact, owner, slice_deadline_days"
       )
       .eq("id", decision.id)
       .maybeSingle();
@@ -104,13 +105,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (
-      !trustedDecision.outcome_category ||
-      !trustedDecision.expected_impact ||
-      !trustedDecision.exposure_value
-    ) {
+    const outcomeCategory = trustedDecision.outcome_category || trustedDecision.outcome_category_key || "";
+    const upsideExposure = trustedDecision.exposure_value || "";
+    const riskExposure = trustedDecision.revenue_at_risk || "";
+    if (!outcomeCategory || !trustedDecision.expected_impact || (!upsideExposure && !riskExposure)) {
       return new Response(
-        JSON.stringify({ error: "Missing required fields: outcome_category, expected_impact, exposure_value" }),
+        JSON.stringify({ error: "Missing required fields: category, expected_impact, and upside/risk exposure" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -120,9 +120,10 @@ Deno.serve(async (req) => {
 
 Decision:
 - Title: ${trustedDecision.title}
-- Outcome Category: ${trustedDecision.outcome_category}
+- Outcome Category: ${outcomeCategory}
 - Expected Impact: ${trustedDecision.expected_impact}
-- Exposure Value: ${trustedDecision.exposure_value}
+- Upside Exposure: ${upsideExposure || "Not specified"}
+- Risk Exposure: ${riskExposure || "Not specified"}
 - Outcome Target: ${trustedDecision.outcome_target || "Not specified"}
 - Impact Tier: ${trustedDecision.impact_tier || "Medium"}
 - Domain: ${trustedDecision.solution_domain || "Cross"}
@@ -138,19 +139,19 @@ Return this exact JSON structure:
     {
       "label": "On-Time Delivery",
       "impact_summary": "<1-2 sentence summary of expected outcome if delivered on time>",
-      "exposure_shift": "<quantified shift in exposure, e.g. '-30% exposure reduction'>",
+      "exposure_shift": "<change in upside/risk exposure relative to current state; keep it concrete and directional>",
       "confidence": "<High/Medium/Low>"
     },
     {
       "label": "Delayed 10 Days",
       "impact_summary": "<1-2 sentence summary if delayed by 10 days>",
-      "exposure_shift": "<quantified shift>",
+      "exposure_shift": "<change in upside/risk exposure>",
       "confidence": "<High/Medium/Low>"
     },
     {
       "label": "Deprioritized",
       "impact_summary": "<1-2 sentence summary if deprioritized entirely>",
-      "exposure_shift": "<quantified shift>",
+      "exposure_shift": "<change in upside/risk exposure>",
       "confidence": "<High/Medium/Low>"
     }
   ]
@@ -202,7 +203,7 @@ Be analytical, concise, and credible. No hype. No speculation beyond reasonable 
 
     // Compute metadata hash for change detection
     const metadataHash = btoa(
-      `${trustedDecision.outcome_category}|${trustedDecision.expected_impact}|${trustedDecision.exposure_value}|${trustedDecision.outcome_target || ""}|${trustedDecision.current_delta || ""}`
+      `${outcomeCategory}|${trustedDecision.expected_impact}|${upsideExposure}|${riskExposure}|${trustedDecision.outcome_target || ""}|${trustedDecision.current_delta || ""}`
     );
 
     // Store in DB
