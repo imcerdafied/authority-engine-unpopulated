@@ -18,22 +18,11 @@ interface ProjectionData {
   metadata_hash: string;
 }
 
-async function extractInvokeErrorMessage(invokeErr: unknown): Promise<string> {
-  const fallback = invokeErr && typeof invokeErr === "object" && "message" in invokeErr
-    ? String((invokeErr as { message?: unknown }).message || "Projection failed")
-    : "Projection failed";
-
-  if (!invokeErr || typeof invokeErr !== "object" || !("context" in invokeErr)) return fallback;
-  const context = (invokeErr as { context?: unknown }).context;
-  if (!(context instanceof Response)) return fallback;
-  try {
-    const body = await context.clone().json();
-    if (body?.error) return String(body.error);
-    if (body?.detail) return String(body.detail);
-  } catch {
-    // ignore parse errors and keep fallback
-  }
-  return fallback;
+function summarizeProjection(decision: DecisionComputed): string {
+  const expectedImpact = decision.expected_impact || "Expected impact not set";
+  const upside = (decision as any).exposure_value || "Upside exposure not set";
+  const risk = (decision as any).revenue_at_risk || "Risk exposure not set";
+  return `${expectedImpact}. Upside: ${upside}. Risk: ${risk}.`;
 }
 
 function computeHash(d: DecisionComputed): string {
@@ -66,6 +55,7 @@ export default function ProjectionPanel({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadingExisting, setLoadingExisting] = useState(true);
+  const [showScenarios, setShowScenarios] = useState(false);
   const category = decision.outcome_category || (decision as any).outcome_category_key || "";
   const exposure = (decision as any).exposure_value || (decision as any).revenue_at_risk || "";
 
@@ -132,29 +122,23 @@ export default function ProjectionPanel({
         },
       };
 
-      let data: any = null;
-      let lastErrorMessage = "Projection failed";
-      for (let attempt = 0; attempt < 2; attempt += 1) {
-        const { data: edgeData, error: invokeErr } = await supabase.functions.invoke("projection", {
-          body: payload,
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        });
-        if (!invokeErr) {
-          data = edgeData;
-          break;
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+      const res = await fetch(`${supabaseUrl}/functions/v1/projection`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+          apikey: supabaseAnonKey,
+        },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (res.status === 401) {
+          throw new Error("Session expired. Refresh and sign in again.");
         }
-        lastErrorMessage = await extractInvokeErrorMessage(invokeErr);
-        const isTransportFailure = lastErrorMessage.includes("Failed to send a request to the Edge Function");
-        if (!isTransportFailure || attempt === 1) {
-          throw new Error(
-            isTransportFailure
-              ? "Projection service is temporarily unreachable. Please retry in a few seconds."
-              : lastErrorMessage
-          );
-        }
-        await new Promise((resolve) => setTimeout(resolve, 350));
+        throw new Error((data as any)?.error || `Projection failed (${res.status})`);
       }
 
       if (!data) throw new Error("Projection failed");
@@ -175,6 +159,7 @@ export default function ProjectionPanel({
         generated_at: (data as any).generated_at ?? new Date().toISOString(),
         metadata_hash: (data as any).metadata_hash ?? currentHash,
       });
+      setShowScenarios(true);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to generate projection.");
     } finally {
@@ -198,12 +183,12 @@ export default function ProjectionPanel({
             )}
           >
             {loading
-              ? "Generating projection…"
+              ? "Modeling scenarios…"
               : projection
               ? isStale
-                ? "Regenerate Projection"
-                : "Regenerate"
-              : "Generate Projection"}
+                ? "Remodel Scenarios"
+                : "Model Scenarios"
+              : "Model Scenarios"}
           </button>
         ) : (
           <Tooltip>
@@ -213,15 +198,29 @@ export default function ProjectionPanel({
                   disabled
                   className="text-[11px] font-semibold uppercase tracking-wider px-3 py-1.5 rounded-sm border border-muted text-muted-foreground cursor-not-allowed opacity-50"
                 >
-                  Generate Projection
+                  Model Scenarios
                 </button>
               </span>
             </TooltipTrigger>
             <TooltipContent>
-              <p>Requires category, expected impact, and exposure value</p>
+              <p>Requires category, expected impact, and exposure</p>
             </TooltipContent>
           </Tooltip>
         )}
+      </div>
+
+      <div className="mt-2 border rounded-md p-3 bg-muted/20">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Projection Summary</p>
+        <p className="text-sm mt-1">{summarizeProjection(decision)}</p>
+        <p className="text-[10px] text-muted-foreground mt-2">
+          Last updated {new Date((projection?.generated_at ?? decision.updated_at) as string).toLocaleString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
+        </p>
       </div>
 
       {error && (
@@ -234,7 +233,7 @@ export default function ProjectionPanel({
         </p>
       )}
 
-      {projection && !loading && (
+      {projection && !loading && showScenarios && (
         <div className="mt-3">
           <div className="grid grid-cols-3 gap-3">
             {projection.scenarios.map((s) => (
