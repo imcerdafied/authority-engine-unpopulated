@@ -125,7 +125,13 @@ export default function ProjectionPanel({
   const expectedNet = upsideValue !== null || downsideValue !== null
     ? (upsideValue ?? 0) * weight - (downsideValue ?? 0) * (1 - weight)
     : null;
+  const netAsymmetry = upsideValue !== null || downsideValue !== null
+    ? (upsideValue ?? 0) - (downsideValue ?? 0)
+    : null;
   const horizonMonths = extractMonths(upsideText, downsideText, String(decision.expected_impact || "")) ?? 24;
+  const barBase = Math.max(upsideValue ?? 0, downsideValue ?? 0, 1);
+  const upsideBarPct = upsideValue !== null ? Math.max(8, Math.min(100, (upsideValue / barBase) * 100)) : 0;
+  const downsideBarPct = downsideValue !== null ? Math.max(8, Math.min(100, (downsideValue / barBase) * 100)) : 0;
 
   // Load existing projection from DB
   useEffect(() => {
@@ -285,12 +291,10 @@ export default function ProjectionPanel({
           <div>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Upside (12-24 mo)</p>
             <p className="font-semibold">{formatMillions(upsideValue)}</p>
-            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{upsideText || "Not specified"}</p>
           </div>
           <div>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Downside (if miss)</p>
             <p className="font-semibold text-signal-red">{formatMillions(downsideValue)}</p>
-            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{downsideText || "Not specified"}</p>
           </div>
           <div>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Expected Impact (prob-weighted)</p>
@@ -307,6 +311,32 @@ export default function ProjectionPanel({
               <p className="font-semibold">{inferredConfidence} ({String(decision.status || "").replace("_", " ")})</p>
             </div>
           </div>
+        </div>
+        <div className="mt-3">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Exposure Asymmetry</p>
+          <div className="border rounded-sm px-2 py-1.5 bg-background/70">
+            <div className="flex items-center h-4">
+              <div className="w-1/2 flex justify-end pr-1">
+                {downsideBarPct > 0 && (
+                  <div className="h-2 rounded-l bg-signal-red/70" style={{ width: `${downsideBarPct}%` }} />
+                )}
+              </div>
+              <div className="w-px h-3 bg-border mx-0.5" />
+              <div className="w-1/2 flex pl-1">
+                {upsideBarPct > 0 && (
+                  <div className="h-2 rounded-r bg-signal-green/70" style={{ width: `${upsideBarPct}%` }} />
+                )}
+              </div>
+            </div>
+            <div className="mt-1 flex items-center justify-between text-[10px] text-muted-foreground">
+              <span>Risk: {downsideValue === null ? "—" : `−${formatMillions(Math.abs(downsideValue))}`}</span>
+              <span>0</span>
+              <span>Opportunity: {upsideValue === null ? "—" : `+${formatMillions(Math.abs(upsideValue))}`}</span>
+            </div>
+          </div>
+          <p className="text-xs mt-1">
+            Net exposure asymmetry: {netAsymmetry === null ? "—" : `${netAsymmetry >= 0 ? "+" : "−"}${formatMillions(Math.abs(netAsymmetry))}`}
+          </p>
         </div>
         <p className="text-[10px] text-muted-foreground mt-3">
           Last updated {new Date((projection?.generated_at ?? decision.updated_at) as string).toLocaleString("en-US", {
