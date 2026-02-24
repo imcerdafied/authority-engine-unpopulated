@@ -4,6 +4,7 @@ import "@fontsource/space-grotesk/600.css";
 import "@fontsource/space-grotesk/700.css";
 import { createRoot } from "react-dom/client";
 import ErrorBoundary from "./components/ErrorBoundary";
+import { trackEvent } from "./lib/telemetry";
 import App from "./App.tsx";
 import "./index.css";
 
@@ -31,10 +32,18 @@ if (import.meta.env.PROD) {
   };
 
   window.addEventListener("error", (e) => {
+    void trackEvent("frontend_error", {
+      severity: "error",
+      metadata: { message: e.message, stack: e.error?.stack, href: window.location.href },
+    });
     reportGlobal(e.message, e.error?.stack);
   });
 
   window.addEventListener("unhandledrejection", (e) => {
+    void trackEvent("frontend_unhandled_rejection", {
+      severity: "error",
+      metadata: { reason: String(e.reason), stack: e.reason?.stack, href: window.location.href },
+    });
     reportGlobal(String(e.reason), e.reason?.stack);
   });
 }

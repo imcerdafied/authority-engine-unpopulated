@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useOrg } from "@/contexts/OrgContext";
 import { supabase } from "@/integrations/supabase/client";
 import Auth from "@/pages/Auth";
+import { trackEvent } from "@/lib/telemetry";
 
 const PENDING_ORG_JOIN_KEY = "pending_org_join";
 
@@ -40,6 +41,10 @@ export default function Join() {
     const joinOrg = async () => {
       setJoining(true);
       setJoinError(null);
+      void trackEvent("invite_join_attempted", {
+        userId: user?.id ?? null,
+        metadata: { org_id: orgId },
+      });
       try {
         const { data: org } = await supabase
           .from("organizations")
@@ -80,6 +85,10 @@ export default function Join() {
         }
 
         if (data?.success) {
+          void trackEvent("invite_join_succeeded", {
+            userId: user?.id ?? null,
+            metadata: { org_id: orgId },
+          });
           localStorage.removeItem(PENDING_ORG_JOIN_KEY);
           await refetchMemberships();
           navigate("/", { replace: true });
@@ -87,6 +96,12 @@ export default function Join() {
           throw new Error("Join failed");
         }
       } catch (err) {
+        const message = err instanceof Error ? err.message : "Unable to complete invite flow.";
+        void trackEvent("invite_join_failed", {
+          userId: user?.id ?? null,
+          severity: "error",
+          metadata: { org_id: orgId, error: message },
+        });
         setJoinError(err instanceof Error ? err.message : "Unable to complete invite flow.");
         setJoining(false);
       }

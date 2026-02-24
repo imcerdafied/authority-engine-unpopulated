@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrg } from "@/contexts/OrgContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { trackEvent } from "@/lib/telemetry";
 import type { TablesInsert } from "@/integrations/supabase/types";
 
 export interface DecisionComputed {
@@ -145,6 +146,11 @@ export function useCreateDecision() {
         .select()
         .single();
       if (error) throw error;
+      void trackEvent("decision_created", {
+        orgId: currentOrg.id,
+        userId: user.id,
+        metadata: { decision_id: data.id, impact_tier: data.impact_tier, status: data.status },
+      });
       return data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["decisions", currentOrg?.id] }),
@@ -154,6 +160,7 @@ export function useCreateDecision() {
 export function useUpdateDecision() {
   const qc = useQueryClient();
   const { currentOrg } = useOrg();
+  const { user } = useAuth();
   return useMutation({
     mutationFn: async ({ id, ...updates }: { id: string } & Partial<TablesInsert<"decisions">>) => {
       const { data, error } = await supabase
@@ -163,6 +170,16 @@ export function useUpdateDecision() {
         .select()
         .single();
       if (error) throw error;
+      const isStatusChange = typeof updates.status !== "undefined";
+      void trackEvent(isStatusChange ? "decision_status_changed" : "decision_updated", {
+        orgId: currentOrg?.id ?? null,
+        userId: user?.id ?? null,
+        metadata: {
+          decision_id: data.id,
+          changed_fields: Object.keys(updates),
+          status: data.status,
+        },
+      });
       return data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["decisions", currentOrg?.id] }),
@@ -172,10 +189,16 @@ export function useUpdateDecision() {
 export function useDeleteDecision() {
   const qc = useQueryClient();
   const { currentOrg } = useOrg();
+  const { user } = useAuth();
   return useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("decisions").delete().eq("id", id);
       if (error) throw error;
+      void trackEvent("decision_deleted", {
+        orgId: currentOrg?.id ?? null,
+        userId: user?.id ?? null,
+        metadata: { decision_id: id },
+      });
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["decisions", currentOrg?.id] }),
   });

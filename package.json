@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "qa:report": "node scripts/qa-monitor.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.74.0",

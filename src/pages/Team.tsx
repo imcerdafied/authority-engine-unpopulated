@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useOrgMembers, useUpdateMemberRole } from "@/hooks/useTeam";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { trackEvent } from "@/lib/telemetry";
 
 const roleLabels: Record<string, string> = {
   admin: "Admin",
@@ -31,6 +32,11 @@ export default function Team() {
     if (!inviteUrl) return;
     try {
       await navigator.clipboard.writeText(inviteUrl);
+      void trackEvent("invite_link_copied", {
+        orgId: currentOrg?.id ?? null,
+        userId: user?.id ?? null,
+        metadata: { invite_url: inviteUrl },
+      });
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -53,8 +59,19 @@ export default function Team() {
       .eq("id", currentOrg.id);
     if (error) {
       setDomainMsg("Failed to save domain restriction.");
+      void trackEvent("org_domain_rule_update_failed", {
+        orgId: currentOrg.id,
+        userId: user?.id ?? null,
+        severity: "error",
+        metadata: { attempted_domain: normalized, error: error.message },
+      });
     } else {
       setDomainMsg(normalized ? `Restricted to ${normalized}` : "Domain restriction removed.");
+      void trackEvent("org_domain_rule_updated", {
+        orgId: currentOrg.id,
+        userId: user?.id ?? null,
+        metadata: { allowed_email_domain: normalized || null },
+      });
     }
     setDomainSaving(false);
   };
@@ -146,10 +163,24 @@ export default function Team() {
                   <select
                     value={m.role}
                     onChange={(e) =>
-                      updateMemberRole.mutate({
-                        userId: m.user_id,
-                        role: e.target.value as "admin" | "pod_lead" | "viewer",
-                      })
+                      updateMemberRole.mutate(
+                        {
+                          userId: m.user_id,
+                          role: e.target.value as "admin" | "pod_lead" | "viewer",
+                        },
+                        {
+                          onSuccess: () => {
+                            void trackEvent("member_role_updated", {
+                              orgId: currentOrg?.id ?? null,
+                              userId: user?.id ?? null,
+                              metadata: {
+                                target_user_id: m.user_id,
+                                new_role: e.target.value,
+                              },
+                            });
+                          },
+                        }
+                      )
                     }
                     disabled={updateMemberRole.isPending}
                     className="text-[11px] font-semibold uppercase tracking-wider border rounded-sm px-2 py-1 bg-background"

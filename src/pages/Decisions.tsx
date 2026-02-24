@@ -1003,7 +1003,21 @@ function BetCard({
       <div className="px-4 md:px-6 py-4 border-b bg-black/90 text-white">
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
           <div className="min-w-0">
-            <div className="flex items-start gap-2 flex-wrap mb-2">
+            <div className="flex items-start gap-2">
+              <span className="text-xl font-semibold leading-snug !text-white/80">{index}.</span>
+              <InlineEdit
+                value={d.title ?? ""}
+                field="title"
+                decisionId={d.id}
+                canEdit={canWrite}
+                onSave={handleInlineSave}
+                logActivity={logActivity}
+                variant="title"
+                placeholder="Untitled"
+                className="text-xl font-semibold leading-snug block !text-white"
+              />
+            </div>
+            <div className="flex items-start gap-2 flex-wrap mt-2">
               <PillSelect
                 value={d.solution_domain ?? ""}
                 options={solutionDomainOptions}
@@ -1025,20 +1039,6 @@ function BetCard({
               {d.is_aging && <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider">Aging</span>}
               {d.is_unbound && <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider">Unbound — no authority</span>}
               {d.needs_exec_attention && <span className="text-[11px] font-semibold text-signal-red uppercase tracking-wider">Executive Attention Required</span>}
-            </div>
-            <div className="flex items-start gap-2">
-              <span className="text-xl font-semibold leading-snug !text-white/80">{index}.</span>
-              <InlineEdit
-                value={d.title ?? ""}
-                field="title"
-                decisionId={d.id}
-                canEdit={canWrite}
-                onSave={handleInlineSave}
-                logActivity={logActivity}
-                variant="title"
-                placeholder="Untitled"
-                className="text-xl font-semibold leading-snug block !text-white"
-              />
             </div>
           </div>
 
