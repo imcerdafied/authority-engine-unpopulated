@@ -966,7 +966,7 @@ function BetCard({
 
   return (
     <div key={d.id} className={cn("border rounded-xl overflow-hidden font-sans", d.is_exceeded ? "border-signal-red/40 bg-signal-red/5" : d.is_aging ? "border-signal-amber/40" : "")}>
-      <div className="px-4 md:px-6 py-4 border-b bg-muted/20">
+      <div className="px-4 md:px-6 py-4 border-b bg-muted/45">
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
           <div className="min-w-0">
             <div className="flex items-start gap-2 flex-wrap mb-2">
