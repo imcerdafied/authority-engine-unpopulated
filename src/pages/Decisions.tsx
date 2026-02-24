@@ -447,7 +447,7 @@ function DecisionActivityFeed({
   const { data: activity = [], isLoading } = useDecisionActivity(decisionId);
 
   return (
-    <div className="mt-3 pt-3 pb-3 border-t">
+    <div className="mt-3 pt-3 pb-3 px-4 md:px-6 border-t">
       <div className="flex items-center gap-2 flex-wrap">
         <button
           onClick={() => setExpanded(!expanded)}
@@ -950,7 +950,6 @@ function BetCard({
 }) {
   const [logFormExpanded, setLogFormExpanded] = useState(false);
   const [podExpanded, setPodExpanded] = useState(false);
-  const [podJustGenerated, setPodJustGenerated] = useState(false);
 
   const capacityDiverted = (d.capacity_diverted ?? 0) as number;
   const unplannedInterrupts = (d.unplanned_interrupts ?? 0) as number;
@@ -966,7 +965,7 @@ function BetCard({
   const showNudge = stale.isAmber || stale.isRed;
 
   return (
-    <div key={d.id} className={cn("border rounded-xl overflow-hidden", d.is_exceeded ? "border-signal-red/40 bg-signal-red/5" : d.is_aging ? "border-signal-amber/40" : "")}>
+    <div key={d.id} className={cn("border rounded-xl overflow-hidden font-sans", d.is_exceeded ? "border-signal-red/40 bg-signal-red/5" : d.is_aging ? "border-signal-amber/40" : "")}>
       <div className="px-4 md:px-6 py-4 border-b bg-muted/20">
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
           <div className="min-w-0">
@@ -1096,14 +1095,14 @@ function BetCard({
       <div className="px-4 md:px-6 py-5 space-y-5">
         <div className="rounded-lg border bg-muted/20 p-4">
           <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground block mb-1">Outcome Target</span>
-          <InlineEdit value={d.outcome_target ?? ""} field="outcome_target" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="text-base leading-relaxed block" />
+          <InlineEdit value={d.outcome_target ?? ""} field="outcome_target" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="text-base font-medium leading-relaxed block" />
         </div>
 
         <div>
           <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground block">Expected Impact</span>
-          <InlineEdit value={d.expected_impact ?? ""} field="expected_impact" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="text-sm font-medium mt-2 block" />
+          <InlineEdit value={d.expected_impact ?? ""} field="expected_impact" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="text-base font-medium leading-relaxed mt-2 block" />
           {expectedImpactItems.length > 1 && (
-            <ul className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 text-sm text-foreground/90">
+            <ul className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 text-base text-foreground/90">
               {expectedImpactItems.map((item, idx) => (
                 <li key={`${d.id}-impact-${idx}`} className="flex items-start gap-2">
                   <span className="text-muted-foreground mt-[2px]">•</span>
@@ -1118,7 +1117,7 @@ function BetCard({
           <div className="border rounded-xl p-4 bg-emerald-50/40 border-emerald-200/70">
             <span className="text-[11px] uppercase tracking-[0.16em] text-emerald-700/90 block">Upside Exposure</span>
             <div className="text-emerald-800 mt-2">
-              <InlineEdit value={d.exposure_value ?? ""} field="exposure_value" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="text-base leading-relaxed block" />
+              <InlineEdit value={d.exposure_value ?? ""} field="exposure_value" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="text-base font-medium leading-relaxed block" />
               {(() => {
                 const prev = (d as any).previous_exposure_value;
                 const curr = d.exposure_value ?? "";
@@ -1135,7 +1134,7 @@ function BetCard({
           <div className="border rounded-xl p-4 bg-signal-red/5 border-signal-red/30">
             <span className="text-[11px] uppercase tracking-[0.16em] text-signal-red/90 block">Risk Exposure</span>
             <div className="text-signal-red mt-2">
-              <InlineEdit value={d.revenue_at_risk ?? ""} field="revenue_at_risk" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="text-base leading-relaxed block" />
+              <InlineEdit value={d.revenue_at_risk ?? ""} field="revenue_at_risk" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="text-base font-medium leading-relaxed block" />
             </div>
           </div>
         </div>
@@ -1193,16 +1192,11 @@ function BetCard({
       {(d as any).pod_configuration && (
         <PodConfigurationSection
           pod={(d as any).pod_configuration as PodConfig}
-          expanded={podExpanded || podJustGenerated}
+          expanded={podExpanded}
           onToggle={() => {
-            if (podExpanded || podJustGenerated) {
-              setPodExpanded(false);
-              setPodJustGenerated(false);
-            } else {
-              setPodExpanded(true);
-            }
+            setPodExpanded(!podExpanded);
           }}
-          justGenerated={podJustGenerated}
+          justGenerated={false}
           decisionId={d.id}
           canWrite={canWrite}
           onSave={async (updated) => {
@@ -1222,9 +1216,6 @@ function BetCard({
       {isActive && (
         <ProjectionPanel
           decision={d}
-          canWrite={canWrite}
-          qc={qc}
-          onPodGenerated={() => setPodJustGenerated(true)}
         />
       )}
 
@@ -1292,6 +1283,7 @@ export default function Decisions() {
 
   const activeDecisions = decisions.filter((d) => d.status !== "closed");
   const activeHighImpact = activeDecisions.filter((d) => d.impact_tier === "High");
+  const orderedDecisions = [...decisions].reverse();
   const atCapacity = activeHighImpact.length >= 5;
   const isEmpty = decisions.length === 0;
 
@@ -1329,13 +1321,13 @@ export default function Decisions() {
         <section className="mb-8">
           <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">All Bets ({decisions.length})</h2>
           <div className="space-y-2">
-            {decisions.map((d, index) => (
+            {orderedDecisions.map((d, index) => (
               <BetCard
                 key={d.id}
                 d={d}
                 index={index + 1}
                 canWrite={canWrite}
-                canUpdateStatus={canWrite && isDecisionOwner(d, user)}
+                canUpdateStatus={currentRole === "admin" || (canWrite && isDecisionOwner(d, user))}
                 canManageOwner={canManageOwner}
                 categories={categories}
                 handleInlineSave={handleInlineSave}

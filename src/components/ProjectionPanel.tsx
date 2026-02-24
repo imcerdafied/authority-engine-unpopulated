@@ -39,18 +39,11 @@ function ConfidenceDot({ level }: { level: string }) {
 
 export default function ProjectionPanel({
   decision,
-  canWrite,
-  qc,
-  onPodGenerated,
 }: {
   decision: DecisionComputed;
-  canWrite?: boolean;
-  qc?: { invalidateQueries: (opts: { queryKey: string[] }) => void };
-  onPodGenerated?: () => void;
 }) {
   const [projection, setProjection] = useState<ProjectionData | null>(null);
   const [loading, setLoading] = useState(false);
-  const [podLoading, setPodLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadingExisting, setLoadingExisting] = useState(true);
 
@@ -155,30 +148,6 @@ export default function ProjectionPanel({
     }
   };
 
-  const hasPod = !!(decision as any).pod_configuration;
-
-  const handleGeneratePod = async () => {
-    if (!canWrite || !qc) return;
-    setPodLoading(true);
-    try {
-      const { data, error: invokeErr } = await supabase.functions.invoke("generate-pod", {
-        body: { bet: decision },
-      });
-      if (invokeErr) throw invokeErr;
-      if (data?.pod) {
-        await supabase.from("decisions").update({ pod_configuration: data.pod } as any).eq("id", decision.id);
-        qc.invalidateQueries({ queryKey: ["decisions"] });
-        onPodGenerated?.();
-      } else {
-        throw new Error("No pod config returned");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to generate bet unit.");
-    } finally {
-      setPodLoading(false);
-    }
-  };
-
   const labelClass = "text-[11px] font-semibold uppercase tracking-wider text-muted-foreground";
 
   return (
@@ -218,22 +187,6 @@ export default function ProjectionPanel({
               <p>Requires outcome category, expected impact, and exposure value</p>
             </TooltipContent>
           </Tooltip>
-        )}
-        {canWrite && !hasPod && (
-          <button
-            disabled={podLoading}
-            onClick={handleGeneratePod}
-            className={cn(
-              "text-[11px] uppercase tracking-wider border rounded px-3 py-1 transition-colors flex items-center gap-2",
-              "border-foreground text-foreground hover:bg-foreground hover:text-background",
-              podLoading && "opacity-50 cursor-not-allowed"
-            )}
-          >
-            {podLoading && (
-              <span className="border-2 border-foreground border-t-transparent rounded-full w-4 h-4 inline-block animate-spin shrink-0" />
-            )}
-            {podLoading ? "Generating bet outcome pod..." : "Generate Bet Outcome Pod"}
-          </button>
         )}
       </div>
 
