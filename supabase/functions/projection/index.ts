@@ -159,19 +159,26 @@ Return this exact JSON structure:
 
 Be analytical, concise, and credible. No hype. No speculation beyond reasonable inference from the data provided.`;
 
-    const aiGatewayUrl = "https://ai.gateway.lovable.dev/v1/chat/completions";
-    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+    const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!anthropicKey) {
+      return new Response(
+        JSON.stringify({ error: "Projection function missing ANTHROPIC_API_KEY" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
-    const aiResponse = await fetch(aiGatewayUrl, {
+    const aiResponse = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${lovableApiKey}`,
+        "x-api-key": anthropicKey,
+        "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 900,
+        temperature: 0.2,
         messages: [{ role: "user", content: prompt }],
-        temperature: 0.3,
       }),
     });
 
@@ -185,7 +192,7 @@ Be analytical, concise, and credible. No hype. No speculation beyond reasonable 
     }
 
     const aiData = await aiResponse.json();
-    const content = aiData.choices?.[0]?.message?.content || "";
+    const content = aiData?.content?.[0]?.text || "";
 
     // Parse JSON from response (strip markdown fences if present)
     let scenarios: Scenario[];

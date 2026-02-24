@@ -18,6 +18,24 @@ interface ProjectionData {
   metadata_hash: string;
 }
 
+async function extractInvokeErrorMessage(invokeErr: unknown): Promise<string> {
+  const fallback = invokeErr && typeof invokeErr === "object" && "message" in invokeErr
+    ? String((invokeErr as { message?: unknown }).message || "Projection failed")
+    : "Projection failed";
+
+  if (!invokeErr || typeof invokeErr !== "object" || !("context" in invokeErr)) return fallback;
+  const context = (invokeErr as { context?: unknown }).context;
+  if (!(context instanceof Response)) return fallback;
+  try {
+    const body = await context.clone().json();
+    if (body?.error) return String(body.error);
+    if (body?.detail) return String(body.detail);
+  } catch {
+    // ignore parse errors and keep fallback
+  }
+  return fallback;
+}
+
 function computeHash(d: DecisionComputed): string {
   const category = d.outcome_category || (d as any).outcome_category_key || "";
   const exposure = (d as any).exposure_value || (d as any).revenue_at_risk || "";
@@ -118,7 +136,7 @@ export default function ProjectionPanel({
           data = edgeData;
           break;
         }
-        lastErrorMessage = invokeErr.message || "Projection failed";
+        lastErrorMessage = await extractInvokeErrorMessage(invokeErr);
         const isTransportFailure = lastErrorMessage.includes("Failed to send a request to the Edge Function");
         if (!isTransportFailure || attempt === 1) {
           throw new Error(
