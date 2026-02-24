@@ -98,3 +98,22 @@ export function useRevokeInvitation() {
     },
   });
 }
+
+export function useUpdateMemberRole() {
+  const qc = useQueryClient();
+  const { currentOrg } = useOrg();
+  return useMutation({
+    mutationFn: async ({ userId, role }: { userId: string; role: "admin" | "pod_lead" | "viewer" }) => {
+      if (!currentOrg) throw new Error("No org selected");
+      const { error } = await supabase
+        .from("organization_memberships")
+        .update({ role } as any)
+        .eq("org_id", currentOrg.id)
+        .eq("user_id", userId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["org_members", currentOrg?.id] });
+    },
+  });
+}

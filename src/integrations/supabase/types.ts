@@ -224,6 +224,7 @@ export type Database = {
           outcome_delta: string | null
           outcome_target: string | null
           owner: string
+          owner_user_id: string | null
           revenue_at_risk: string | null
           segment_impact: string | null
           shipped_slice_date: string | null
@@ -261,6 +262,7 @@ export type Database = {
           outcome_delta?: string | null
           outcome_target?: string | null
           owner: string
+          owner_user_id?: string | null
           revenue_at_risk?: string | null
           segment_impact?: string | null
           shipped_slice_date?: string | null
@@ -298,6 +300,7 @@ export type Database = {
           outcome_delta?: string | null
           outcome_target?: string | null
           owner?: string
+          owner_user_id?: string | null
           revenue_at_risk?: string | null
           segment_impact?: string | null
           shipped_slice_date?: string | null

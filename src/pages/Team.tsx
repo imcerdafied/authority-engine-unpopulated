@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useOrg } from "@/contexts/OrgContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { useOrgMembers } from "@/hooks/useTeam";
+import { useOrgMembers, useUpdateMemberRole } from "@/hooks/useTeam";
 import { cn } from "@/lib/utils";
 
 const roleLabels: Record<string, string> = {
@@ -16,6 +16,7 @@ export default function Team() {
   const { user } = useAuth();
   const { currentOrg, currentRole } = useOrg();
   const { data: members = [], isLoading: membersLoading } = useOrgMembers();
+  const updateMemberRole = useUpdateMemberRole();
 
   const [copied, setCopied] = useState(false);
 
@@ -92,19 +93,38 @@ export default function Team() {
                   <p className="text-sm font-medium">
                     {m.user_id === user?.id ? `You (${roleLabels[m.role] || m.role})` : "Member"}
                   </p>
+                  <p className="text-[11px] text-muted-foreground">{m.user_id}</p>
                 </div>
-                <span
-                  className={cn(
-                    "text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-sm",
-                    m.role === "admin"
-                      ? "bg-foreground/10 text-foreground"
-                      : m.role === "pod_lead"
-                      ? "bg-muted text-foreground"
-                      : "bg-muted text-muted-foreground"
-                  )}
-                >
-                  {roleLabels[m.role] || m.role}
-                </span>
+                {isAdmin && m.user_id !== user?.id ? (
+                  <select
+                    value={m.role}
+                    onChange={(e) =>
+                      updateMemberRole.mutate({
+                        userId: m.user_id,
+                        role: e.target.value as "admin" | "pod_lead" | "viewer",
+                      })
+                    }
+                    disabled={updateMemberRole.isPending}
+                    className="text-[11px] font-semibold uppercase tracking-wider border rounded-sm px-2 py-1 bg-background"
+                  >
+                    <option value="viewer">Viewer</option>
+                    <option value="pod_lead">Pod Lead</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                ) : (
+                  <span
+                    className={cn(
+                      "text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-sm",
+                      m.role === "admin"
+                        ? "bg-foreground/10 text-foreground"
+                        : m.role === "pod_lead"
+                        ? "bg-muted text-foreground"
+                        : "bg-muted text-muted-foreground"
+                    )}
+                  >
+                    {roleLabels[m.role] || m.role}
+                  </span>
+                )}
               </div>
             ))}
           </div>

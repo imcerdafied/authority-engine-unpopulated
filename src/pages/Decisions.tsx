@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDecisions, useUpdateDecision, useDecisionRisks } from "@/hooks/useOrgData";
 import { useLogActivity, useDecisionActivity } from "@/hooks/useDecisionActivity";
 import { useInterruptions, useCreateInterruption } from "@/hooks/useInterruptions";
+import { useOrgMembers, type OrgMember } from "@/hooks/useTeam";
 import { useOrg } from "@/contexts/OrgContext";
 import { useAuth } from "@/contexts/AuthContext";
 import CreateDecisionForm from "@/components/CreateDecisionForm";
@@ -197,24 +198,10 @@ function nudgeMailto(betTitle: string, days: number, owner: string, exposure: st
   return `mailto:?subject=${subject}&body=${body}`;
 }
 
-function normalizeIdentity(value: unknown): string {
-  return String(value ?? "").trim().toLowerCase();
-}
-
 function isDecisionOwner(decision: any, user: any): boolean {
   if (!user) return false;
-  const owner = normalizeIdentity(decision?.owner);
-  const identities = [
-    user?.email,
-    user?.user_metadata?.name,
-    user?.user_metadata?.full_name,
-    user?.user_metadata?.display_name,
-  ]
-    .map(normalizeIdentity)
-    .filter(Boolean);
-
-  if (owner && identities.includes(owner)) return true;
-  return !owner && decision?.created_by === user?.id;
+  if (decision?.owner_user_id) return decision.owner_user_id === user.id;
+  return false;
 }
 
 function LogInterruptionForm({
@@ -835,6 +822,57 @@ function CategorySelect({
   );
 }
 
+function OwnerAccountSelect({
+  value,
+  members,
+  user,
+  decisionId,
+  canEdit,
+  onSave,
+  logActivity,
+}: {
+  value: string | null;
+  members: OrgMember[];
+  user: any;
+  decisionId: string;
+  canEdit: boolean;
+  onSave: (id: string, field: string, oldValue: string, newValue: string) => Promise<void>;
+  logActivity?: (decisionId: string, field: string, oldValue: string | null, newValue: string | null) => void | Promise<void>;
+}) {
+  const current = value ?? "";
+  const labelFor = (member: OrgMember) => {
+    if (member.user_id === user?.id) return `You (${member.role})`;
+    return `${member.user_id.slice(0, 8)}... (${member.role})`;
+  };
+
+  const handleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const next = e.target.value || "";
+    if (next === current) return;
+    await onSave(decisionId, "owner_user_id", current, next);
+    logActivity?.(decisionId, "owner_user_id", current || null, next || null)?.catch(() => {});
+  };
+
+  if (!canEdit) {
+    const member = members.find((m) => m.user_id === current);
+    return <span className="text-[11px] text-muted-foreground">{member ? labelFor(member) : "Unassigned"}</span>;
+  }
+
+  return (
+    <select
+      value={current}
+      onChange={handleChange}
+      className="text-[11px] border rounded px-2 py-1 bg-background w-full"
+    >
+      <option value="">Unassigned</option>
+      {members.map((member) => (
+        <option key={member.user_id} value={member.user_id}>
+          {labelFor(member)}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 function PillSelect({
   value,
   options,
@@ -911,6 +949,8 @@ function BetCard({
   canWrite,
   canUpdateStatus,
   canManageOwner,
+  members,
+  user,
   categories,
   handleInlineSave,
   logActivity,
@@ -929,6 +969,8 @@ function BetCard({
   canWrite: boolean;
   canUpdateStatus: boolean;
   canManageOwner: boolean;
+  members: OrgMember[];
+  user: any;
   categories: { key: string; label: string }[];
   handleInlineSave: (id: string, field: string, oldValue: string, newValue: string) => Promise<void>;
   logActivity: (decisionId: string, field: string, oldValue: string | null, newValue: string | null) => void | Promise<void>;
@@ -1012,6 +1054,17 @@ function BetCard({
               <span className="text-[11px] uppercase tracking-[0.16em] !text-white/65 block">Owner</span>
               <div className="mt-1 text-base font-medium">
                 <InlineEdit value={d.owner ?? ""} field="owner" decisionId={d.id} canEdit={canManageOwner} onSave={handleInlineSave} logActivity={logActivity} className="w-full !text-white" />
+                <div className="mt-1">
+                  <OwnerAccountSelect
+                    value={d.owner_user_id ?? null}
+                    members={members}
+                    user={user}
+                    decisionId={d.id}
+                    canEdit={canManageOwner}
+                    onSave={handleInlineSave}
+                    logActivity={logActivity}
+                  />
+                </div>
               </div>
             </div>
             <div>
@@ -1138,7 +1191,7 @@ function BetCard({
             {stale.label}
           </span>
           {!canUpdateStatus && (
-            <p className="text-[11px] text-muted-foreground">Only the bet owner can report status updates.</p>
+            <p className="text-[11px] text-muted-foreground">Only assigned owner account or admin can report status updates.</p>
           )}
           {showNudge && (
             <a
@@ -1207,6 +1260,7 @@ function BetCard({
 export default function Decisions() {
   const qc = useQueryClient();
   const { data: decisions = [], isLoading: decisionsLoading } = useDecisions();
+  const { data: members = [] } = useOrgMembers();
   const { data: categories = [] } = useQuery({
     queryKey: ["outcome_categories"],
     queryFn: async () => {
@@ -1222,7 +1276,7 @@ export default function Decisions() {
   const { user } = useAuth();
   const [showCreate, setShowCreate] = useState(false);
 
-  const canWrite = currentRole === "admin" || currentRole === "pod_lead" || currentRole === "viewer";
+  const canWrite = currentRole === "admin" || currentRole === "pod_lead";
   const canManageOwner = currentRole === "admin" || currentRole === "pod_lead";
 
   const statusOptions = ["hypothesis", "defined", "piloting", "scaling", "at_risk", "closed"] as const;
@@ -1303,8 +1357,10 @@ export default function Decisions() {
                 d={d}
                 index={index + 1}
                 canWrite={canWrite}
-                canUpdateStatus={currentRole === "admin" || (canWrite && isDecisionOwner(d, user))}
+                canUpdateStatus={currentRole === "admin" || isDecisionOwner(d, user)}
                 canManageOwner={canManageOwner}
+                members={members}
+                user={user}
                 categories={categories}
                 handleInlineSave={handleInlineSave}
                 logActivity={logActivity}

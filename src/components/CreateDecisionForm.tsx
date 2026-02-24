@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useCreateDecision } from "@/hooks/useOrgData";
 import { useOrg } from "@/contexts/OrgContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import type { Database } from "@/integrations/supabase/types";
@@ -13,6 +14,7 @@ const solutionDomains: SolutionDomain[] = ["S1", "S2", "S3", "Cross"];
 export default function CreateDecisionForm({ onClose, navigateAfter = false }: { onClose: () => void; navigateAfter?: boolean }) {
   const createDecision = useCreateDecision();
   const { currentRole } = useOrg();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const canCreate = currentRole === "admin" || currentRole === "pod_lead";
 
@@ -48,6 +50,7 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
     await createDecision.mutateAsync({
       title,
       owner,
+      owner_user_id: user?.id ?? null,
       surface,
       solution_domain: solutionDomain,
       impact_tier: "High",
