@@ -1,4 +1,5 @@
 import type { DecisionComputed } from "@/hooks/useOrgData";
+import { cn } from "@/lib/utils";
 
 function extractAmounts(text: string): number[] {
   const matches = text.match(/\$[\d,.]+(?:\s*-\s*\$?[\d,.]+)?\s*[kmb]?/gi) || [];
@@ -62,8 +63,15 @@ export default function ProjectionPanel({
 }) {
   const upsideText = String((decision as any).exposure_value || "");
   const downsideText = String((decision as any).revenue_at_risk || "");
-  const upsideValue = extractAmounts(upsideText)[0] ?? null;
+  const expectedImpactText = String((decision as any).expected_impact || "");
+  const upsideAmounts = extractAmounts(upsideText);
+  const upsideValue = upsideAmounts[0] ?? null;
   const downsideValue = extractAmounts(downsideText)[0] ?? null;
+  const installedBaseCandidates = [
+    ...upsideAmounts,
+    ...extractAmounts(expectedImpactText),
+  ].filter((v) => Number.isFinite(v) && v > (upsideValue ?? 0));
+  const installedBaseInfluenced = installedBaseCandidates.length > 0 ? Math.max(...installedBaseCandidates) : null;
   const inferredConfidence = statusToConfidence(String(decision.status || ""));
   const weight = confidenceWeight(inferredConfidence);
   const expectedNet = upsideValue !== null || downsideValue !== null
@@ -87,46 +95,75 @@ export default function ProjectionPanel({
     <div className="mt-4 pt-4 border-t">
       <div className="mt-2 border rounded-md p-3 bg-muted/20">
         <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-          Strategic Exposure Model ({horizonMonths} Months)
+          Authority vs Monitoring: {horizonMonths}-Month Exposure
         </p>
-        <div>
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Expected Value ({horizonMonths} mo, risk-weighted)</p>
-          <p className={`text-4xl md:text-5xl font-semibold leading-none mt-1 ${expectedNet !== null && expectedNet < 0 ? "text-signal-red" : ""}`}>
-            {expectedValueLabel}
+        <p className="text-xs text-muted-foreground">
+          Existential positioning in the AI era: become the decision authority layer, or remain a monitoring surface.
+        </p>
+
+        <div className="mt-3 rounded-lg border bg-background/70 p-4">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Renewal Exposure at Risk</p>
+          <p className="text-4xl md:text-5xl font-semibold leading-none mt-1 text-signal-red">
+            {downsideValue === null ? "—" : `−${formatMillions(Math.abs(downsideValue))}`}
           </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4 text-sm">
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Installed Base Influenced</p>
+              <p className="text-xl font-semibold">
+                {installedBaseInfluenced === null ? "—" : formatMillions(installedBaseInfluenced)}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Expansion Opportunity</p>
+              <p className="text-xl font-semibold text-signal-green">
+                {upsideValue === null ? "—" : `+${formatMillions(Math.abs(upsideValue))}`}
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
           <div className="border rounded-sm bg-background/70 p-3">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Upside Scenario (Scale Authority)</p>
-            <p className="text-2xl font-semibold">{upsideValue === null ? "—" : `+${formatMillions(Math.abs(upsideValue))}`}</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Defensive Value (Renewal Protection)</p>
+            <p className="text-sm font-medium mt-1">
+              Protects renewal gravity by embedding Conviva in AI evaluation and governance workflows.
+            </p>
             <p className="text-xs text-muted-foreground mt-1">
-              {upsideText || "Expansion and renewal-defense upside if this bet embeds in core workflows."}
+              If we fail to embed, renewal erosion risk rises and category authority weakens.
             </p>
           </div>
           <div className="border rounded-sm bg-background/70 p-3">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Downside Scenario (Remain Monitoring Vendor)</p>
-            <p className="text-2xl font-semibold text-signal-red">{downsideValue === null ? "—" : `−${formatMillions(Math.abs(downsideValue))}`}</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Offensive Value (Expansion & Positioning)</p>
+            <p className="text-sm font-medium mt-1">
+              Converts Conviva into the system of record for scale/change/stop decisions on enterprise AI agents.
+            </p>
             <p className="text-xs text-muted-foreground mt-1">
-              {downsideText || "Renewal erosion risk if this bet fails to embed in AI governance and decision workflows."}
+              Drives expansion by coupling outcome authority with revenue-critical workflows.
             </p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3 text-sm">
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Probability of Success</p>
-            <p className="font-semibold">{probabilitySuccess}% ({inferredConfidence})</p>
-          </div>
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Time Horizon</p>
-            <p className="font-semibold">{horizonMonths} months</p>
-          </div>
-        </div>
+        <p className="text-xs text-muted-foreground mt-3">
+          This is structural positioning, not incremental feature ROI.
+        </p>
 
-        {breakEvenProbability !== null && (
+        <div className="mt-3 border rounded-sm bg-background/70 p-3">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Risk Weighting Model</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2 text-sm">
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Probability of Success</p>
+              <p className="font-semibold">{probabilitySuccess}% ({inferredConfidence})</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Break-even Probability</p>
+              <p className="font-semibold">{breakEvenProbability === null ? "—" : `${breakEvenProbability}%`}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Expected Value ({horizonMonths} mo)</p>
+              <p className={cn("font-semibold", expectedNet !== null && expectedNet < 0 ? "text-signal-red" : "")}>{expectedValueLabel}</p>
+            </div>
+          </div>
           <div className="mt-2 text-xs text-muted-foreground space-y-1">
-            <p>Break-even probability: {breakEvenProbability}% to reach expected value of $0.</p>
             <p>
               Expected Value = (Upside × P(success)) − (Downside × P(failure))
             </p>
@@ -136,46 +173,45 @@ export default function ProjectionPanel({
               {expectedNet === null ? "" : ` = ${expectedValueLabel}`}
             </p>
           </div>
-        )}
-
-        <div className="mt-3">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Risk-Reward Imbalance (Raw)</p>
-          <div className="border rounded-sm px-2 py-1.5 bg-background/70">
-            <div className="flex items-center h-4">
-              <div className="w-1/2 flex justify-end pr-1">
-                {downsideBarPct > 0 && (
-                  <div className="h-2 rounded-l bg-signal-red/70" style={{ width: `${downsideBarPct}%` }} />
-                )}
+          <div className="mt-3">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Risk-Reward Imbalance (Raw)</p>
+            <div className="border rounded-sm px-2 py-1.5 bg-background/70">
+              <div className="flex items-center h-4">
+                <div className="w-1/2 flex justify-end pr-1">
+                  {downsideBarPct > 0 && (
+                    <div className="h-2 rounded-l bg-signal-red/70" style={{ width: `${downsideBarPct}%` }} />
+                  )}
+                </div>
+                <div className="w-px h-3 bg-border mx-0.5" />
+                <div className="w-1/2 flex pl-1">
+                  {upsideBarPct > 0 && (
+                    <div className="h-2 rounded-r bg-signal-green/70" style={{ width: `${upsideBarPct}%` }} />
+                  )}
+                </div>
               </div>
-              <div className="w-px h-3 bg-border mx-0.5" />
-              <div className="w-1/2 flex pl-1">
-                {upsideBarPct > 0 && (
-                  <div className="h-2 rounded-r bg-signal-green/70" style={{ width: `${upsideBarPct}%` }} />
-                )}
+              <div className="mt-1 flex items-center justify-between text-[10px] text-muted-foreground">
+                <span>Risk: {downsideValue === null ? "—" : `−${formatMillions(Math.abs(downsideValue))}`}</span>
+                <span>0</span>
+                <span>Opportunity: {upsideValue === null ? "—" : `+${formatMillions(Math.abs(upsideValue))}`}</span>
               </div>
             </div>
-            <div className="mt-1 flex items-center justify-between text-[10px] text-muted-foreground">
-              <span>Risk: {downsideValue === null ? "—" : `−${formatMillions(Math.abs(downsideValue))}`}</span>
-              <span>0</span>
-              <span>Opportunity: {upsideValue === null ? "—" : `+${formatMillions(Math.abs(upsideValue))}`}</span>
-            </div>
+            <p className="text-xs mt-1">
+              {netAsymmetry === null ? "—" : `${netAsymmetry >= 0 ? "+" : "−"}${formatMillions(Math.abs(netAsymmetry))}`}
+            </p>
           </div>
-          <p className="text-xs mt-1">
-            {netAsymmetry === null ? "—" : `${netAsymmetry >= 0 ? "+" : "−"}${formatMillions(Math.abs(netAsymmetry))}`}
-          </p>
         </div>
 
         <div className="mt-3 border rounded-sm bg-background/70 p-3">
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Interpretation</p>
           <p className="text-sm mt-1">
-            This is a strategic exposure view, not direct P&L.{" "}
-            {expectedNet !== null && expectedNet < 0
-              ? "At current probability and exposure, downside magnitude exceeds upside."
-              : "At current probability and exposure, upside is compensating for downside."}
+            This bet carries high strategic leverage with asymmetrical exposure. The decision is whether to accept current risk shape
+            or deliberately change it.
           </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            Decision lever: increase probability of success, increase upside leverage, or reduce downside exposure.
-          </p>
+          <ul className="mt-2 text-xs text-muted-foreground space-y-1 list-disc pl-4">
+            <li>Increase probability of success through tighter execution and adoption evidence.</li>
+            <li>Increase upside leverage by widening authority-linked expansion pathways.</li>
+            <li>Reduce renewal exposure by lowering dependency on miss scenarios.</li>
+          </ul>
         </div>
         <p className="text-[10px] text-muted-foreground mt-3">
           Last updated {new Date(decision.updated_at).toLocaleString("en-US", {

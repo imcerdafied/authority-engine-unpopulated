@@ -1000,7 +1000,7 @@ function BetCard({
   const showNudge = stale.isAmber || stale.isRed;
 
   return (
-    <div key={d.id} className={cn("border rounded-xl overflow-hidden font-sans", d.is_exceeded ? "border-signal-red/40 bg-signal-red/5" : d.is_aging ? "border-signal-amber/40" : "")}>
+    <div key={d.id} className={cn("border rounded-xl overflow-hidden font-sans shadow-sm ring-1 ring-black/5", d.is_exceeded ? "border-signal-red/40 bg-signal-red/5" : d.is_aging ? "border-signal-amber/40" : "bg-background")}>
       <div className="px-4 md:px-6 py-4 border-b bg-black/90 text-white">
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
           <div className="min-w-0">
@@ -1350,7 +1350,7 @@ export default function Decisions() {
       ) : (
         <section className="mb-8">
           <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">All Bets ({decisions.length})</h2>
-          <div className="space-y-2">
+          <div className="space-y-6">
             {orderedDecisions.map((d, index) => (
               <BetCard
                 key={d.id}
