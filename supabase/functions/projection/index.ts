@@ -32,6 +32,36 @@ interface Scenario {
   confidence: string;
 }
 
+function buildFallbackScenarios(decision: {
+  expected_impact?: string | null;
+  exposure_value?: string | null;
+  revenue_at_risk?: string | null;
+}): Scenario[] {
+  const impact = decision.expected_impact || "expected impact";
+  const upside = decision.exposure_value || "upside exposure";
+  const risk = decision.revenue_at_risk || "risk exposure";
+  return [
+    {
+      label: "On-Time Delivery",
+      impact_summary: `Execution stays on plan and compounds ${impact}.`,
+      exposure_shift: `Lower - improves realization of ${upside} while reducing downside in ${risk}.`,
+      confidence: "Medium",
+    },
+    {
+      label: "Delayed 10 Days",
+      impact_summary: `Momentum softens and delivery value realization is deferred.`,
+      exposure_shift: `Higher - delays upside from ${upside} and increases downside pressure in ${risk}.`,
+      confidence: "Medium",
+    },
+    {
+      label: "Deprioritized",
+      impact_summary: `Outcome progress stalls and strategic value is deferred to a later cycle.`,
+      exposure_shift: `Higher - upside from ${upside} is not captured and downside in ${risk} persists.`,
+      confidence: "High",
+    },
+  ];
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -182,30 +212,25 @@ Be analytical, concise, and credible. No hype. No speculation beyond reasonable 
       }),
     });
 
+    let scenarios: Scenario[];
     if (!aiResponse.ok) {
       const errText = await aiResponse.text();
-      console.error("AI gateway error:", errText);
-      return new Response(
-        JSON.stringify({ error: "Projection generation failed" }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const aiData = await aiResponse.json();
-    const content = aiData?.content?.[0]?.text || "";
-
-    // Parse JSON from response (strip markdown fences if present)
-    let scenarios: Scenario[];
-    try {
-      const cleaned = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-      const parsed = JSON.parse(cleaned);
-      scenarios = parsed.scenarios;
-    } catch {
-      console.error("Failed to parse AI response:", content);
-      return new Response(
-        JSON.stringify({ error: "Failed to parse projection results" }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      console.error("Anthropic error; using fallback scenarios:", errText);
+      scenarios = buildFallbackScenarios(trustedDecision);
+    } else {
+      const aiData = await aiResponse.json();
+      const content = aiData?.content?.[0]?.text || "";
+      try {
+        const cleaned = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+        const parsed = JSON.parse(cleaned);
+        if (!Array.isArray(parsed?.scenarios) || parsed.scenarios.length !== 3) {
+          throw new Error("Invalid scenarios format");
+        }
+        scenarios = parsed.scenarios as Scenario[];
+      } catch {
+        console.error("Failed to parse AI response; using fallback:", content);
+        scenarios = buildFallbackScenarios(trustedDecision);
+      }
     }
 
     // Compute metadata hash for change detection
