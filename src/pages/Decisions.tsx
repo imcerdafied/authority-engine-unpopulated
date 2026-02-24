@@ -234,7 +234,6 @@ function LogInterruptionForm({
 }) {
   const [logDesc, setLogDesc] = useState("");
   const [logSource, setLogSource] = useState("ad_hoc");
-  const [logEngineers, setLogEngineers] = useState(0);
   const [logDays, setLogDays] = useState(0);
   const [logImpact, setLogImpact] = useState("");
 
@@ -249,16 +248,15 @@ function LogInterruptionForm({
         decision_id: d.id,
         description: logDesc.trim(),
         source: logSource,
-        engineers_diverted: logEngineers,
+        engineers_diverted: 0,
         estimated_days: logDays,
         impact_note: logImpact.trim() || undefined,
       });
-      const addDiverted = Math.min(100 - capacityDiverted, Math.round((logEngineers * logDays) / 5));
       await updateDecision.mutateAsync({
         id: d.id,
         unplanned_interrupts: unplannedInterrupts + 1,
         escalation_count: logSource === "escalation" ? escalationCount + 1 : escalationCount,
-        capacity_diverted: Math.min(100, capacityDiverted + addDiverted),
+        capacity_diverted: capacityDiverted,
       } as any);
       qc.invalidateQueries({ queryKey: ["decisions"] });
       onClose();
@@ -288,11 +286,7 @@ function LogInterruptionForm({
           ))}
         </select>
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label className="text-[11px] uppercase tracking-wider text-muted-foreground block mb-1">Engineers Diverted</label>
-          <input type="number" min={0} value={logEngineers || ""} onChange={(e) => setLogEngineers(parseInt(e.target.value, 10) || 0)} placeholder="0" className="w-full text-xs border rounded px-2 py-1.5 bg-background" />
-        </div>
+      <div className="grid grid-cols-1 gap-2">
         <div>
           <label className="text-[11px] uppercase tracking-wider text-muted-foreground block mb-1">Estimated Days</label>
           <input type="number" min={0} value={logDays || ""} onChange={(e) => setLogDays(parseInt(e.target.value, 10) || 0)} placeholder="0" className="w-full text-xs border rounded px-2 py-1.5 bg-background" />
@@ -401,7 +395,7 @@ function ResourceRealitySection({
                     {SOURCE_OPTIONS.find((o) => o.value === i.source)?.label ?? i.source}
                   </span>
                   <p className="font-medium mt-1">{i.description}</p>
-                  <p className="text-muted-foreground text-[10px]">{i.engineers_diverted} engineers · {i.estimated_days} days</p>
+                  <p className="text-muted-foreground text-[10px]">{i.estimated_days} days</p>
                   <p className="text-[10px] text-muted-foreground">{i.created_at ? relativeTime(i.created_at) : ""}</p>
                 </div>
               ))
@@ -882,7 +876,7 @@ function PillSelect({
         value={currentValue}
         onChange={handleChange}
         onBlur={() => setEditing(false)}
-        className="text-[11px] border rounded-full px-2 py-0.5 bg-background"
+        className="text-[11px] border rounded-full px-2 py-0.5 bg-white text-slate-900"
       >
         <option value="">—</option>
         {options.map((option) => (
@@ -901,9 +895,9 @@ function PillSelect({
       onClick={() => canEdit && setEditing(true)}
       onKeyDown={(e) => canEdit && e.key === "Enter" && setEditing(true)}
       className={cn(
-        "inline-flex items-center text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border",
-        canEdit && "cursor-pointer hover:bg-accent/50",
-        !currentValue && "text-muted-foreground/70"
+        "inline-flex items-center text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border border-white/70 bg-slate-100 text-slate-900",
+        canEdit && "cursor-pointer hover:bg-white",
+        !currentValue && "text-slate-500"
       )}
     >
       {currentValue || "—"}
@@ -965,7 +959,7 @@ function BetCard({
 
   return (
     <div key={d.id} className={cn("border rounded-xl overflow-hidden font-sans", d.is_exceeded ? "border-signal-red/40 bg-signal-red/5" : d.is_aging ? "border-signal-amber/40" : "")}>
-      <div className="px-4 md:px-6 py-4 border-b bg-black/90">
+      <div className="px-4 md:px-6 py-4 border-b bg-black/90 text-white">
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
           <div className="min-w-0">
             <div className="flex items-start gap-2 flex-wrap mb-2">
@@ -992,7 +986,7 @@ function BetCard({
               {d.needs_exec_attention && <span className="text-[11px] font-semibold text-signal-red uppercase tracking-wider">Executive Attention Required</span>}
             </div>
             <div className="flex items-start gap-2">
-              <span className="text-xl font-semibold leading-snug text-muted-foreground">{index}.</span>
+              <span className="text-xl font-semibold leading-snug !text-white/80">{index}.</span>
               <InlineEdit
                 value={d.title ?? ""}
                 field="title"
@@ -1002,26 +996,26 @@ function BetCard({
                 logActivity={logActivity}
                 variant="title"
                 placeholder="Untitled"
-                className="text-xl font-semibold leading-snug block"
+                className="text-xl font-semibold leading-snug block !text-white"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 lg:min-w-[520px]">
             <div>
-              <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground block">Category</span>
+              <span className="text-[11px] uppercase tracking-[0.16em] !text-white/65 block">Category</span>
               <div className="mt-1 text-base font-medium">
-                <CategorySelect value={(d.outcome_category_key ?? d.outcome_category) ?? ""} categories={categories} decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full" />
+                <CategorySelect value={(d.outcome_category_key ?? d.outcome_category) ?? ""} categories={categories} decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full !text-white" />
               </div>
             </div>
             <div>
-              <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground block">Owner</span>
+              <span className="text-[11px] uppercase tracking-[0.16em] !text-white/65 block">Owner</span>
               <div className="mt-1 text-base font-medium">
-                <InlineEdit value={d.owner ?? ""} field="owner" decisionId={d.id} canEdit={canManageOwner} onSave={handleInlineSave} logActivity={logActivity} className="w-full" />
+                <InlineEdit value={d.owner ?? ""} field="owner" decisionId={d.id} canEdit={canManageOwner} onSave={handleInlineSave} logActivity={logActivity} className="w-full !text-white" />
               </div>
             </div>
             <div>
-              <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground block">Status</span>
+              <span className="text-[11px] uppercase tracking-[0.16em] !text-white/65 block">Status</span>
               <div className="mt-1">
                 <select
                   value={pendingStatus?.decisionId === d.id ? pendingStatus.newStatus : (d.status === "active" ? "piloting" : d.status)}
@@ -1038,7 +1032,7 @@ function BetCard({
                     setStatusNote("");
                   }}
                   className={cn(
-                    "text-xs border rounded-full px-3 py-1.5 bg-background min-h-[36px] w-full",
+                    "text-xs border border-white/50 rounded-full px-3 py-1.5 bg-white/95 text-slate-900 min-h-[36px] w-full",
                     !canUpdateStatus && "opacity-60 cursor-not-allowed"
                   )}
                 >

@@ -101,18 +101,46 @@ export default function ProjectionPanel({
     setLoading(true);
     setError(null);
     try {
-      const { data, error: invokeErr } = await supabase.functions.invoke("projection", {
-        body: {
-          decision: {
-            id: decision.id,
-            org_id: decision.org_id,
-          },
+      const payload = {
+        decision: {
+          id: decision.id,
+          org_id: decision.org_id,
         },
+      };
+
+      let data: any = null;
+      const { data: edgeData, error: invokeErr } = await supabase.functions.invoke("projection", {
+        body: payload,
       });
 
       if (invokeErr) {
-        throw new Error(invokeErr.message || "Projection failed");
+        const message = invokeErr.message || "Projection failed";
+        if (message.includes("Failed to send a request to the Edge Function")) {
+          const { data: sessionData } = await supabase.auth.getSession();
+          const accessToken = sessionData.session?.access_token;
+          if (!accessToken) throw new Error("You must be signed in to generate a projection.");
+
+          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+          const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+          const res = await fetch(`${supabaseUrl}/functions/v1/projection`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+              apikey: supabaseAnonKey,
+            },
+            body: JSON.stringify(payload),
+          });
+          const fallbackData = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(fallbackData?.error || `Projection failed (${res.status})`);
+          data = fallbackData;
+        } else {
+          throw new Error(message);
+        }
+      } else {
+        data = edgeData;
       }
+
       if (!data) throw new Error("Projection failed");
 
       const scenarios: Scenario[] = Array.isArray((data as any).scenarios)
