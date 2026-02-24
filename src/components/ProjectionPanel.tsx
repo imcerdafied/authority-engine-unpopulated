@@ -77,6 +77,8 @@ export default function ProjectionPanel({
   const breakEvenProbability = upsideValue !== null && downsideValue !== null && upsideValue + downsideValue > 0
     ? Math.round((downsideValue / (upsideValue + downsideValue)) * 1000) / 10
     : null;
+  const failureProbability = 100 - probabilitySuccess;
+  const expectedValueLabel = expectedNet === null ? "—" : `${expectedNet >= 0 ? "+" : "−"}${formatMillions(Math.abs(expectedNet))}`;
   const barBase = Math.max(upsideValue ?? 0, downsideValue ?? 0, 1);
   const upsideBarPct = upsideValue !== null ? Math.max(8, Math.min(100, (upsideValue / barBase) * 100)) : 0;
   const downsideBarPct = downsideValue !== null ? Math.max(8, Math.min(100, (downsideValue / barBase) * 100)) : 0;
@@ -84,22 +86,30 @@ export default function ProjectionPanel({
   return (
     <div className="mt-4 pt-4 border-t">
       <div className="mt-2 border rounded-md p-3 bg-muted/20">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Projection</p>
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+          Strategic Exposure Model ({horizonMonths} Months)
+        </p>
         <div>
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Expected Value ({horizonMonths} mo)</p>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Expected Value ({horizonMonths} mo, risk-weighted)</p>
           <p className={`text-4xl md:text-5xl font-semibold leading-none mt-1 ${expectedNet !== null && expectedNet < 0 ? "text-signal-red" : ""}`}>
-            {expectedNet === null ? "—" : `${expectedNet >= 0 ? "+" : "−"}${formatMillions(Math.abs(expectedNet))}`}
+            {expectedValueLabel}
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4 text-sm">
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Upside (12-24 mo)</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
+          <div className="border rounded-sm bg-background/70 p-3">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Upside Scenario (Scale Authority)</p>
             <p className="text-2xl font-semibold">{upsideValue === null ? "—" : `+${formatMillions(Math.abs(upsideValue))}`}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {upsideText || "Expansion and renewal-defense upside if this bet embeds in core workflows."}
+            </p>
           </div>
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Downside (if miss)</p>
+          <div className="border rounded-sm bg-background/70 p-3">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Downside Scenario (Remain Monitoring Vendor)</p>
             <p className="text-2xl font-semibold text-signal-red">{downsideValue === null ? "—" : `−${formatMillions(Math.abs(downsideValue))}`}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {downsideText || "Renewal erosion risk if this bet fails to embed in AI governance and decision workflows."}
+            </p>
           </div>
         </div>
 
@@ -115,9 +125,17 @@ export default function ProjectionPanel({
         </div>
 
         {breakEvenProbability !== null && (
-          <p className="text-xs text-muted-foreground mt-2">
-            Break-even probability: {breakEvenProbability}% to reach expected value of $0.
-          </p>
+          <div className="mt-2 text-xs text-muted-foreground space-y-1">
+            <p>Break-even probability: {breakEvenProbability}% to reach expected value of $0.</p>
+            <p>
+              Expected Value = (Upside × P(success)) − (Downside × P(failure))
+            </p>
+            <p>
+              = ({upsideValue === null ? "—" : `+${formatMillions(Math.abs(upsideValue))}`} × {probabilitySuccess}%)
+              {" "}− ({downsideValue === null ? "—" : `${formatMillions(Math.abs(downsideValue))}`} × {failureProbability}%)
+              {expectedNet === null ? "" : ` = ${expectedValueLabel}`}
+            </p>
+          </div>
         )}
 
         <div className="mt-3">
@@ -144,6 +162,19 @@ export default function ProjectionPanel({
           </div>
           <p className="text-xs mt-1">
             {netAsymmetry === null ? "—" : `${netAsymmetry >= 0 ? "+" : "−"}${formatMillions(Math.abs(netAsymmetry))}`}
+          </p>
+        </div>
+
+        <div className="mt-3 border rounded-sm bg-background/70 p-3">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Interpretation</p>
+          <p className="text-sm mt-1">
+            This is a strategic exposure view, not direct P&L.{" "}
+            {expectedNet !== null && expectedNet < 0
+              ? "At current probability and exposure, downside magnitude exceeds upside."
+              : "At current probability and exposure, upside is compensating for downside."}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Decision lever: increase probability of success, increase upside leverage, or reduce downside exposure.
           </p>
         </div>
         <p className="text-[10px] text-muted-foreground mt-3">
