@@ -18,11 +18,59 @@ interface ProjectionData {
   metadata_hash: string;
 }
 
-function summarizeProjection(decision: DecisionComputed): string {
-  const expectedImpact = decision.expected_impact || "Expected impact not set";
-  const upside = (decision as any).exposure_value || "Upside exposure not set";
-  const risk = (decision as any).revenue_at_risk || "Risk exposure not set";
-  return `${expectedImpact}. Upside: ${upside}. Risk: ${risk}.`;
+function extractAmounts(text: string): number[] {
+  const matches = text.match(/\$[\d,.]+(?:\s*-\s*\$?[\d,.]+)?\s*[kmb]?/gi) || [];
+  return matches.flatMap((m) => {
+    const raw = m.toLowerCase().replace(/\s/g, "");
+    const [a, b] = raw.replace("$", "").split("-");
+    const parseOne = (v: string): number | null => {
+      const cleaned = v.replace("$", "");
+      const unit = cleaned.slice(-1);
+      const base = parseFloat(cleaned.replace(/[kmb]/, "").replace(/,/g, ""));
+      if (!Number.isFinite(base)) return null;
+      if (unit === "b") return base * 1000;
+      if (unit === "m") return base;
+      if (unit === "k") return base / 1000;
+      return base;
+    };
+    const first = parseOne(a);
+    const second = b ? parseOne(b) : null;
+    const vals = [first, second].filter((x): x is number => typeof x === "number");
+    if (vals.length === 2) return [(vals[0] + vals[1]) / 2];
+    return vals;
+  });
+}
+
+function extractMonths(...texts: string[]): number | null {
+  for (const t of texts) {
+    const m = t.match(/(\d+)\s*(?:-|to)?\s*(\d+)?\s*months?/i);
+    if (!m) continue;
+    const a = parseInt(m[1], 10);
+    const b = m[2] ? parseInt(m[2], 10) : a;
+    if (Number.isFinite(a) && Number.isFinite(b)) return Math.max(a, b);
+  }
+  return null;
+}
+
+function statusToConfidence(status: string): "Low" | "Medium" | "High" {
+  const s = (status || "").toLowerCase();
+  if (s === "scaling") return "High";
+  if (s === "piloting") return "Medium";
+  if (s === "defined") return "Low";
+  if (s === "hypothesis") return "Low";
+  if (s === "at_risk") return "Low";
+  return "Medium";
+}
+
+function confidenceWeight(conf: "Low" | "Medium" | "High"): number {
+  if (conf === "High") return 0.75;
+  if (conf === "Low") return 0.35;
+  return 0.55;
+}
+
+function formatMillions(v: number | null): string {
+  if (v === null || !Number.isFinite(v)) return "—";
+  return `$${v.toFixed(v >= 10 ? 0 : 1)}M`;
 }
 
 function computeHash(d: DecisionComputed): string {
@@ -67,6 +115,17 @@ export default function ProjectionPanel({
 
   const currentHash = useMemo(() => computeHash(decision), [decision]);
   const isStale = projection ? projection.metadata_hash !== currentHash : false;
+  const upsideText = String((decision as any).exposure_value || "");
+  const downsideText = String((decision as any).revenue_at_risk || "");
+  const upsideValue = extractAmounts(upsideText)[0] ?? null;
+  const downsideValue = extractAmounts(downsideText)[0] ?? null;
+  const inferredConfidence = (projection?.scenarios?.[0]?.confidence as "Low" | "Medium" | "High" | undefined)
+    ?? statusToConfidence(String(decision.status || ""));
+  const weight = confidenceWeight(inferredConfidence);
+  const expectedNet = upsideValue !== null || downsideValue !== null
+    ? (upsideValue ?? 0) * weight - (downsideValue ?? 0) * (1 - weight)
+    : null;
+  const horizonMonths = extractMonths(upsideText, downsideText, String(decision.expected_impact || "")) ?? 24;
 
   // Load existing projection from DB
   useEffect(() => {
@@ -124,20 +183,31 @@ export default function ProjectionPanel({
 
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
       const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
-      const res = await fetch(`${supabaseUrl}/functions/v1/projection`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-          apikey: supabaseAnonKey,
-        },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        if (res.status === 401) {
-          throw new Error("Session expired. Refresh and sign in again.");
+      const requestProjection = async (token: string) =>
+        fetch(`${supabaseUrl}/functions/v1/projection`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+            apikey: supabaseAnonKey,
+          },
+          body: JSON.stringify(payload),
+        });
+
+      let res = await requestProjection(accessToken);
+      let data = await res.json().catch(() => ({}));
+
+      if (res.status === 401) {
+        const { data: refreshed, error: refreshErr } = await supabase.auth.refreshSession();
+        const refreshedToken = refreshed?.session?.access_token;
+        if (refreshErr || !refreshedToken) {
+          throw new Error("Session expired. Please sign in again.");
         }
+        res = await requestProjection(refreshedToken);
+        data = await res.json().catch(() => ({}));
+      }
+
+      if (!res.ok) {
         throw new Error((data as any)?.error || `Projection failed (${res.status})`);
       }
 
@@ -178,7 +248,7 @@ export default function ProjectionPanel({
             onClick={handleGenerate}
             className={cn(
               "text-[11px] font-semibold uppercase tracking-wider px-3 py-1 rounded-sm border transition-colors",
-              "border-foreground text-foreground hover:bg-foreground hover:text-background",
+              "border-muted-foreground/40 text-muted-foreground hover:border-foreground hover:text-foreground",
               loading && "opacity-50 cursor-not-allowed"
             )}
           >
@@ -210,9 +280,35 @@ export default function ProjectionPanel({
       </div>
 
       <div className="mt-2 border rounded-md p-3 bg-muted/20">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Projection Summary</p>
-        <p className="text-sm mt-1">{summarizeProjection(decision)}</p>
-        <p className="text-[10px] text-muted-foreground mt-2">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Projection</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Upside (12-24 mo)</p>
+            <p className="font-semibold">{formatMillions(upsideValue)}</p>
+            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{upsideText || "Not specified"}</p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Downside (if miss)</p>
+            <p className="font-semibold text-signal-red">{formatMillions(downsideValue)}</p>
+            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{downsideText || "Not specified"}</p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Expected Impact (prob-weighted)</p>
+            <p className="font-semibold">{expectedNet === null ? "—" : `${expectedNet >= 0 ? "+" : "−"}${formatMillions(Math.abs(expectedNet))} net`}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Based on {Math.round(weight * 100)}% confidence weight</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Time Horizon</p>
+              <p className="font-semibold">{horizonMonths} months</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Confidence</p>
+              <p className="font-semibold">{inferredConfidence} ({String(decision.status || "").replace("_", " ")})</p>
+            </div>
+          </div>
+        </div>
+        <p className="text-[10px] text-muted-foreground mt-3">
           Last updated {new Date((projection?.generated_at ?? decision.updated_at) as string).toLocaleString("en-US", {
             month: "short",
             day: "numeric",
