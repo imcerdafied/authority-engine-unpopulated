@@ -14,6 +14,12 @@ function isAllowedDomain(email: string | null | undefined, domain: string | null
   return email.toLowerCase().endsWith(`@${normalizedDomain}`);
 }
 
+function normalizeDomain(domain: string | null | undefined): string | null {
+  if (!domain) return null;
+  const normalized = domain.trim().toLowerCase();
+  return normalized || null;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -53,16 +59,32 @@ serve(async (req) => {
     }
 
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
+    const { data: orgData } = await serviceClient
+      .from("organizations")
+      .select("allowed_email_domain")
+      .eq("id", orgId)
+      .maybeSingle();
+
+    if (!orgData) {
+      return new Response(
+        JSON.stringify({ error: "Organization not found" }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const { data: authSettings } = await serviceClient
       .from("auth_settings")
       .select("workspace_domain")
       .eq("id", 1)
       .maybeSingle();
 
-    const workspaceDomain = authSettings?.workspace_domain ?? null;
-    if (!isAllowedDomain(user.email, workspaceDomain)) {
+    const requiredDomain =
+      normalizeDomain(orgData.allowed_email_domain) ??
+      normalizeDomain(authSettings?.workspace_domain ?? null);
+
+    if (requiredDomain && !isAllowedDomain(user.email, requiredDomain)) {
       return new Response(
-        JSON.stringify({ error: "Forbidden: workspace domain required" }),
+        JSON.stringify({ error: `Forbidden: ${requiredDomain} email required` }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

@@ -357,18 +357,21 @@ export type Database = {
       }
       organizations: {
         Row: {
+          allowed_email_domain: string | null
           created_at: string
           created_by: string | null
           id: string
           name: string
         }
         Insert: {
+          allowed_email_domain?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
           name: string
         }
         Update: {
+          allowed_email_domain?: string | null
           created_at?: string
           created_by?: string | null
           id?: string

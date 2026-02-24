@@ -35,6 +35,11 @@ const OrgContext = createContext<OrgContextType>({
 const ORG_STORAGE_KEY = "ba_current_org";
 const PENDING_ORG_JOIN_KEY = "pending_org_join";
 
+function extractEmailDomain(email: string | null | undefined): string | null {
+  if (!email || !email.includes("@")) return null;
+  return email.split("@")[1]?.trim().toLowerCase() || null;
+}
+
 export function OrgProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [memberships, setMemberships] = useState<OrgMembership[]>([]);
@@ -119,10 +124,11 @@ export function OrgProvider({ children }: { children: ReactNode }) {
 
   const createOrg = async (name: string): Promise<string | null> => {
     if (!user) return null;
+    const allowedEmailDomain = extractEmailDomain(user.email);
 
     const { data: org, error: orgError } = await supabase
       .from("organizations")
-      .insert({ name, created_by: user.id })
+      .insert({ name, created_by: user.id, allowed_email_domain: allowedEmailDomain })
       .select()
       .single();
 

@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useOrg } from "@/contexts/OrgContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrgMembers, useUpdateMemberRole } from "@/hooks/useTeam";
+import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
 const roleLabels: Record<string, string> = {
@@ -19,6 +20,9 @@ export default function Team() {
   const updateMemberRole = useUpdateMemberRole();
 
   const [copied, setCopied] = useState(false);
+  const [allowedDomain, setAllowedDomain] = useState(currentOrg?.allowed_email_domain ?? "");
+  const [domainSaving, setDomainSaving] = useState(false);
+  const [domainMsg, setDomainMsg] = useState<string | null>(null);
 
   const isAdmin = currentRole === "admin";
   const inviteUrl = currentOrg?.id ? `${INVITE_BASE}/${currentOrg.id}` : "";
@@ -32,6 +36,27 @@ export default function Team() {
     } catch {
       // fallback ignored
     }
+  };
+
+  useEffect(() => {
+    setAllowedDomain(currentOrg?.allowed_email_domain ?? "");
+  }, [currentOrg?.allowed_email_domain]);
+
+  const handleSaveDomain = async () => {
+    if (!currentOrg) return;
+    setDomainSaving(true);
+    setDomainMsg(null);
+    const normalized = allowedDomain.trim().toLowerCase();
+    const { error } = await supabase
+      .from("organizations")
+      .update({ allowed_email_domain: normalized || null } as any)
+      .eq("id", currentOrg.id);
+    if (error) {
+      setDomainMsg("Failed to save domain restriction.");
+    } else {
+      setDomainMsg(normalized ? `Restricted to ${normalized}` : "Domain restriction removed.");
+    }
+    setDomainSaving(false);
   };
 
   if (membersLoading) {
@@ -70,8 +95,30 @@ export default function Team() {
               </button>
             </div>
             <p className="text-[11px] text-muted-foreground italic mt-2">
-              Share this link with your team. Anyone who signs up through it joins automatically.
+              Share this link with your team. Joining is restricted by the allowed email domain below.
             </p>
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 items-end">
+              <div>
+                <label className="text-[11px] uppercase tracking-widest font-semibold text-muted-foreground block mb-1">
+                  Allowed Email Domain
+                </label>
+                <input
+                  type="text"
+                  value={allowedDomain}
+                  onChange={(e) => setAllowedDomain(e.target.value)}
+                  placeholder="e.g. conviva.com"
+                  className="w-full text-sm border rounded-sm px-3 py-2 bg-background text-foreground"
+                />
+              </div>
+              <button
+                onClick={handleSaveDomain}
+                disabled={domainSaving}
+                className="text-[11px] font-semibold uppercase tracking-wider border border-foreground px-4 py-2 rounded-sm hover:bg-foreground hover:text-background transition-colors disabled:opacity-50"
+              >
+                {domainSaving ? "Saving..." : "Save Domain Rule"}
+              </button>
+            </div>
+            {domainMsg && <p className="text-[11px] text-muted-foreground mt-2">{domainMsg}</p>}
           </div>
         </section>
       )}
