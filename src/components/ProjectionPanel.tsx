@@ -19,8 +19,10 @@ interface ProjectionData {
 }
 
 function computeHash(d: DecisionComputed): string {
+  const category = d.outcome_category || (d as any).outcome_category_key || "";
+  const exposure = (d as any).exposure_value || (d as any).revenue_at_risk || "";
   return safeBtoaUnicode(
-    `${d.outcome_category || ""}|${d.expected_impact || ""}|${(d as any).exposure_value || ""}|${d.outcome_target || ""}|${d.current_delta || ""}`
+    `${category}|${d.expected_impact || ""}|${exposure}|${d.outcome_target || ""}|${d.current_delta || ""}`
   );
 }
 
@@ -46,11 +48,13 @@ export default function ProjectionPanel({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadingExisting, setLoadingExisting] = useState(true);
+  const category = decision.outcome_category || (decision as any).outcome_category_key || "";
+  const exposure = (decision as any).exposure_value || (decision as any).revenue_at_risk || "";
 
   const canGenerate = !!(
-    decision.outcome_category &&
+    category &&
     decision.expected_impact &&
-    (decision as any).exposure_value
+    exposure
   );
 
   const currentHash = useMemo(() => computeHash(decision), [decision]);
@@ -115,9 +119,9 @@ export default function ProjectionPanel({
           title: decision.title,
           domain: decision.solution_domain,
           surface: decision.surface,
-          outcome_category: decision.outcome_category ?? "",
+          outcome_category: category,
           expected_impact: decision.expected_impact ?? "",
-          exposure_value: (decision as { exposure_value?: string }).exposure_value ?? "",
+          exposure_value: exposure,
           slice_overdue: decision.is_exceeded ?? false,
           blocked_days: decision.status === "Blocked" ? (decision.age_days ?? 0) : 0,
         }),
@@ -184,7 +188,7 @@ export default function ProjectionPanel({
               </span>
             </TooltipTrigger>
             <TooltipContent>
-              <p>Requires outcome category, expected impact, and exposure value</p>
+              <p>Requires category, expected impact, and exposure value</p>
             </TooltipContent>
           </Tooltip>
         )}
