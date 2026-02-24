@@ -73,6 +73,10 @@ export default function ProjectionPanel({
     ? (upsideValue ?? 0) - (downsideValue ?? 0)
     : null;
   const horizonMonths = extractMonths(upsideText, downsideText, String(decision.expected_impact || "")) ?? 24;
+  const probabilitySuccess = Math.round(weight * 100);
+  const breakEvenProbability = upsideValue !== null && downsideValue !== null && upsideValue + downsideValue > 0
+    ? Math.round((downsideValue / (upsideValue + downsideValue)) * 1000) / 10
+    : null;
   const barBase = Math.max(upsideValue ?? 0, downsideValue ?? 0, 1);
   const upsideBarPct = upsideValue !== null ? Math.max(8, Math.min(100, (upsideValue / barBase) * 100)) : 0;
   const downsideBarPct = downsideValue !== null ? Math.max(8, Math.min(100, (downsideValue / barBase) * 100)) : 0;
@@ -81,33 +85,43 @@ export default function ProjectionPanel({
     <div className="mt-4 pt-4 border-t">
       <div className="mt-2 border rounded-md p-3 bg-muted/20">
         <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Projection</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+        <div>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Expected Value ({horizonMonths} mo)</p>
+          <p className={`text-4xl md:text-5xl font-semibold leading-none mt-1 ${expectedNet !== null && expectedNet < 0 ? "text-signal-red" : ""}`}>
+            {expectedNet === null ? "—" : `${expectedNet >= 0 ? "+" : "−"}${formatMillions(Math.abs(expectedNet))}`}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4 text-sm">
           <div>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Upside (12-24 mo)</p>
-            <p className="font-semibold">{formatMillions(upsideValue)}</p>
+            <p className="text-2xl font-semibold">{upsideValue === null ? "—" : `+${formatMillions(Math.abs(upsideValue))}`}</p>
           </div>
           <div>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Downside (if miss)</p>
-            <p className="font-semibold text-signal-red">{formatMillions(downsideValue)}</p>
-          </div>
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Expected Impact (prob-weighted)</p>
-            <p className="font-semibold">{expectedNet === null ? "—" : `${expectedNet >= 0 ? "+" : "−"}${formatMillions(Math.abs(expectedNet))} net`}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Based on {Math.round(weight * 100)}% confidence weight</p>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Time Horizon</p>
-              <p className="font-semibold">{horizonMonths} months</p>
-            </div>
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Confidence</p>
-              <p className="font-semibold">{inferredConfidence} ({String(decision.status || "").replace("_", " ")})</p>
-            </div>
+            <p className="text-2xl font-semibold text-signal-red">{downsideValue === null ? "—" : `−${formatMillions(Math.abs(downsideValue))}`}</p>
           </div>
         </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3 text-sm">
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Probability of Success</p>
+            <p className="font-semibold">{probabilitySuccess}% ({inferredConfidence})</p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Time Horizon</p>
+            <p className="font-semibold">{horizonMonths} months</p>
+          </div>
+        </div>
+
+        {breakEvenProbability !== null && (
+          <p className="text-xs text-muted-foreground mt-2">
+            Break-even probability: {breakEvenProbability}% to reach expected value of $0.
+          </p>
+        )}
+
         <div className="mt-3">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Exposure Asymmetry</p>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Risk-Reward Imbalance (Raw)</p>
           <div className="border rounded-sm px-2 py-1.5 bg-background/70">
             <div className="flex items-center h-4">
               <div className="w-1/2 flex justify-end pr-1">
@@ -129,7 +143,7 @@ export default function ProjectionPanel({
             </div>
           </div>
           <p className="text-xs mt-1">
-            Net exposure asymmetry: {netAsymmetry === null ? "—" : `${netAsymmetry >= 0 ? "+" : "−"}${formatMillions(Math.abs(netAsymmetry))}`}
+            {netAsymmetry === null ? "—" : `${netAsymmetry >= 0 ? "+" : "−"}${formatMillions(Math.abs(netAsymmetry))}`}
           </p>
         </div>
         <p className="text-[10px] text-muted-foreground mt-3">
