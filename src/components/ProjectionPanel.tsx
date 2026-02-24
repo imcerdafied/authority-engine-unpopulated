@@ -119,6 +119,12 @@ export default function ProjectionPanel({
     setLoading(true);
     setError(null);
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) {
+        throw new Error("You must be signed in to generate a projection.");
+      }
+
       const payload = {
         decision: {
           id: decision.id,
@@ -131,6 +137,9 @@ export default function ProjectionPanel({
       for (let attempt = 0; attempt < 2; attempt += 1) {
         const { data: edgeData, error: invokeErr } = await supabase.functions.invoke("projection", {
           body: payload,
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
         });
         if (!invokeErr) {
           data = edgeData;
