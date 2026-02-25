@@ -9,18 +9,21 @@ import { fetchOutcomeCategories, type OutcomeCategoryItem } from "@/lib/taxonomy
 
 type SolutionDomain = Database["public"]["Enums"]["solution_domain"];
 
-const solutionDomains: SolutionDomain[] = ["S1", "S2", "S3", "Cross"];
-
 export default function CreateDecisionForm({ onClose, navigateAfter = false }: { onClose: () => void; navigateAfter?: boolean }) {
   const createDecision = useCreateDecision();
-  const { currentRole } = useOrg();
+  const { currentRole, productAreas, customOutcomeCategories } = useOrg();
+
+  // Derive domain options from org product areas
+  const solutionDomains = productAreas.map((pa) => pa.key) as SolutionDomain[];
+  const domainLabels: Record<string, string> = Object.fromEntries(
+    productAreas.map((pa) => [pa.key, pa.label]),
+  );
   const { user } = useAuth();
   const navigate = useNavigate();
   const canCreate = currentRole === "admin" || currentRole === "pod_lead";
 
   const [title, setTitle] = useState("");
   const [owner, setOwner] = useState("");
-  const [surface, setSurface] = useState("");
   const [solutionDomain, setSolutionDomain] = useState<SolutionDomain>("S1");
   const [outcomeTarget, setOutcomeTarget] = useState("");
   const [outcomeCategories, setOutcomeCategories] = useState<OutcomeCategoryItem[]>([]);
@@ -30,13 +33,17 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
   const [exposureValue, setExposureValue] = useState("");
 
   useEffect(() => {
-    fetchOutcomeCategories()
-      .then(setOutcomeCategories)
-      .catch((err) => {
-        console.error("Failed to fetch outcome categories:", err);
-        setOutcomeCategoriesError("Could not load categories");
-      });
-  }, []);
+    if (customOutcomeCategories) {
+      setOutcomeCategories(customOutcomeCategories.map((c) => ({ key: c.key, label: c.label })));
+    } else {
+      fetchOutcomeCategories()
+        .then(setOutcomeCategories)
+        .catch((err) => {
+          console.error("Failed to fetch outcome categories:", err);
+          setOutcomeCategoriesError("Could not load categories");
+        });
+    }
+  }, [customOutcomeCategories]);
   const [triggerSignal, setTriggerSignal] = useState("");
   const [revenueAtRisk, setRevenueAtRisk] = useState("");
 
@@ -44,14 +51,14 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !owner || !surface || !triggerSignal.trim()) return;
+    if (!title || !owner || !triggerSignal.trim()) return;
     if (!outcomeCategoryKey) return;
 
     await createDecision.mutateAsync({
       title,
       owner,
       owner_user_id: user?.id ?? null,
-      surface,
+      surface: domainLabels[solutionDomain] || solutionDomain,
       solution_domain: solutionDomain,
       impact_tier: "High",
       status: "active",
@@ -96,23 +103,11 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">Surface *</label>
-            <input required value={surface} onChange={(e) => setSurface(e.target.value)} placeholder="Streaming / DPI / Agent"
-              className="w-full border rounded-sm px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-foreground" />
-          </div>
-          <div>
-            <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">Domain</label>
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">Product Area *</label>
             <select value={solutionDomain} onChange={(e) => setSolutionDomain(e.target.value as SolutionDomain)}
               className="w-full border rounded-sm px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-foreground">
-              {solutionDomains.map((s) => <option key={s} value={s}>{s}</option>)}
+              {solutionDomains.map((s) => <option key={s} value={s}>{domainLabels[s] || s}</option>)}
             </select>
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">Outcome Target</label>
-            <input value={outcomeTarget} onChange={(e) => setOutcomeTarget(e.target.value)}
-              className="w-full border rounded-sm px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-foreground" />
           </div>
           <div>
             <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">Outcome Category</label>
@@ -130,13 +125,25 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">Outcome Target</label>
+            <input value={outcomeTarget} onChange={(e) => setOutcomeTarget(e.target.value)}
+              className="w-full border rounded-sm px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-foreground" />
+          </div>
+          <div>
             <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">Expected Impact</label>
             <input value={expectedImpact} onChange={(e) => setExpectedImpact(e.target.value)} placeholder="e.g. +15% adoption"
               className="w-full border rounded-sm px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-foreground" />
           </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">Exposure Value</label>
             <input value={exposureValue} onChange={(e) => setExposureValue(e.target.value)} placeholder="e.g. $2.1M ARR at risk"
+              className="w-full border rounded-sm px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-foreground" />
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">Revenue at Risk</label>
+            <input value={revenueAtRisk} onChange={(e) => setRevenueAtRisk(e.target.value)} placeholder="$4.8M ARR"
               className="w-full border rounded-sm px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-foreground" />
           </div>
         </div>
@@ -144,11 +151,6 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
           <div>
             <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">Trigger Signal *</label>
             <input required value={triggerSignal} onChange={(e) => setTriggerSignal(e.target.value)}
-              className="w-full border rounded-sm px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-foreground" />
-          </div>
-          <div>
-            <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">Revenue at Risk</label>
-            <input value={revenueAtRisk} onChange={(e) => setRevenueAtRisk(e.target.value)} placeholder="$4.8M ARR"
               className="w-full border rounded-sm px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-foreground" />
           </div>
         </div>

@@ -66,6 +66,7 @@ function InlineEdit({
   variant = "default",
   inputType = "text",
   displayTransform,
+  multiline,
 }: {
   value: string;
   field: string;
@@ -78,10 +79,11 @@ function InlineEdit({
   variant?: "default" | "title";
   inputType?: "text" | "number";
   displayTransform?: (v: string) => string;
+  multiline?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (editing) {
@@ -101,12 +103,22 @@ function InlineEdit({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      handleSave();
-    } else if (e.key === "Escape") {
-      setEditValue(value);
-      setEditing(false);
+    if (multiline) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+        e.preventDefault();
+        handleSave();
+      } else if (e.key === "Escape") {
+        setEditValue(value);
+        setEditing(false);
+      }
+    } else {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleSave();
+      } else if (e.key === "Escape") {
+        setEditValue(value);
+        setEditing(false);
+      }
     }
   };
 
@@ -116,16 +128,32 @@ function InlineEdit({
 
   if (!canEdit) {
     return (
-      <span className={cn(isEmpty && "text-muted-foreground/50 italic", className)}>
+      <span className={cn(isEmpty && "text-muted-foreground/50 italic", multiline && "whitespace-pre-wrap", className)}>
         {display}
       </span>
     );
   }
 
   if (editing) {
+    if (multiline) {
+      return (
+        <textarea
+          ref={inputRef as React.RefObject<HTMLTextAreaElement>}
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          onBlur={handleSave}
+          onKeyDown={handleKeyDown}
+          rows={4}
+          className={cn(
+            "border rounded bg-background w-full text-sm px-2 py-1.5 resize-y",
+            className
+          )}
+        />
+      );
+    }
     return (
       <input
-        ref={inputRef}
+        ref={inputRef as React.RefObject<HTMLInputElement>}
         type={inputType}
         min={inputType === "number" ? 0 : undefined}
         max={inputType === "number" ? 100 : undefined}
@@ -151,6 +179,7 @@ function InlineEdit({
         "cursor-pointer hover:bg-accent/50 rounded px-1 -mx-1 min-h-[1.5em] inline-block",
         variant === "title" && "text-sm font-semibold",
         isEmpty && "text-muted-foreground/50 italic",
+        multiline && "whitespace-pre-wrap",
         className
       )}
     >
@@ -171,7 +200,12 @@ const categoryLabels: Record<string, string> = {
 };
 
 const solutionDomainOptions = ["S1", "S2", "S3"] as const;
-const surfaceOptions = ["Video", "DPI", "Agent"] as const;
+const solutionDomainLabels: Record<string, string> = {
+  S1: "Video",
+  S2: "DPI",
+  S3: "Agent Intelligence",
+  Cross: "Cross-Solution",
+};
 
 function relativeTime(dateStr: string): string {
   const sec = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
@@ -838,37 +872,67 @@ function OwnerAccountSelect({
   onSave: (id: string, field: string, oldValue: string, newValue: string) => Promise<void>;
   logActivity?: (decisionId: string, field: string, oldValue: string | null, newValue: string | null) => void | Promise<void>;
 }) {
+  const [editing, setEditing] = useState(false);
+  const selectRef = useRef<HTMLSelectElement>(null);
   const current = value ?? "";
+
+  useEffect(() => {
+    if (editing) selectRef.current?.focus();
+  }, [editing]);
+
   const labelFor = (member: OrgMember) => {
-    if (member.user_id === user?.id) return `You (${member.role})`;
-    return `${member.user_id.slice(0, 8)}... (${member.role})`;
+    if (member.user_id === user?.id) return "You";
+    return member.display_name || member.email || member.user_id.slice(0, 8) + "...";
   };
 
   const handleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const next = e.target.value || "";
-    if (next === current) return;
-    await onSave(decisionId, "owner_user_id", current, next);
-    logActivity?.(decisionId, "owner_user_id", current || null, next || null)?.catch(() => {});
+    if (next !== current) {
+      await onSave(decisionId, "owner_user_id", current, next);
+      logActivity?.(decisionId, "owner_user_id", current || null, next || null)?.catch(() => {});
+    }
+    setEditing(false);
   };
 
+  const member = members.find((m) => m.user_id === current);
+  const displayText = member ? labelFor(member) : "Unassigned";
+
   if (!canEdit) {
-    const member = members.find((m) => m.user_id === current);
-    return <span className="text-[11px] text-muted-foreground">{member ? labelFor(member) : "Unassigned"}</span>;
+    return <span className={cn("text-sm", !member && "text-muted-foreground/50 italic")}>{displayText}</span>;
+  }
+
+  if (editing) {
+    return (
+      <select
+        ref={selectRef}
+        value={current}
+        onChange={handleChange}
+        onBlur={() => setEditing(false)}
+        className="text-sm border rounded px-2 py-1 bg-background w-full"
+      >
+        <option value="">Unassigned</option>
+        {members.map((m) => (
+          <option key={m.user_id} value={m.user_id}>
+            {labelFor(m)}
+          </option>
+        ))}
+      </select>
+    );
   }
 
   return (
-    <select
-      value={current}
-      onChange={handleChange}
-      className="text-[11px] border rounded px-2 py-1 bg-background w-full"
+    <span
+      role="button"
+      tabIndex={0}
+      onClick={() => setEditing(true)}
+      onKeyDown={(e) => e.key === "Enter" && setEditing(true)}
+      className={cn(
+        "cursor-pointer hover:bg-accent/50 rounded px-1 -mx-1 min-h-[1.5em] inline-block text-sm",
+        !member && "text-muted-foreground/50 italic"
+      )}
     >
-      <option value="">Unassigned</option>
-      {members.map((member) => (
-        <option key={member.user_id} value={member.user_id}>
-          {labelFor(member)}
-        </option>
-      ))}
-    </select>
+      {displayText}
+    </span>
   );
 }
 
@@ -880,6 +944,7 @@ function PillSelect({
   canEdit,
   onSave,
   logActivity,
+  labelMap,
 }: {
   value: string;
   options: readonly string[];
@@ -888,6 +953,7 @@ function PillSelect({
   canEdit: boolean;
   onSave: (id: string, field: string, oldValue: string, newValue: string) => Promise<void>;
   logActivity?: (decisionId: string, field: string, oldValue: string | null, newValue: string | null) => void | Promise<void>;
+  labelMap?: Record<string, string>;
 }) {
   const [editing, setEditing] = useState(false);
   const selectRef = useRef<HTMLSelectElement>(null);
@@ -918,7 +984,7 @@ function PillSelect({
         <option value="">—</option>
         {options.map((option) => (
           <option key={option} value={option}>
-            {option}
+            {labelMap?.[option] ?? option}
           </option>
         ))}
       </select>
@@ -937,7 +1003,7 @@ function PillSelect({
         !currentValue && "text-slate-500"
       )}
     >
-      {currentValue || "—"}
+      {(currentValue && labelMap?.[currentValue]) || currentValue || "—"}
     </span>
   );
 }
@@ -962,6 +1028,8 @@ function BetCard({
   statusNote,
   setStatusNote,
   handleStatusConfirm,
+  domainOptions,
+  domainLabels,
 }: {
   d: any;
   index: number;
@@ -982,8 +1050,11 @@ function BetCard({
   statusNote: string;
   setStatusNote: (v: string) => void;
   handleStatusConfirm: () => void;
+  domainOptions: string[];
+  domainLabels: Record<string, string>;
 }) {
   const [logFormExpanded, setLogFormExpanded] = useState(false);
+  const [editingImpact, setEditingImpact] = useState(false);
 
   const capacityDiverted = (d.capacity_diverted ?? 0) as number;
   const unplannedInterrupts = (d.unplanned_interrupts ?? 0) as number;
@@ -1020,21 +1091,13 @@ function BetCard({
             <div className="flex items-start gap-2 flex-wrap mt-2">
               <PillSelect
                 value={d.solution_domain ?? ""}
-                options={solutionDomainOptions}
+                options={domainOptions}
                 field="solution_domain"
                 decisionId={d.id}
                 canEdit={canWrite}
                 onSave={handleInlineSave}
                 logActivity={logActivity}
-              />
-              <PillSelect
-                value={d.surface ?? ""}
-                options={surfaceOptions}
-                field="surface"
-                decisionId={d.id}
-                canEdit={canWrite}
-                onSave={handleInlineSave}
-                logActivity={logActivity}
+                labelMap={domainLabels}
               />
               {d.is_aging && <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider">Aging</span>}
               {d.is_unbound && <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider">Unbound — no authority</span>}
@@ -1134,27 +1197,37 @@ function BetCard({
           logActivity={logActivity}
           className="text-lg md:text-xl font-medium leading-snug block"
           placeholder="Add trigger signal…"
+          multiline
         />
       </div>
 
       <div className="px-4 md:px-6 py-5 space-y-5">
         <div className="rounded-lg border bg-muted/20 p-4">
           <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground block mb-1">Outcome Target</span>
-          <InlineEdit value={d.outcome_target ?? ""} field="outcome_target" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="text-base font-medium leading-relaxed block" />
+          <InlineEdit value={d.outcome_target ?? ""} field="outcome_target" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="text-base font-medium leading-relaxed block" multiline />
         </div>
 
         <div>
           <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground block">Expected Impact</span>
-          <InlineEdit value={d.expected_impact ?? ""} field="expected_impact" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="text-base font-medium leading-relaxed mt-2 block" />
-          {expectedImpactItems.length > 1 && (
-            <ul className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 text-base text-foreground/90">
-              {expectedImpactItems.map((item, idx) => (
-                <li key={`${d.id}-impact-${idx}`} className="flex items-start gap-2">
-                  <span className="text-muted-foreground mt-[2px]">•</span>
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
+          {expectedImpactItems.length > 1 && !editingImpact ? (
+            <div
+              role={canWrite ? "button" : undefined}
+              tabIndex={canWrite ? 0 : undefined}
+              onClick={() => canWrite && setEditingImpact(true)}
+              onKeyDown={(e) => canWrite && e.key === "Enter" && setEditingImpact(true)}
+              className={cn("mt-2", canWrite && "cursor-pointer hover:bg-accent/50 rounded px-1 -mx-1")}
+            >
+              <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 text-base text-foreground/90">
+                {expectedImpactItems.map((item, idx) => (
+                  <li key={`${d.id}-impact-${idx}`} className="flex items-start gap-2">
+                    <span className="text-muted-foreground mt-[2px]">•</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <InlineEdit value={d.expected_impact ?? ""} field="expected_impact" decisionId={d.id} canEdit={canWrite} onSave={async (...args) => { await handleInlineSave(...args); setEditingImpact(false); }} logActivity={logActivity} className="text-base font-medium leading-relaxed mt-2 block" multiline />
           )}
         </div>
 
@@ -1162,24 +1235,13 @@ function BetCard({
           <div className="border rounded-xl p-4 bg-emerald-50/40 border-emerald-200/70">
             <span className="text-[11px] uppercase tracking-[0.16em] text-emerald-700/90 block">Upside Exposure</span>
             <div className="text-emerald-800 mt-2">
-              <InlineEdit value={d.exposure_value ?? ""} field="exposure_value" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="text-base font-medium leading-relaxed block" />
-              {(() => {
-                const prev = (d as any).previous_exposure_value;
-                const curr = d.exposure_value ?? "";
-                if (!prev || prev === curr) return null;
-                const increased = String(curr).localeCompare(String(prev), undefined, { numeric: true }) > 0;
-                return (
-                  <span className={cn("text-[11px] mt-1 inline-block", increased ? "text-signal-red" : "text-signal-green")}>
-                    {increased ? `↑ from ${prev}` : `↓ from ${prev}`}
-                  </span>
-                );
-              })()}
+              <InlineEdit value={d.exposure_value ?? ""} field="exposure_value" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="text-base font-medium leading-relaxed block" multiline />
             </div>
           </div>
           <div className="border rounded-xl p-4 bg-signal-red/5 border-signal-red/30">
             <span className="text-[11px] uppercase tracking-[0.16em] text-signal-red/90 block">Risk Exposure</span>
             <div className="text-signal-red mt-2">
-              <InlineEdit value={d.revenue_at_risk ?? ""} field="revenue_at_risk" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="text-base font-medium leading-relaxed block" />
+              <InlineEdit value={d.revenue_at_risk ?? ""} field="revenue_at_risk" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="text-base font-medium leading-relaxed block" multiline />
             </div>
           </div>
         </div>
@@ -1254,7 +1316,7 @@ export default function Decisions() {
   const qc = useQueryClient();
   const { data: decisions = [], isLoading: decisionsLoading } = useDecisions();
   const { data: members = [] } = useOrgMembers();
-  const { data: categories = [] } = useQuery({
+  const { data: globalCategories = [] } = useQuery({
     queryKey: ["outcome_categories"],
     queryFn: async () => {
       const { data } = await supabase.from("outcome_categories").select("key, label").order("label");
@@ -1265,12 +1327,19 @@ export default function Decisions() {
   const updateDecision = useUpdateDecision();
   const logActivity = useLogActivity();
   const createInterruption = useCreateInterruption();
-  const { currentRole } = useOrg();
+  const { currentRole, productAreas, customOutcomeCategories } = useOrg();
+  const categories = customOutcomeCategories ?? globalCategories;
   const { user } = useAuth();
   const [showCreate, setShowCreate] = useState(false);
 
   const canWrite = currentRole === "admin" || currentRole === "pod_lead";
   const canManageOwner = currentRole === "admin" || currentRole === "pod_lead";
+
+  // Derive solution domain options from org product areas
+  const orgDomainOptions = productAreas.map((pa) => pa.key);
+  const orgDomainLabels: Record<string, string> = Object.fromEntries(
+    productAreas.map((pa) => [pa.key, pa.label]),
+  );
 
   const statusOptions = ["hypothesis", "defined", "piloting", "scaling", "at_risk", "closed"] as const;
   const [pendingStatus, setPendingStatus] = useState<{ decisionId: string; newStatus: string; oldStatus: string } | null>(null);
@@ -1297,7 +1366,6 @@ export default function Decisions() {
     } else {
       payload[field] = newValue || null;
     }
-    if (field === "exposure_value") payload.previous_exposure_value = oldValue || null;
     await updateDecision.mutateAsync(payload);
     qc.invalidateQueries({ queryKey: ["decision_activity", id] });
   };
@@ -1307,7 +1375,7 @@ export default function Decisions() {
   const activeDecisions = decisions.filter((d) => d.status !== "closed");
   const activeHighImpact = activeDecisions.filter((d) => d.impact_tier === "High");
   const orderedDecisions = [...decisions].reverse();
-  const atCapacity = activeHighImpact.length >= 5;
+  const atCapacity = activeHighImpact.length >= 10;
   const isEmpty = decisions.length === 0;
 
   return (
@@ -1316,7 +1384,7 @@ export default function Decisions() {
         <div className="flex flex-col md:flex-row md:items-center gap-3">
           <h1 className="text-xl font-bold">Bets</h1>
           <span className="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-sm bg-muted text-muted-foreground w-fit">
-            {activeHighImpact.length}/5 Active{atCapacity ? " · At capacity" : ""}
+            {activeHighImpact.length}/10 Active{atCapacity ? " · At capacity" : ""}
           </span>
           <p className="text-sm text-muted-foreground">
             {decisions.length} total · {activeDecisions.length} active
@@ -1337,7 +1405,7 @@ export default function Decisions() {
           <p className="text-sm font-medium text-muted-foreground">No bets registered.</p>
           <p className="text-xs text-muted-foreground/70 mt-1.5">Register first high-impact bet to initiate constraint.</p>
           <div className="flex justify-center gap-6 mt-4 text-xs text-muted-foreground/50">
-            <span>Hard cap: 5</span><span>10-day slice rule</span><span>Outcome required</span><span>Owner required</span>
+            <span>Hard cap: 10</span><span>10-day slice rule</span><span>Outcome required</span><span>Owner required</span>
           </div>
         </div>
       ) : (
@@ -1366,6 +1434,8 @@ export default function Decisions() {
                 statusNote={statusNote}
                 setStatusNote={setStatusNote}
                 handleStatusConfirm={handleStatusConfirm}
+                domainOptions={orgDomainOptions}
+                domainLabels={orgDomainLabels}
               />
             ))}
           </div>

@@ -1,0 +1,30 @@
+name: Weekly Bet Reminder
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Every Friday at 15:00 UTC (8am PT)
+    - cron: "0 15 * * 5"
+
+jobs:
+  send-reminders:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger weekly reminder
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          REMINDER_CRON_SECRET: ${{ secrets.REMINDER_CRON_SECRET }}
+        run: |
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            "${SUPABASE_URL}/functions/v1/weekly-reminder" \
+            -H "Content-Type: application/json" \
+            -H "x-reminder-secret: ${REMINDER_CRON_SECRET}" \
+            -H "apikey: ${SUPABASE_ANON_KEY}")
+          http_code=$(echo "$response" | tail -1)
+          body=$(echo "$response" | head -n -1)
+          echo "Response ($http_code): $body"
+          if [ "$http_code" -ge 400 ]; then
+            echo "::error::Weekly reminder failed with status $http_code"
+            exit 1
+          fi
