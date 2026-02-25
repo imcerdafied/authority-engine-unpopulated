@@ -360,22 +360,28 @@ export type Database = {
           allowed_email_domain: string | null
           created_at: string
           created_by: string | null
+          custom_outcome_categories: Json | null
           id: string
           name: string
+          product_areas: Json
         }
         Insert: {
           allowed_email_domain?: string | null
           created_at?: string
           created_by?: string | null
+          custom_outcome_categories?: Json | null
           id?: string
           name: string
+          product_areas?: Json
         }
         Update: {
           allowed_email_domain?: string | null
           created_at?: string
           created_by?: string | null
+          custom_outcome_categories?: Json | null
           id?: string
           name?: string
+          product_areas?: Json
         }
         Relationships: []
       }

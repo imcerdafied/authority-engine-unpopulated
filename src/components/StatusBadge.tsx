@@ -30,9 +30,9 @@ const statusStyles: Record<string, string> = {
 };
 
 const labelOverrides: Record<string, string> = {
-  "S1": "S1 · Video",
-  "S2": "S2 · DPI",
-  "S3": "S3 · Agent",
+  "S1": "Video",
+  "S2": "DPI",
+  "S3": "Agent Intelligence",
   active: "Active",
   accepted: "Accepted",
   rejected: "Rejected",

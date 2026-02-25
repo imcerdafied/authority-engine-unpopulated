@@ -1,10 +1,26 @@
-import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./AuthContext";
 import type { Tables } from "@/integrations/supabase/types";
 import type { Database } from "@/integrations/supabase/types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
+
+export interface ProductArea {
+  key: string;
+  label: string;
+}
+
+export interface CustomCategory {
+  key: string;
+  label: string;
+}
+
+const DEFAULT_PRODUCT_AREAS: ProductArea[] = [
+  { key: "S1", label: "Video" },
+  { key: "S2", label: "DPI" },
+  { key: "S3", label: "Agent Intelligence" },
+];
 
 interface OrgMembership {
   org_id: string;
@@ -17,8 +33,10 @@ interface OrgContextType {
   currentRole: AppRole | null;
   memberships: OrgMembership[];
   loading: boolean;
+  productAreas: ProductArea[];
+  customOutcomeCategories: CustomCategory[] | null;
   setCurrentOrgId: (orgId: string) => void;
-  createOrg: (name: string) => Promise<string | null>;
+  createOrg: (name: string, productAreas?: ProductArea[], customOutcomeCategories?: CustomCategory[]) => Promise<string | null>;
   refetchMemberships: () => Promise<void>;
 }
 
@@ -27,6 +45,8 @@ const OrgContext = createContext<OrgContextType>({
   currentRole: null,
   memberships: [],
   loading: true,
+  productAreas: DEFAULT_PRODUCT_AREAS,
+  customOutcomeCategories: null,
   setCurrentOrgId: () => {},
   createOrg: async () => null,
   refetchMemberships: async () => {},
@@ -40,11 +60,27 @@ function extractEmailDomain(email: string | null | undefined): string | null {
   return email.split("@")[1]?.trim().toLowerCase() || null;
 }
 
+function parseProductAreas(raw: unknown): ProductArea[] {
+  if (!raw || !Array.isArray(raw)) return DEFAULT_PRODUCT_AREAS;
+  const parsed = raw.filter(
+    (item: any) => item && typeof item.key === "string" && typeof item.label === "string",
+  ) as ProductArea[];
+  return parsed.length > 0 ? parsed : DEFAULT_PRODUCT_AREAS;
+}
+
+function parseCustomCategories(raw: unknown): CustomCategory[] | null {
+  if (!raw || !Array.isArray(raw)) return null;
+  const parsed = raw.filter(
+    (item: any) => item && typeof item.key === "string" && typeof item.label === "string",
+  ) as CustomCategory[];
+  return parsed.length > 0 ? parsed : null;
+}
+
 export function OrgProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [memberships, setMemberships] = useState<OrgMembership[]>([]);
   const [currentOrgId, setCurrentOrgId] = useState<string | null>(
-    localStorage.getItem(ORG_STORAGE_KEY)
+    localStorage.getItem(ORG_STORAGE_KEY),
   );
   const [loading, setLoading] = useState(true);
 
@@ -122,13 +158,25 @@ export function OrgProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(ORG_STORAGE_KEY, orgId);
   };
 
-  const createOrg = async (name: string): Promise<string | null> => {
+  const createOrg = async (
+    name: string,
+    productAreas?: ProductArea[],
+    customOutcomeCategories?: CustomCategory[],
+  ): Promise<string | null> => {
     if (!user) return null;
     const allowedEmailDomain = extractEmailDomain(user.email);
 
+    const insertData: any = {
+      name,
+      created_by: user.id,
+      allowed_email_domain: allowedEmailDomain,
+    };
+    if (productAreas?.length) insertData.product_areas = productAreas;
+    if (customOutcomeCategories?.length) insertData.custom_outcome_categories = customOutcomeCategories;
+
     const { data: org, error: orgError } = await supabase
       .from("organizations")
-      .insert({ name, created_by: user.id, allowed_email_domain: allowedEmailDomain })
+      .insert(insertData)
       .select()
       .single();
 
@@ -153,14 +201,27 @@ export function OrgProvider({ children }: { children: ReactNode }) {
   };
 
   const currentMembership = memberships.find((m) => m.org_id === currentOrgId);
+  const currentOrg = currentMembership?.organization ?? null;
+
+  const productAreas = useMemo(
+    () => parseProductAreas((currentOrg as any)?.product_areas),
+    [currentOrg],
+  );
+
+  const customOutcomeCategories = useMemo(
+    () => parseCustomCategories((currentOrg as any)?.custom_outcome_categories),
+    [currentOrg],
+  );
 
   return (
     <OrgContext.Provider
       value={{
-        currentOrg: currentMembership?.organization ?? null,
+        currentOrg,
         currentRole: currentMembership?.role ?? null,
         memberships,
         loading,
+        productAreas,
+        customOutcomeCategories,
         setCurrentOrgId: handleSetCurrentOrgId,
         createOrg,
         refetchMemberships: fetchMemberships,

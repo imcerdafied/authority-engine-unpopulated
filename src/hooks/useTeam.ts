@@ -18,6 +18,7 @@ export interface OrgMember {
   org_id: string;
   role: string;
   email?: string;
+  display_name?: string | null;
 }
 
 export function usePendingInvitations() {
@@ -45,12 +46,27 @@ export function useOrgMembers() {
     queryKey: ["org_members", currentOrg?.id],
     queryFn: async () => {
       if (!currentOrg) return [];
-      const { data, error } = await supabase
+      const { data: membersData, error } = await supabase
         .from("organization_memberships")
         .select("user_id, org_id, role")
         .eq("org_id", currentOrg.id);
       if (error) throw error;
-      return (data || []) as OrgMember[];
+      const members = (membersData || []) as OrgMember[];
+      const userIds = members.map((m) => m.user_id);
+      if (userIds.length === 0) return members;
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, display_name, email")
+        .in("id", userIds);
+      const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]));
+      return members.map((m) => {
+        const profile = profileMap.get(m.user_id);
+        return {
+          ...m,
+          display_name: profile?.display_name ?? null,
+          email: profile?.email ?? undefined,
+        };
+      });
     },
     enabled: !!currentOrg,
   });
