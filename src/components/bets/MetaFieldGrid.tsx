@@ -9,7 +9,7 @@ interface MetaFieldProps {
 export function MetaField({ label, children, className }: MetaFieldProps) {
   return (
     <div className={className}>
-      <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground/70 block mb-0.5">
+      <span className="text-[11px] uppercase tracking-[0.16em] text-white/80 block mb-0.5">
         {label}
       </span>
       <div className="text-sm font-medium">{children}</div>

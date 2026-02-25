@@ -17,9 +17,9 @@ export interface CustomCategory {
 }
 
 const DEFAULT_PRODUCT_AREAS: ProductArea[] = [
-  { key: "S1", label: "Video" },
-  { key: "S2", label: "DPI" },
-  { key: "S3", label: "Agent Intelligence" },
+  { key: "S1", label: "Area 1" },
+  { key: "S2", label: "Area 2" },
+  { key: "S3", label: "Area 3" },
 ];
 
 interface OrgMembership {
@@ -37,6 +37,7 @@ interface OrgContextType {
   customOutcomeCategories: CustomCategory[] | null;
   setCurrentOrgId: (orgId: string) => void;
   createOrg: (name: string, productAreas?: ProductArea[], customOutcomeCategories?: CustomCategory[]) => Promise<string | null>;
+  updateOrg: (fields: { product_areas?: ProductArea[]; custom_outcome_categories?: CustomCategory[] }) => Promise<void>;
   refetchMemberships: () => Promise<void>;
 }
 
@@ -49,6 +50,7 @@ const OrgContext = createContext<OrgContextType>({
   customOutcomeCategories: null,
   setCurrentOrgId: () => {},
   createOrg: async () => null,
+  updateOrg: async () => {},
   refetchMemberships: async () => {},
 });
 
@@ -200,6 +202,19 @@ export function OrgProvider({ children }: { children: ReactNode }) {
     return org.id;
   };
 
+  const updateOrg = async (fields: { product_areas?: ProductArea[]; custom_outcome_categories?: CustomCategory[] }) => {
+    if (!currentOrgId) return;
+    const { error } = await supabase
+      .from("organizations")
+      .update(fields as any)
+      .eq("id", currentOrgId);
+    if (error) {
+      console.error("Failed to update org:", error);
+      throw error;
+    }
+    await fetchMemberships();
+  };
+
   const currentMembership = memberships.find((m) => m.org_id === currentOrgId);
   const currentOrg = currentMembership?.organization ?? null;
 
@@ -224,6 +239,7 @@ export function OrgProvider({ children }: { children: ReactNode }) {
         customOutcomeCategories,
         setCurrentOrgId: handleSetCurrentOrgId,
         createOrg,
+        updateOrg,
         refetchMemberships: fetchMemberships,
       }}
     >

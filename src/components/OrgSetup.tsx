@@ -6,9 +6,9 @@ import { cn } from "@/lib/utils";
 const SLOT_KEYS = ["S1", "S2", "S3", "S4", "S5"];
 
 const DEFAULT_CATEGORIES: CustomCategory[] = [
-  { key: "arr", label: "ARR" },
-  { key: "renewal_retention", label: "Renewal & Retention" },
-  { key: "strategic_positioning", label: "Strategic Positioning" },
+  { key: "revenue_growth", label: "Revenue Growth" },
+  { key: "retention", label: "Retention" },
+  { key: "market_position", label: "Market Position" },
   { key: "operational_efficiency", label: "Operational Efficiency" },
 ];
 

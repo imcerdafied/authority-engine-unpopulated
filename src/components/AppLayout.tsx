@@ -96,16 +96,20 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                 <>
                   <Sep />
                   {currentRole === "admin" ? (
-                    <Link
-                      to="/feedback"
-                      onClick={closeMenu}
-                      className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors py-2 md:py-0 flex items-center"
-                    >
-                      {roleLabels[currentRole] || currentRole}
-                      {unreadCount != null && unreadCount > 0 && (
-                        <span className="w-2 h-2 rounded-full bg-signal-red inline-block ml-1" />
-                      )}
-                    </Link>
+                    <>
+                      <Link
+                        to="/feedback"
+                        onClick={closeMenu}
+                        className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors py-2 md:py-0 flex items-center"
+                      >
+                        {roleLabels[currentRole] || currentRole}
+                        {unreadCount != null && unreadCount > 0 && (
+                          <span className="w-2 h-2 rounded-full bg-signal-red inline-block ml-1" />
+                        )}
+                      </Link>
+                      <Sep />
+                      <Link to="/settings" className={navLinkClass} onClick={closeMenu}>Settings</Link>
+                    </>
                   ) : (
                     <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground py-2 md:py-0">
                       {roleLabels[currentRole] || currentRole}
