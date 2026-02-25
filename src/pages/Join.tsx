@@ -88,40 +88,38 @@ export default function Join() {
               { body: { orgId } },
             );
 
-            if (error) {
-              const message = error.message || "Join failed";
-              if (message.includes("Failed to send a request to the Edge Function")) {
-                // Fallback: direct HTTP call for cold-start edge functions
-                const { data: sessionData } = await supabase.auth.getSession();
-                const accessToken = sessionData.session?.access_token;
-                if (!accessToken) throw new Error("Session expired. Please sign in again.");
+            if (!error && edgeData?.success) return edgeData;
 
-                const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-                const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
-                const fallbackRes = await fetch(
-                  `${supabaseUrl}/functions/v1/join-org`,
-                  {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                      Authorization: `Bearer ${accessToken}`,
-                      apikey: supabaseAnonKey,
-                    },
-                    body: JSON.stringify({ orgId }),
-                    signal: controller.signal,
-                  },
-                );
-                const fallbackData = await fallbackRes.json().catch(() => ({}));
-                if (!fallbackRes.ok) {
-                  throw new Error(
-                    friendlyError(fallbackRes.status, fallbackData?.error),
-                  );
-                }
-                return fallbackData;
-              }
-              throw error;
+            // Fallback: direct HTTP call for transport failures and non-2xx responses.
+            const { data: sessionData } = await supabase.auth.getSession();
+            const accessToken = sessionData.session?.access_token;
+            if (!accessToken) throw new Error("Session expired. Please sign in again.");
+
+            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+            const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+            const fallbackRes = await fetch(
+              `${supabaseUrl}/functions/v1/join-org`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${accessToken}`,
+                  apikey: supabaseAnonKey,
+                },
+                body: JSON.stringify({ orgId }),
+                signal: controller.signal,
+              },
+            );
+            const fallbackData = await fallbackRes.json().catch(() => ({}));
+            if (!fallbackRes.ok) {
+              const msg = String(fallbackData?.error || error?.message || "").trim();
+              throw new Error(friendlyError(fallbackRes.status, msg));
             }
-            return edgeData;
+            if (!fallbackData?.success) {
+              const msg = String(fallbackData?.error || error?.message || "Join failed").trim();
+              throw new Error(msg || "Join failed");
+            }
+            return fallbackData;
           } finally {
             clearTimeout(timeout);
           }
