@@ -435,6 +435,139 @@ export type Database = {
           },
         ]
       }
+      capability_pod_events: {
+        Row: {
+          id: string
+          pod_id: string
+          org_id: string
+          field_name: string
+          old_value: string | null
+          new_value: string | null
+          changed_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          pod_id: string
+          org_id: string
+          field_name: string
+          old_value?: string | null
+          new_value?: string | null
+          changed_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          pod_id?: string
+          org_id?: string
+          field_name?: string
+          old_value?: string | null
+          new_value?: string | null
+          changed_by?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "capability_pod_events_pod_id_fkey"
+            columns: ["pod_id"]
+            isOneToOne: false
+            referencedRelation: "capability_pods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "capability_pod_events_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      capability_pods: {
+        Row: {
+          id: string
+          org_id: string
+          name: string
+          description: string | null
+          primary_bet_id: string
+          secondary_bet_id: string | null
+          owner: string
+          status: Database["public"]["Enums"]["capability_pod_status"]
+          deliverable: string | null
+          kpi_targets: Json
+          prototype_built: boolean
+          customer_validated: boolean
+          production_shipped: boolean
+          cycle_time_days: number | null
+          dependencies: Json
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name: string
+          description?: string | null
+          primary_bet_id: string
+          secondary_bet_id?: string | null
+          owner: string
+          status?: Database["public"]["Enums"]["capability_pod_status"]
+          deliverable?: string | null
+          kpi_targets?: Json
+          prototype_built?: boolean
+          customer_validated?: boolean
+          production_shipped?: boolean
+          cycle_time_days?: number | null
+          dependencies?: Json
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          name?: string
+          description?: string | null
+          primary_bet_id?: string
+          secondary_bet_id?: string | null
+          owner?: string
+          status?: Database["public"]["Enums"]["capability_pod_status"]
+          deliverable?: string | null
+          kpi_targets?: Json
+          prototype_built?: boolean
+          customer_validated?: boolean
+          production_shipped?: boolean
+          cycle_time_days?: number | null
+          dependencies?: Json
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "capability_pods_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "capability_pods_primary_bet_id_fkey"
+            columns: ["primary_bet_id"]
+            isOneToOne: false
+            referencedRelation: "decisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "capability_pods_secondary_bet_id_fkey"
+            columns: ["secondary_bet_id"]
+            isOneToOne: false
+            referencedRelation: "decisions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pods: {
         Row: {
           created_at: string
@@ -724,6 +857,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "pod_lead" | "viewer"
+      capability_pod_status: "proposed" | "prototyping" | "validated" | "building" | "in_production" | "paused"
       decision_health: "On Track" | "At Risk" | "Degrading"
       decision_status: "Draft" | "Active" | "Blocked" | "Closed" | "active" | "accepted" | "rejected" | "archived"
       impact_tier: "High" | "Medium" | "Low"
@@ -872,6 +1006,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "pod_lead", "viewer"],
+      capability_pod_status: ["proposed", "prototyping", "validated", "building", "in_production", "paused"],
       decision_health: ["On Track", "At Risk", "Degrading"],
       decision_status: ["Draft", "Active", "Blocked", "Closed", "active", "accepted", "rejected", "archived"],
       impact_tier: ["High", "Medium", "Low"],

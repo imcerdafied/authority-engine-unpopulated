@@ -21,6 +21,12 @@ const statusStyles: Record<string, string> = {
   "S2": "bg-foreground/60 text-primary-foreground",
   "S3": "bg-foreground/40 text-primary-foreground",
   "Cross-Solution": "border border-foreground text-foreground bg-transparent",
+  proposed: "bg-muted text-muted-foreground",
+  prototyping: "bg-signal-amber/10 text-signal-amber border border-signal-amber/30",
+  validated: "bg-signal-green/10 text-signal-green border border-signal-green/30",
+  building: "bg-foreground/80 text-primary-foreground",
+  in_production: "bg-signal-green text-white",
+  paused: "bg-muted text-muted-foreground/70",
   "On Track": "bg-signal-green/10 text-signal-green border border-signal-green/30",
   "At Risk": "bg-signal-amber/10 text-signal-amber border border-signal-amber/30",
   "Degrading": "bg-signal-red/10 text-signal-red border border-signal-red/30",
@@ -37,6 +43,12 @@ const labelOverrides: Record<string, string> = {
   accepted: "Accepted",
   rejected: "Rejected",
   archived: "Archived",
+  proposed: "Proposed",
+  prototyping: "Prototyping",
+  validated: "Validated",
+  building: "Building",
+  in_production: "In Production",
+  paused: "Paused",
 };
 
 export default function StatusBadge({ status, className }: StatusBadgeProps) {
