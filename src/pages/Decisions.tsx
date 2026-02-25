@@ -149,7 +149,7 @@ function InlineEdit({
           onKeyDown={handleKeyDown}
           rows={4}
           className={cn(
-            "border rounded bg-background w-full text-sm px-2 py-1.5 resize-y",
+            "border rounded bg-background w-full text-sm px-1 py-0.5 resize-y",
             className
           )}
         />
@@ -166,8 +166,8 @@ function InlineEdit({
         onBlur={handleSave}
         onKeyDown={handleKeyDown}
         className={cn(
-          "border rounded bg-background w-full",
-          variant === "title" ? "text-sm font-semibold px-2 py-1.5" : "text-sm px-2 py-1"
+          "border rounded bg-background w-full text-sm px-1 py-0.5",
+          variant === "title" && "font-semibold"
         )}
       />
     );
@@ -180,8 +180,8 @@ function InlineEdit({
       onClick={() => setEditing(true)}
       onKeyDown={(e) => e.key === "Enter" && setEditing(true)}
       className={cn(
-        "cursor-pointer hover:bg-accent/50 rounded px-1 -mx-1 min-h-[1.5em] inline-block",
-        variant === "title" && "text-sm font-semibold",
+        "cursor-pointer hover:bg-accent/50 rounded px-1 py-0.5 min-h-[1.5em] inline-block",
+        variant === "title" && "font-semibold",
         isEmpty && "text-muted-foreground/50 italic",
         multiline && "whitespace-pre-wrap",
         className
@@ -849,8 +849,8 @@ function CategorySelect({
       onClick={() => setEditing(true)}
       onKeyDown={(e) => e.key === "Enter" && setEditing(true)}
       className={cn(
-        "cursor-pointer hover:bg-accent/50 rounded px-1 -mx-1 min-h-[1.5em] inline-block",
-        isEmpty && "text-muted-foreground/50 italic",
+        "cursor-pointer hover:bg-white/10 rounded px-1 -mx-1 min-h-[1.5em] inline-block",
+        isEmpty && "text-white/50 italic",
         className
       )}
     >
@@ -885,7 +885,6 @@ function OwnerAccountSelect({
   }, [editing]);
 
   const labelFor = (member: OrgMember) => {
-    if (member.user_id === user?.id) return "You";
     return member.display_name || member.email || member.user_id.slice(0, 8) + "...";
   };
 
@@ -899,10 +898,10 @@ function OwnerAccountSelect({
   };
 
   const member = members.find((m) => m.user_id === current);
-  const displayText = member ? labelFor(member) : "Unassigned";
+  const displayText = member ? labelFor(member) : "TBD";
 
   if (!canEdit) {
-    return <span className={cn("text-sm", !member && "text-muted-foreground/50 italic")}>{displayText}</span>;
+    return <span className={cn("text-sm text-white", !member && "text-white/50 italic")}>{displayText}</span>;
   }
 
   if (editing) {
@@ -914,7 +913,7 @@ function OwnerAccountSelect({
         onBlur={() => setEditing(false)}
         className="text-sm border rounded px-2 py-1 bg-background w-full"
       >
-        <option value="">Unassigned</option>
+        <option value="">TBD</option>
         {members.map((m) => (
           <option key={m.user_id} value={m.user_id}>
             {labelFor(m)}
@@ -931,8 +930,8 @@ function OwnerAccountSelect({
       onClick={() => setEditing(true)}
       onKeyDown={(e) => e.key === "Enter" && setEditing(true)}
       className={cn(
-        "cursor-pointer hover:bg-accent/50 rounded px-1 -mx-1 min-h-[1.5em] inline-block text-sm",
-        !member && "text-muted-foreground/50 italic"
+        "cursor-pointer hover:bg-white/10 rounded px-1 min-h-[1.5em] inline-block text-sm text-white",
+        !member && "text-white/50 italic"
       )}
     >
       {displayText}
@@ -1073,8 +1072,8 @@ function BetCard({
       {/* Header: Title + Tags + Meta */}
       <div className="px-4 md:px-5 py-3 border-b bg-black/90 text-white">
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-start gap-2">
+          <div className="min-w-0 w-full lg:w-auto">
+            <div className="flex items-start gap-2 justify-center">
               <span className="text-lg font-semibold leading-snug !text-white/70">{index}.</span>
               <InlineEdit
                 value={d.title ?? ""}
@@ -1088,7 +1087,7 @@ function BetCard({
                 className="text-lg font-semibold leading-snug block !text-white"
               />
             </div>
-            <div className="flex items-center gap-2 flex-wrap mt-1.5">
+            <div className="flex items-center gap-2 flex-wrap mt-1.5 justify-center">
               <PillSelect
                 value={d.solution_domain ?? ""}
                 options={domainOptions}
@@ -1110,18 +1109,15 @@ function BetCard({
               <CategorySelect value={(d.outcome_category_key ?? d.outcome_category) ?? ""} categories={categories} decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full !text-white" />
             </MetaField>
             <MetaField label="Owner">
-              <InlineEdit value={d.owner ?? ""} field="owner" decisionId={d.id} canEdit={canManageOwner} onSave={handleInlineSave} logActivity={logActivity} className="w-full !text-white" />
-              <div className="mt-0.5">
-                <OwnerAccountSelect
-                  value={d.owner_user_id ?? null}
-                  members={members}
-                  user={user}
-                  decisionId={d.id}
-                  canEdit={canManageOwner}
-                  onSave={handleInlineSave}
-                  logActivity={logActivity}
-                />
-              </div>
+              <OwnerAccountSelect
+                value={d.owner_user_id ?? null}
+                members={members}
+                user={user}
+                decisionId={d.id}
+                canEdit={canManageOwner}
+                onSave={handleInlineSave}
+                logActivity={logActivity}
+              />
             </MetaField>
             <MetaField label="Status">
               <select
@@ -1139,7 +1135,7 @@ function BetCard({
                   setStatusNote("");
                 }}
                 className={cn(
-                  "text-xs border border-foreground/20 rounded-sm px-2 py-1.5 bg-background text-foreground w-full",
+                  "text-sm border border-white/30 rounded-sm px-2 py-1.5 bg-white/10 text-white w-full",
                   !canUpdateStatus && "opacity-60 cursor-not-allowed"
                 )}
               >
@@ -1187,7 +1183,7 @@ function BetCard({
             canEdit={canWrite}
             onSave={handleInlineSave}
             logActivity={logActivity}
-            className="text-base font-medium leading-snug block"
+            className="text-sm font-medium leading-snug block"
             placeholder="Add trigger signal..."
             multiline
           />
