@@ -149,7 +149,7 @@ function InlineEdit({
           onKeyDown={handleKeyDown}
           rows={4}
           className={cn(
-            "border rounded bg-background w-full text-sm px-2 py-1.5 resize-y",
+            "border rounded bg-background w-full text-sm px-1 py-0.5 resize-y",
             className
           )}
         />
@@ -166,8 +166,8 @@ function InlineEdit({
         onBlur={handleSave}
         onKeyDown={handleKeyDown}
         className={cn(
-          "border rounded bg-background w-full",
-          variant === "title" ? "text-sm font-semibold px-2 py-1.5" : "text-sm px-2 py-1"
+          "border rounded bg-background w-full text-sm px-1 py-0.5",
+          variant === "title" && "font-semibold"
         )}
       />
     );
@@ -180,8 +180,8 @@ function InlineEdit({
       onClick={() => setEditing(true)}
       onKeyDown={(e) => e.key === "Enter" && setEditing(true)}
       className={cn(
-        "cursor-pointer hover:bg-accent/50 rounded px-1 -mx-1 min-h-[1.5em] inline-block",
-        variant === "title" && "text-sm font-semibold",
+        "cursor-pointer hover:bg-accent/50 rounded px-1 py-0.5 min-h-[1.5em] inline-block",
+        variant === "title" && "font-semibold",
         isEmpty && "text-muted-foreground/50 italic",
         multiline && "whitespace-pre-wrap",
         className
@@ -885,7 +885,6 @@ function OwnerAccountSelect({
   }, [editing]);
 
   const labelFor = (member: OrgMember) => {
-    if (member.user_id === user?.id) return "You";
     return member.display_name || member.email || member.user_id.slice(0, 8) + "...";
   };
 
@@ -931,7 +930,7 @@ function OwnerAccountSelect({
       onClick={() => setEditing(true)}
       onKeyDown={(e) => e.key === "Enter" && setEditing(true)}
       className={cn(
-        "cursor-pointer hover:bg-white/10 rounded px-1 -mx-1 min-h-[1.5em] inline-block text-sm text-white",
+        "cursor-pointer hover:bg-white/10 rounded px-1 min-h-[1.5em] inline-block text-sm text-white",
         !member && "text-white/50 italic"
       )}
     >
@@ -1074,7 +1073,7 @@ function BetCard({
       <div className="px-4 md:px-5 py-3 border-b bg-black/90 text-white">
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
           <div className="min-w-0 w-full lg:w-auto">
-            <div className="flex items-start gap-2 justify-center lg:justify-start">
+            <div className="flex items-start gap-2 justify-center">
               <span className="text-lg font-semibold leading-snug !text-white/70">{index}.</span>
               <InlineEdit
                 value={d.title ?? ""}
@@ -1088,7 +1087,7 @@ function BetCard({
                 className="text-lg font-semibold leading-snug block !text-white"
               />
             </div>
-            <div className="flex items-center gap-2 flex-wrap mt-1.5 justify-center lg:justify-start">
+            <div className="flex items-center gap-2 flex-wrap mt-1.5 justify-center">
               <PillSelect
                 value={d.solution_domain ?? ""}
                 options={domainOptions}
@@ -1136,7 +1135,7 @@ function BetCard({
                   setStatusNote("");
                 }}
                 className={cn(
-                  "text-xs border border-white/30 rounded-sm px-2 py-1.5 bg-white/10 text-white w-full",
+                  "text-sm border border-white/30 rounded-sm px-2 py-1.5 bg-white/10 text-white w-full",
                   !canUpdateStatus && "opacity-60 cursor-not-allowed"
                 )}
               >
@@ -1184,7 +1183,7 @@ function BetCard({
             canEdit={canWrite}
             onSave={handleInlineSave}
             logActivity={logActivity}
-            className="text-base font-medium leading-snug block"
+            className="text-sm font-medium leading-snug block"
             placeholder="Add trigger signal..."
             multiline
           />
