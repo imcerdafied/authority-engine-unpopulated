@@ -15,6 +15,7 @@ import Memory from "@/pages/Memory";
 import Ask from "@/pages/Ask";
 import Team from "@/pages/Team";
 import FeedbackAdmin from "@/pages/FeedbackAdmin";
+import CapabilityMap from "@/pages/CapabilityMap";
 import Join from "@/pages/Join";
 import Auth from "@/pages/Auth";
 import OrgSetup from "@/components/OrgSetup";
@@ -53,6 +54,7 @@ function AppContent() {
               <Route path="/review" element={<Review />} />
               <Route path="/how-it-works" element={<HowItWorks />} />
               <Route path="/signals" element={<Signals />} />
+              <Route path="/capability-map" element={<CapabilityMap />} />
               <Route path="/pods" element={<Pods />} />
               <Route path="/memory" element={<Memory />} />
               <Route path="/ask" element={<Ask />} />
