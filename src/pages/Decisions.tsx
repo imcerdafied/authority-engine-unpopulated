@@ -7,7 +7,10 @@ import { useOrgMembers, type OrgMember } from "@/hooks/useTeam";
 import { useOrg } from "@/contexts/OrgContext";
 import { useAuth } from "@/contexts/AuthContext";
 import CreateDecisionForm from "@/components/CreateDecisionForm";
-import BetCapabilityPodsSection from "@/components/capability-pods/BetCapabilityPodsSection";
+import TagPill from "@/components/bets/TagPill";
+import SectionBlock from "@/components/bets/SectionBlock";
+import ExposureCallout from "@/components/bets/ExposureCallout";
+import MetaFieldGrid, { MetaField } from "@/components/bets/MetaFieldGrid";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -980,7 +983,7 @@ function PillSelect({
         value={currentValue}
         onChange={handleChange}
         onBlur={() => setEditing(false)}
-        className="text-[11px] border rounded-full px-2 py-0.5 bg-white text-slate-900"
+        className="text-[11px] border rounded-sm px-2 py-0.5 bg-background text-foreground"
       >
         <option value="">—</option>
         {options.map((option) => (
@@ -999,9 +1002,9 @@ function PillSelect({
       onClick={() => canEdit && setEditing(true)}
       onKeyDown={(e) => canEdit && e.key === "Enter" && setEditing(true)}
       className={cn(
-        "inline-flex items-center text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border border-white/70 bg-slate-100 text-slate-900",
-        canEdit && "cursor-pointer hover:bg-white",
-        !currentValue && "text-slate-500"
+        "inline-flex items-center text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-sm border border-foreground/20 bg-foreground/10 text-foreground",
+        canEdit && "cursor-pointer hover:bg-foreground/20",
+        !currentValue && "text-muted-foreground"
       )}
     >
       {(currentValue && labelMap?.[currentValue]) || currentValue || "—"}
@@ -1055,15 +1058,10 @@ function BetCard({
   domainLabels: Record<string, string>;
 }) {
   const [logFormExpanded, setLogFormExpanded] = useState(false);
-  const [editingImpact, setEditingImpact] = useState(false);
 
   const capacityDiverted = (d.capacity_diverted ?? 0) as number;
   const unplannedInterrupts = (d.unplanned_interrupts ?? 0) as number;
   const hasResourceReality = capacityDiverted > 0 || unplannedInterrupts > 0;
-  const expectedImpactItems = String(d.expected_impact ?? "")
-    .split(/\n|;/)
-    .map((v) => v.trim())
-    .filter(Boolean);
 
   const isActive = d.status !== "closed";
   const statusDisplay = String(d.status ?? "").charAt(0).toUpperCase() + String(d.status ?? "").slice(1).replace("_", " ");
@@ -1071,12 +1069,13 @@ function BetCard({
   const showNudge = stale.isAmber || stale.isRed;
 
   return (
-    <div key={d.id} className={cn("border rounded-xl overflow-hidden font-sans shadow-sm ring-1 ring-black/5", d.is_exceeded ? "border-signal-red/40 bg-signal-red/5" : d.is_aging ? "border-signal-amber/40" : "bg-background")}>
-      <div className="px-4 md:px-6 py-4 border-b bg-black/90 text-white">
-        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+    <div key={d.id} className={cn("border rounded-md overflow-hidden font-sans", d.is_exceeded ? "border-signal-red/40 bg-signal-red/5" : d.is_aging ? "border-signal-amber/40" : "bg-background")}>
+      {/* Header: Title + Tags + Meta */}
+      <div className="px-4 md:px-5 py-3 border-b bg-black/90 text-white">
+        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-start gap-2">
-              <span className="text-xl font-semibold leading-snug !text-white/80">{index}.</span>
+              <span className="text-lg font-semibold leading-snug !text-white/70">{index}.</span>
               <InlineEdit
                 value={d.title ?? ""}
                 field="title"
@@ -1086,10 +1085,10 @@ function BetCard({
                 logActivity={logActivity}
                 variant="title"
                 placeholder="Untitled"
-                className="text-xl font-semibold leading-snug block !text-white"
+                className="text-lg font-semibold leading-snug block !text-white"
               />
             </div>
-            <div className="flex items-start gap-2 flex-wrap mt-2">
+            <div className="flex items-center gap-2 flex-wrap mt-1.5">
               <PillSelect
                 value={d.solution_domain ?? ""}
                 options={domainOptions}
@@ -1100,86 +1099,77 @@ function BetCard({
                 logActivity={logActivity}
                 labelMap={domainLabels}
               />
-              {d.is_aging && <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider">Aging</span>}
-              {d.is_unbound && <span className="text-[11px] font-semibold text-signal-amber uppercase tracking-wider">Unbound — no authority</span>}
-              {d.needs_exec_attention && <span className="text-[11px] font-semibold text-signal-red uppercase tracking-wider">Executive Attention Required</span>}
+              {d.is_aging && <TagPill variant="warning">Aging</TagPill>}
+              {d.is_unbound && <TagPill variant="warning">Unbound</TagPill>}
+              {d.needs_exec_attention && <TagPill variant="danger">Exec Attention</TagPill>}
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 lg:min-w-[520px]">
-            <div>
-              <span className="text-[11px] uppercase tracking-[0.16em] !text-white/65 block">Category</span>
-              <div className="mt-1 text-base font-medium">
-                <CategorySelect value={(d.outcome_category_key ?? d.outcome_category) ?? ""} categories={categories} decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full !text-white" />
+          <MetaFieldGrid columns={3} className="lg:min-w-[480px]">
+            <MetaField label="Category">
+              <CategorySelect value={(d.outcome_category_key ?? d.outcome_category) ?? ""} categories={categories} decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full !text-white" />
+            </MetaField>
+            <MetaField label="Owner">
+              <InlineEdit value={d.owner ?? ""} field="owner" decisionId={d.id} canEdit={canManageOwner} onSave={handleInlineSave} logActivity={logActivity} className="w-full !text-white" />
+              <div className="mt-0.5">
+                <OwnerAccountSelect
+                  value={d.owner_user_id ?? null}
+                  members={members}
+                  user={user}
+                  decisionId={d.id}
+                  canEdit={canManageOwner}
+                  onSave={handleInlineSave}
+                  logActivity={logActivity}
+                />
               </div>
-            </div>
-            <div>
-              <span className="text-[11px] uppercase tracking-[0.16em] !text-white/65 block">Owner</span>
-              <div className="mt-1 text-base font-medium">
-                <InlineEdit value={d.owner ?? ""} field="owner" decisionId={d.id} canEdit={canManageOwner} onSave={handleInlineSave} logActivity={logActivity} className="w-full !text-white" />
-                <div className="mt-1">
-                  <OwnerAccountSelect
-                    value={d.owner_user_id ?? null}
-                    members={members}
-                    user={user}
-                    decisionId={d.id}
-                    canEdit={canManageOwner}
-                    onSave={handleInlineSave}
-                    logActivity={logActivity}
-                  />
-                </div>
-              </div>
-            </div>
-            <div>
-              <span className="text-[11px] uppercase tracking-[0.16em] !text-white/65 block">Status</span>
-              <div className="mt-1">
-                <select
-                  value={pendingStatus?.decisionId === d.id ? pendingStatus.newStatus : (d.status === "active" ? "piloting" : d.status)}
-                  disabled={!canUpdateStatus}
-                  onChange={(e) => {
-                    if (!canUpdateStatus) return;
-                    const newStatus = e.target.value;
-                    const oldStatus = d.status === "active" ? "piloting" : d.status;
-                    if (newStatus === oldStatus) {
-                      setPendingStatus(null);
-                      return;
-                    }
-                    setPendingStatus({ decisionId: d.id, newStatus, oldStatus: d.status });
-                    setStatusNote("");
-                  }}
-                  className={cn(
-                    "text-xs border border-white/50 rounded-full px-3 py-1.5 bg-white/95 text-slate-900 min-h-[36px] w-full",
-                    !canUpdateStatus && "opacity-60 cursor-not-allowed"
-                  )}
-                >
-                  {statusOptions.map((s) => (
-                    <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1).replace("_", " ")}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
+            </MetaField>
+            <MetaField label="Status">
+              <select
+                value={pendingStatus?.decisionId === d.id ? pendingStatus.newStatus : (d.status === "active" ? "piloting" : d.status)}
+                disabled={!canUpdateStatus}
+                onChange={(e) => {
+                  if (!canUpdateStatus) return;
+                  const newStatus = e.target.value;
+                  const oldStatus = d.status === "active" ? "piloting" : d.status;
+                  if (newStatus === oldStatus) {
+                    setPendingStatus(null);
+                    return;
+                  }
+                  setPendingStatus({ decisionId: d.id, newStatus, oldStatus: d.status });
+                  setStatusNote("");
+                }}
+                className={cn(
+                  "text-xs border border-foreground/20 rounded-sm px-2 py-1.5 bg-background text-foreground w-full",
+                  !canUpdateStatus && "opacity-60 cursor-not-allowed"
+                )}
+              >
+                {statusOptions.map((s) => (
+                  <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1).replace("_", " ")}</option>
+                ))}
+              </select>
+            </MetaField>
+          </MetaFieldGrid>
         </div>
 
         {pendingStatus?.decisionId === d.id && (
-          <div className="mt-3 p-3 border rounded bg-muted/30 max-w-xl">
-            <label className="text-[11px] uppercase tracking-wider text-muted-foreground block mb-1">What changed? What&apos;s the evidence?</label>
+          <div className="mt-3 p-3 border border-white/20 rounded-sm max-w-xl">
+            <label className="text-[11px] uppercase tracking-wider text-white/60 block mb-1">What changed? What&apos;s the evidence?</label>
             <textarea
               rows={2}
               placeholder="Required: reason for state change"
               value={statusNote}
               onChange={(e) => setStatusNote(e.target.value)}
-              className="w-full text-xs border rounded px-2 py-1.5 bg-background"
+              className="w-full text-xs border rounded-sm px-2 py-1.5 bg-background text-foreground"
             />
             <div className="mt-2 flex items-center gap-3">
               <button
                 onClick={handleStatusConfirm}
                 disabled={!statusNote.trim()}
-                className="text-[11px] font-semibold uppercase tracking-wider px-3 py-1 rounded bg-foreground text-background disabled:opacity-50"
+                className="text-[11px] font-semibold uppercase tracking-wider px-3 py-1 rounded-sm bg-white text-black disabled:opacity-50"
               >
                 Confirm
               </button>
-              <button onClick={() => setPendingStatus(null)} className="text-xs text-muted-foreground hover:text-foreground">
+              <button onClick={() => setPendingStatus(null)} className="text-xs text-white/60 hover:text-white">
                 Cancel
               </button>
             </div>
@@ -1187,79 +1177,57 @@ function BetCard({
         )}
       </div>
 
-      <div className="px-4 md:px-6 py-5 border-b bg-background">
-        <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground block mb-1">Trigger Signal</span>
-        <InlineEdit
-          value={d.trigger_signal ?? ""}
-          field="trigger_signal"
-          decisionId={d.id}
-          canEdit={canWrite}
-          onSave={handleInlineSave}
-          logActivity={logActivity}
-          className="text-lg md:text-xl font-medium leading-snug block"
-          placeholder="Add trigger signal…"
-          multiline
-        />
+      {/* Trigger Signal */}
+      <div className="px-4 md:px-5 py-4 border-b">
+        <SectionBlock label="Trigger Signal">
+          <InlineEdit
+            value={d.trigger_signal ?? ""}
+            field="trigger_signal"
+            decisionId={d.id}
+            canEdit={canWrite}
+            onSave={handleInlineSave}
+            logActivity={logActivity}
+            className="text-base font-medium leading-snug block"
+            placeholder="Add trigger signal..."
+            multiline
+          />
+        </SectionBlock>
       </div>
 
-      <div className="px-4 md:px-6 py-5 space-y-5">
-        <div className="rounded-lg border bg-muted/20 p-4">
-          <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground block mb-1">Outcome Target</span>
-          <InlineEdit value={d.outcome_target ?? ""} field="outcome_target" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="text-base font-medium leading-relaxed block" multiline />
-        </div>
+      {/* Body: Outcome Target, Expected Impact, Exposure */}
+      <div className="px-4 md:px-5 py-4 space-y-4">
+        <SectionBlock label="Outcome Target">
+          <div className="rounded-md border bg-muted/15 p-3">
+            <InlineEdit value={d.outcome_target ?? ""} field="outcome_target" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="text-sm font-medium leading-relaxed block" multiline />
+          </div>
+        </SectionBlock>
 
-        <div>
-          <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground block">Expected Impact</span>
-          {expectedImpactItems.length > 1 && !editingImpact ? (
-            <div
-              role={canWrite ? "button" : undefined}
-              tabIndex={canWrite ? 0 : undefined}
-              onClick={() => canWrite && setEditingImpact(true)}
-              onKeyDown={(e) => canWrite && e.key === "Enter" && setEditingImpact(true)}
-              className={cn("mt-2", canWrite && "cursor-pointer hover:bg-accent/50 rounded px-1 -mx-1")}
-            >
-              <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 text-base text-foreground/90">
-                {expectedImpactItems.map((item, idx) => (
-                  <li key={`${d.id}-impact-${idx}`} className="flex items-start gap-2">
-                    <span className="text-muted-foreground mt-[2px]">•</span>
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : (
-            <InlineEdit value={d.expected_impact ?? ""} field="expected_impact" decisionId={d.id} canEdit={canWrite} onSave={async (...args) => { await handleInlineSave(...args); setEditingImpact(false); }} logActivity={logActivity} className="text-base font-medium leading-relaxed mt-2 block" multiline />
-          )}
-        </div>
+        <SectionBlock label="Expected Impact" collapsible defaultOpen={false}>
+          <InlineEdit value={d.expected_impact ?? ""} field="expected_impact" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="text-sm leading-relaxed block" multiline />
+        </SectionBlock>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div className="border rounded-xl p-4 bg-emerald-50/40 border-emerald-200/70">
-            <span className="text-[11px] uppercase tracking-[0.16em] text-emerald-700/90 block">Upside Exposure</span>
-            <div className="text-emerald-800 mt-2">
-              <InlineEdit value={d.exposure_value ?? ""} field="exposure_value" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="text-base font-medium leading-relaxed block" multiline />
-            </div>
-          </div>
-          <div className="border rounded-xl p-4 bg-signal-red/5 border-signal-red/30">
-            <span className="text-[11px] uppercase tracking-[0.16em] text-signal-red/90 block">Risk Exposure</span>
-            <div className="text-signal-red mt-2">
-              <InlineEdit value={d.revenue_at_risk ?? ""} field="revenue_at_risk" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="text-base font-medium leading-relaxed block" multiline />
-            </div>
-          </div>
+          <ExposureCallout label="Upside Exposure" variant="upside">
+            <InlineEdit value={d.exposure_value ?? ""} field="exposure_value" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="text-sm font-medium leading-relaxed block" multiline />
+          </ExposureCallout>
+          <ExposureCallout label="Risk Exposure" variant="risk">
+            <InlineEdit value={d.revenue_at_risk ?? ""} field="revenue_at_risk" decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="text-sm font-medium leading-relaxed block" multiline />
+          </ExposureCallout>
         </div>
 
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between pt-1">
           <span className={cn("text-xs flex items-center gap-1.5", stale.textClass, stale.pulse && "font-semibold")}>
             <span className={cn("w-1.5 h-1.5 rounded-full inline-block", stale.dotClass, stale.pulse && "animate-pulse")} />
             {stale.label}
           </span>
           {!canUpdateStatus && (
-            <p className="text-[11px] text-muted-foreground">Only assigned owner account or admin can report status updates.</p>
+            <p className="text-[11px] text-muted-foreground">Only assigned owner or admin can update status.</p>
           )}
           {showNudge && (
             <a
-              href={nudgeMailto(d.title ?? "Untitled", stale.days, d.owner ?? "", d.exposure_value ?? d.revenue_at_risk ?? "—")}
+              href={nudgeMailto(d.title ?? "Untitled", stale.days, d.owner ?? "", d.exposure_value ?? d.revenue_at_risk ?? "--")}
               className={cn(
-                "text-[10px] uppercase tracking-wider px-2 py-0.5 border rounded transition-colors",
+                "text-[10px] uppercase tracking-wider px-2 py-0.5 border rounded-sm transition-colors",
                 stale.isRed ? "border-signal-red text-signal-red hover:bg-signal-red/10" : "border-signal-amber text-signal-amber hover:bg-signal-amber/10"
               )}
             >
@@ -1284,7 +1252,7 @@ function BetCard({
       )}
 
       {!hasResourceReality && canWrite && logFormExpanded && (
-        <div className="mt-3">
+        <div className="px-4 md:px-5 py-3">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Log Interruption</p>
           <LogInterruptionForm
             decision={d}
@@ -1298,13 +1266,11 @@ function BetCard({
       )}
 
       {d.blocked_reason && (
-        <div className="mt-3 pt-3 border-t text-xs">
+        <div className="px-4 md:px-5 py-2 border-t text-xs">
           <p className="text-muted-foreground">Blocked: {d.blocked_reason}</p>
           {d.blocked_dependency_owner && <p className="text-muted-foreground mt-0.5">Dependency: {d.blocked_dependency_owner}</p>}
         </div>
       )}
-
-      <BetCapabilityPodsSection betId={d.id} canWrite={canWrite} />
 
       <DecisionActivityFeed
           decisionId={d.id}
@@ -1337,6 +1303,8 @@ export default function Decisions() {
 
   const canWrite = currentRole === "admin" || currentRole === "pod_lead";
   const canManageOwner = currentRole === "admin" || currentRole === "pod_lead";
+  const [filterStatus, setFilterStatus] = useState("");
+  const [filterDomain, setFilterDomain] = useState("");
 
   // Derive solution domain options from org product areas
   const orgDomainOptions = productAreas.map((pa) => pa.key);
@@ -1381,24 +1349,59 @@ export default function Decisions() {
   const atCapacity = activeHighImpact.length >= 10;
   const isEmpty = decisions.length === 0;
 
+  const selectClass = "text-xs border rounded-sm px-2 py-1.5 bg-background focus:outline-none focus:ring-1 focus:ring-foreground";
+
+  const filteredDecisions = orderedDecisions.filter((d) => {
+    if (filterStatus && d.status !== filterStatus) return false;
+    if (filterDomain && d.solution_domain !== filterDomain) return false;
+    return true;
+  });
+
   return (
     <div>
-      <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div className="flex flex-col md:flex-row md:items-center gap-3">
-          <h1 className="text-xl font-bold">Bets</h1>
-          <span className="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-sm bg-muted text-muted-foreground w-fit">
-            {activeHighImpact.length}/10 Active{atCapacity ? " · At capacity" : ""}
-          </span>
-          <p className="text-sm text-muted-foreground">
-            {decisions.length} total · {activeDecisions.length} active
-          </p>
+      {/* Sticky header */}
+      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-3 mb-4">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <h1 className="text-lg font-bold">Bets</h1>
+            <span className="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-sm bg-muted text-muted-foreground">
+              {activeHighImpact.length}/10 Active{atCapacity ? " · Full" : ""}
+            </span>
+            <span className="text-xs text-muted-foreground hidden sm:inline">
+              {decisions.length} total · {activeDecisions.length} active
+            </span>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className={selectClass}>
+              <option value="">All Statuses</option>
+              {statusOptions.map((s) => (
+                <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1).replace("_", " ")}</option>
+              ))}
+            </select>
+            {orgDomainOptions.length > 0 && (
+              <select value={filterDomain} onChange={(e) => setFilterDomain(e.target.value)} className={selectClass}>
+                <option value="">All Domains</option>
+                {orgDomainOptions.map((d) => (
+                  <option key={d} value={d}>{orgDomainLabels[d] ?? d}</option>
+                ))}
+              </select>
+            )}
+            {(filterStatus || filterDomain) && (
+              <button
+                onClick={() => { setFilterStatus(""); setFilterDomain(""); }}
+                className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
+              >
+                Clear
+              </button>
+            )}
+            {canWrite && !showCreate && !atCapacity && (
+              <button onClick={() => setShowCreate(true)}
+                className="text-[11px] font-semibold uppercase tracking-wider text-foreground border border-foreground px-3 py-1.5 rounded-sm hover:bg-foreground hover:text-background transition-colors min-h-[44px] md:min-h-0">
+                + Register Bet
+              </button>
+            )}
+          </div>
         </div>
-        {canWrite && !showCreate && !atCapacity && (
-          <button onClick={() => setShowCreate(true)}
-            className="text-[11px] font-semibold uppercase tracking-wider text-foreground border border-foreground px-3 py-1.5 rounded-sm hover:bg-foreground hover:text-background transition-colors w-full md:w-auto min-h-[44px] md:min-h-0">
-            + Register Bet
-          </button>
-        )}
       </div>
 
       {showCreate && <CreateDecisionForm onClose={() => setShowCreate(false)} />}
@@ -1413,9 +1416,8 @@ export default function Decisions() {
         </div>
       ) : (
         <section className="mb-8">
-          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">All Bets ({decisions.length})</h2>
-          <div className="space-y-6">
-            {orderedDecisions.map((d, index) => (
+          <div className="space-y-5">
+            {filteredDecisions.map((d, index) => (
               <BetCard
                 key={d.id}
                 d={d}
@@ -1442,9 +1444,11 @@ export default function Decisions() {
               />
             ))}
           </div>
+          {filteredDecisions.length === 0 && (filterStatus || filterDomain) && (
+            <p className="text-sm text-muted-foreground text-center py-8">No bets match the current filters.</p>
+          )}
         </section>
       )}
-
     </div>
   );
 }
