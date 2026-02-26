@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrg } from "@/contexts/OrgContext";
@@ -9,6 +9,10 @@ import { trackEvent } from "@/lib/telemetry";
 const PENDING_ORG_JOIN_KEY = "pending_org_join";
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
+const TOKEN_RETRIES = 5;
+const TOKEN_RETRY_DELAY_MS = 400;
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function withRetry<T>(
   fn: () => Promise<T>,
@@ -35,6 +39,19 @@ function friendlyError(status: number, message: string): string {
   return message || "Unable to complete invite flow.";
 }
 
+async function getAccessTokenOrThrow(): Promise<string> {
+  for (let i = 0; i < TOKEN_RETRIES; i++) {
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (sessionData.session?.access_token) return sessionData.session.access_token;
+
+    const { data: refreshed } = await supabase.auth.refreshSession();
+    if (refreshed.session?.access_token) return refreshed.session.access_token;
+
+    await sleep(TOKEN_RETRY_DELAY_MS);
+  }
+  throw new Error("Authentication expired. Please sign in again.");
+}
+
 export default function Join() {
   const { orgId } = useParams<{ orgId: string }>();
   const navigate = useNavigate();
@@ -44,6 +61,7 @@ export default function Join() {
   const [orgName, setOrgName] = useState<string | null>(null);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [retryAttempt, setRetryAttempt] = useState(0);
+  const attemptedKeyRef = useRef<string | null>(null);
 
   const joinOrg = useCallback(async () => {
     if (!orgId || !user) return;
@@ -83,17 +101,8 @@ export default function Join() {
           const timeout = setTimeout(() => controller.abort(), 15000);
 
           try {
-            const { data: edgeData, error } = await supabase.functions.invoke(
-              "join-org",
-              { body: { orgId } },
-            );
-
-            if (!error && edgeData?.success) return edgeData;
-
-            // Fallback: direct HTTP call for transport failures and non-2xx responses.
-            const { data: sessionData } = await supabase.auth.getSession();
-            const accessToken = sessionData.session?.access_token;
-            if (!accessToken) throw new Error("Session expired. Please sign in again.");
+            // Use direct function call with an explicit access token so OAuth/session hydration timing doesn't race.
+            const accessToken = await getAccessTokenOrThrow();
 
             const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
             const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -112,11 +121,11 @@ export default function Join() {
             );
             const fallbackData = await fallbackRes.json().catch(() => ({}));
             if (!fallbackRes.ok) {
-              const msg = String(fallbackData?.error || error?.message || "").trim();
+              const msg = String(fallbackData?.error || "").trim();
               throw new Error(friendlyError(fallbackRes.status, msg));
             }
             if (!fallbackData?.success) {
-              const msg = String(fallbackData?.error || error?.message || "Join failed").trim();
+              const msg = String(fallbackData?.error || "Join failed").trim();
               throw new Error(msg || "Join failed");
             }
             return fallbackData;
@@ -169,6 +178,9 @@ export default function Join() {
       return;
     }
 
+    const attemptKey = `${user.id}:${orgId}`;
+    if (attemptedKeyRef.current === attemptKey) return;
+    attemptedKeyRef.current = attemptKey;
     joinOrg();
   }, [orgId, user, authLoading, orgLoading, memberships, navigate, joinOrg]);
 
