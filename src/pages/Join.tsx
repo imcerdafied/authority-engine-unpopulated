@@ -152,6 +152,17 @@ export default function Join() {
   const [joinError, setJoinError] = useState<string | null>(null);
   const [retryAttempt, setRetryAttempt] = useState(0);
   const attemptedKeyRef = useRef<string | null>(null);
+  const hasDirectMembership = useCallback(async () => {
+    if (!orgId || !user) return false;
+    const { data, error } = await supabase
+      .from("organization_memberships")
+      .select("org_id")
+      .eq("org_id", orgId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (error) return false;
+    return !!data;
+  }, [orgId, user]);
 
   const joinOrg = useCallback(async () => {
     if (!orgId || !user) return;
@@ -249,6 +260,14 @@ export default function Join() {
         throw new Error("Join failed");
       }
     } catch (err) {
+      const isMemberNow = await hasDirectMembership();
+      if (isMemberNow) {
+        localStorage.removeItem(PENDING_ORG_JOIN_KEY);
+        await refetchMemberships();
+        setCurrentOrgId(orgId);
+        navigate("/", { replace: true });
+        return;
+      }
       const message =
         err instanceof Error ? err.message : "Unable to complete invite flow.";
       void trackEvent("invite_join_failed", {
@@ -259,7 +278,7 @@ export default function Join() {
       setJoinError(message);
       setJoining(false);
     }
-  }, [orgId, user, navigate, refetchMemberships, setCurrentOrgId]);
+  }, [orgId, user, navigate, refetchMemberships, setCurrentOrgId, hasDirectMembership]);
 
   useEffect(() => {
     if (!orgId) {
@@ -272,19 +291,20 @@ export default function Join() {
 
     setPendingJoin(orgId);
 
-    const isMember = memberships.some((m) => m.org_id === orgId);
-    if (isMember) {
-      localStorage.removeItem(PENDING_ORG_JOIN_KEY);
-      setCurrentOrgId(orgId);
-      navigate("/");
-      return;
-    }
-
     const attemptKey = `${user.id}:${orgId}`;
     if (attemptedKeyRef.current === attemptKey) return;
     attemptedKeyRef.current = attemptKey;
-    joinOrg();
-  }, [orgId, user, authLoading, orgLoading, memberships, navigate, joinOrg, setCurrentOrgId]);
+    (async () => {
+      const isMember = memberships.some((m) => m.org_id === orgId) || (await hasDirectMembership());
+      if (isMember) {
+        localStorage.removeItem(PENDING_ORG_JOIN_KEY);
+        setCurrentOrgId(orgId);
+        navigate("/");
+        return;
+      }
+      joinOrg();
+    })();
+  }, [orgId, user, authLoading, orgLoading, memberships, navigate, joinOrg, setCurrentOrgId, hasDirectMembership]);
 
   if (!orgId) return null;
 
