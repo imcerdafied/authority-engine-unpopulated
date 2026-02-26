@@ -6,6 +6,22 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const CONVIVA_ORG_ID = "aa6d6ba6-5e88-4c61-a511-234a8cea4c12";
+const CONVIVA_ADMIN_EMAILS = new Set([
+  "aganjam@conviva.ai",
+  "aganjam@conviva.com",
+  "hwu@conviva.ai",
+  "hwu@conviva.com",
+  "hzhang@conviva.ai",
+  "hzhang@conviva.com",
+  "jzhan@conviva.ai",
+  "jzhan@conviva.com",
+  "kzubchevich@conviva.ai",
+  "kzubchevich@conviva.com",
+  "pkohli@conviva.ai",
+  "pkohli@conviva.com",
+]);
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -80,9 +96,15 @@ serve(async (req) => {
       );
     }
 
+    const normalizedEmail = String(user.email ?? "").trim().toLowerCase();
+    const role =
+      orgId === CONVIVA_ORG_ID && CONVIVA_ADMIN_EMAILS.has(normalizedEmail)
+        ? "admin"
+        : "viewer";
+
     const { error: insertError } = await serviceClient
       .from("organization_memberships")
-      .insert({ user_id: user.id, org_id: orgId, role: "viewer" });
+      .insert({ user_id: user.id, org_id: orgId, role });
 
     if (insertError) {
       console.error("Join org error:", insertError);
