@@ -11,6 +11,7 @@ const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
 const TOKEN_RETRIES = 20;
 const TOKEN_RETRY_DELAY_MS = 1000;
+const PENDING_JOIN_TTL_MS = 1000 * 60 * 30;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -39,14 +40,59 @@ function friendlyError(status: number, message: string): string {
   return message || "Unable to complete invite flow.";
 }
 
+function setPendingJoin(orgId: string) {
+  if (typeof window === "undefined") return;
+  const payload = {
+    orgId,
+    createdAt: Date.now(),
+    expiresAt: Date.now() + PENDING_JOIN_TTL_MS,
+  };
+  window.localStorage.setItem(PENDING_ORG_JOIN_KEY, JSON.stringify(payload));
+}
+
+function clearOauthCodeFromUrl() {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has("code")) return;
+  url.searchParams.delete("code");
+  url.searchParams.delete("state");
+  const next = `${url.pathname}${url.search}${url.hash}`;
+  window.history.replaceState({}, "", next);
+}
+
+function getInvokeStatus(err: unknown): number | null {
+  const maybeAny = err as any;
+  const status = maybeAny?.context?.status;
+  return typeof status === "number" ? status : null;
+}
+
+function getInvokeMessage(err: unknown): string {
+  const maybeAny = err as any;
+  const msg =
+    maybeAny?.message ||
+    maybeAny?.context?.statusText ||
+    maybeAny?.context?._statusText ||
+    "";
+  return String(msg).trim();
+}
+
 async function getAccessTokenOrThrow(): Promise<string> {
   const search = typeof window !== "undefined" ? window.location.search : "";
   if (search) {
     const params = new URLSearchParams(search);
     const code = params.get("code");
     if (code) {
+      const markKey = `ba_oauth_code_attempted:${code}`;
+      const alreadyAttempted =
+        typeof window !== "undefined" && window.sessionStorage.getItem(markKey) === "1";
+      if (!alreadyAttempted && typeof window !== "undefined") {
+        window.sessionStorage.setItem(markKey, "1");
+      }
       const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-      if (!error && data.session?.access_token) return data.session.access_token;
+      if (!error && data.session?.access_token) {
+        clearOauthCodeFromUrl();
+        return data.session.access_token;
+      }
     }
   }
 
@@ -151,6 +197,10 @@ export default function Join() {
               { body: { orgId } },
             );
             if (!invokeError && edgeData?.success) return edgeData;
+            const invokeStatus = getInvokeStatus(invokeError);
+            if (invokeStatus && [400, 403, 404].includes(invokeStatus)) {
+              throw new Error(friendlyError(invokeStatus, getInvokeMessage(invokeError)));
+            }
 
             // Fallback: direct function call with explicit access token for OAuth/session hydration races.
             const accessToken = await getAccessTokenOrThrow();
@@ -220,7 +270,7 @@ export default function Join() {
     if (authLoading || orgLoading) return;
     if (!user) return;
 
-    localStorage.setItem(PENDING_ORG_JOIN_KEY, orgId);
+    setPendingJoin(orgId);
 
     const isMember = memberships.some((m) => m.org_id === orgId);
     if (isMember) {

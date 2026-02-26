@@ -58,6 +58,30 @@ const OrgContext = createContext<OrgContextType>({
 
 const ORG_STORAGE_KEY = "ba_current_org";
 const PENDING_ORG_JOIN_KEY = "pending_org_join";
+const PENDING_JOIN_TTL_MS = 1000 * 60 * 30;
+
+function readPendingOrgJoin(): string | null {
+  if (typeof window === "undefined") return null;
+  const raw = localStorage.getItem(PENDING_ORG_JOIN_KEY);
+  if (!raw) return null;
+
+  // Legacy value support (plain org id string)
+  if (!raw.startsWith("{")) return raw;
+
+  try {
+    const parsed = JSON.parse(raw) as { orgId?: string; createdAt?: number; expiresAt?: number };
+    if (!parsed?.orgId) return null;
+    const expiry = parsed.expiresAt ?? ((parsed.createdAt ?? 0) + PENDING_JOIN_TTL_MS);
+    if (expiry && Date.now() > expiry) {
+      localStorage.removeItem(PENDING_ORG_JOIN_KEY);
+      return null;
+    }
+    return parsed.orgId;
+  } catch {
+    localStorage.removeItem(PENDING_ORG_JOIN_KEY);
+    return null;
+  }
+}
 
 function parseProductAreas(raw: unknown): ProductArea[] {
   if (!raw || !Array.isArray(raw)) return DEFAULT_PRODUCT_AREAS;
@@ -130,7 +154,11 @@ export function OrgProvider({ children }: { children: ReactNode }) {
   }, [fetchMemberships]);
 
   useEffect(() => {
-    const pendingOrgId = localStorage.getItem(PENDING_ORG_JOIN_KEY);
+    if (typeof window !== "undefined" && window.location.pathname.startsWith("/join/")) {
+      return;
+    }
+
+    const pendingOrgId = readPendingOrgJoin();
     if (!user || !pendingOrgId) return;
 
     const processPendingJoin = async () => {
