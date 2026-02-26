@@ -214,8 +214,6 @@ export function OrgProvider({ children }: { children: ReactNode }) {
       created_by: user.id,
       allowed_email_domain: null,
     };
-    if (productAreas?.length) insertData.product_areas = productAreas;
-    if (customOutcomeCategories?.length) insertData.custom_outcome_categories = customOutcomeCategories;
 
     const { data: org, error: orgError } = await supabase
       .from("organizations")
@@ -233,6 +231,19 @@ export function OrgProvider({ children }: { children: ReactNode }) {
     if (memError) {
       console.error("Failed to create membership after org insert:", memError);
       throw new Error(memError.message || "Failed to create admin membership.");
+    }
+
+    const optionalUpdate: any = {};
+    if (productAreas?.length) optionalUpdate.product_areas = productAreas;
+    if (customOutcomeCategories?.length) optionalUpdate.custom_outcome_categories = customOutcomeCategories;
+    if (Object.keys(optionalUpdate).length > 0) {
+      const { error: optionalErr } = await supabase
+        .from("organizations")
+        .update(optionalUpdate)
+        .eq("id", org.id);
+      if (optionalErr) {
+        console.warn("Optional org metadata update skipped:", optionalErr.message);
+      }
     }
 
     await fetchMemberships();

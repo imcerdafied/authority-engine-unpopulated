@@ -49,20 +49,15 @@ serve(async (req) => {
     }
 
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
-    const insertData: Record<string, unknown> = {
+    const baseInsertData: Record<string, unknown> = {
       name,
       created_by: user.id,
       allowed_email_domain: null,
     };
-    if (productAreas && productAreas.length) insertData.product_areas = productAreas;
-    if (customOutcomeCategories && customOutcomeCategories.length) {
-      insertData.custom_outcome_categories = customOutcomeCategories;
-    }
-
     const { data: org, error: orgError } = await serviceClient
       .from("organizations")
-      .insert(insertData)
-      .select("id")
+      .insert(baseInsertData)
+      .select("id,name")
       .single();
 
     if (orgError || !org) {
@@ -81,6 +76,22 @@ serve(async (req) => {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Best-effort optional metadata update for projects that include these columns.
+    const optionalUpdate: Record<string, unknown> = {};
+    if (productAreas && productAreas.length) optionalUpdate.product_areas = productAreas;
+    if (customOutcomeCategories && customOutcomeCategories.length) {
+      optionalUpdate.custom_outcome_categories = customOutcomeCategories;
+    }
+    if (Object.keys(optionalUpdate).length > 0) {
+      const { error: optionalError } = await serviceClient
+        .from("organizations")
+        .update(optionalUpdate)
+        .eq("id", org.id);
+      if (optionalError) {
+        console.warn("Optional org metadata update skipped:", optionalError.message);
+      }
     }
 
     return new Response(JSON.stringify({ success: true, orgId: org.id }), {
