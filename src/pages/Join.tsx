@@ -9,8 +9,8 @@ import { trackEvent } from "@/lib/telemetry";
 const PENDING_ORG_JOIN_KEY = "pending_org_join";
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
-const TOKEN_RETRIES = 5;
-const TOKEN_RETRY_DELAY_MS = 400;
+const TOKEN_RETRIES = 20;
+const TOKEN_RETRY_DELAY_MS = 1000;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -73,6 +73,26 @@ async function getAccessTokenOrThrow(): Promise<string> {
 
     await sleep(TOKEN_RETRY_DELAY_MS);
   }
+
+  if (typeof window !== "undefined") {
+    for (const key of Object.keys(window.localStorage)) {
+      if (!key.startsWith("sb-") || !key.includes("-auth-token")) continue;
+      try {
+        const raw = window.localStorage.getItem(key);
+        if (!raw) continue;
+        const parsed = JSON.parse(raw);
+        const token =
+          parsed?.access_token ||
+          parsed?.currentSession?.access_token ||
+          parsed?.session?.access_token ||
+          (Array.isArray(parsed) ? parsed[0]?.access_token : null);
+        if (token && typeof token === "string") return token;
+      } catch {
+        // keep scanning auth-token keys
+      }
+    }
+  }
+
   throw new Error("Authentication expired. Please sign in again.");
 }
 
