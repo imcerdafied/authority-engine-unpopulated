@@ -40,6 +40,20 @@ function friendlyError(status: number, message: string): string {
 }
 
 async function getAccessTokenOrThrow(): Promise<string> {
+  const hash = typeof window !== "undefined" ? window.location.hash.replace(/^#/, "") : "";
+  if (hash) {
+    const params = new URLSearchParams(hash);
+    const accessToken = params.get("access_token");
+    const refreshToken = params.get("refresh_token");
+    if (accessToken && refreshToken) {
+      const { data } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      });
+      if (data.session?.access_token) return data.session.access_token;
+    }
+  }
+
   for (let i = 0; i < TOKEN_RETRIES; i++) {
     const { data: sessionData } = await supabase.auth.getSession();
     if (sessionData.session?.access_token) return sessionData.session.access_token;
@@ -101,9 +115,15 @@ export default function Join() {
           const timeout = setTimeout(() => controller.abort(), 15000);
 
           try {
-            // Use direct function call with an explicit access token so OAuth/session hydration timing doesn't race.
-            const accessToken = await getAccessTokenOrThrow();
+            // First attempt via supabase invoke (may already have valid in-memory auth).
+            const { data: edgeData, error: invokeError } = await supabase.functions.invoke(
+              "join-org",
+              { body: { orgId } },
+            );
+            if (!invokeError && edgeData?.success) return edgeData;
 
+            // Fallback: direct function call with explicit access token for OAuth/session hydration races.
+            const accessToken = await getAccessTokenOrThrow();
             const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
             const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
             const fallbackRes = await fetch(
@@ -121,11 +141,11 @@ export default function Join() {
             );
             const fallbackData = await fallbackRes.json().catch(() => ({}));
             if (!fallbackRes.ok) {
-              const msg = String(fallbackData?.error || "").trim();
+              const msg = String(fallbackData?.error || invokeError?.message || "").trim();
               throw new Error(friendlyError(fallbackRes.status, msg));
             }
             if (!fallbackData?.success) {
-              const msg = String(fallbackData?.error || "Join failed").trim();
+              const msg = String(fallbackData?.error || invokeError?.message || "Join failed").trim();
               throw new Error(msg || "Join failed");
             }
             return fallbackData;
