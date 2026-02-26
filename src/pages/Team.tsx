@@ -155,9 +155,13 @@ export default function Team() {
               <div key={m.user_id} className="px-4 py-3 flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium">
-                    {m.user_id === user?.id ? `You (${roleLabels[m.role] || m.role})` : "Member"}
+                    {m.user_id === user?.id
+                      ? `You (${roleLabels[m.role] || m.role})`
+                      : m.display_name || m.email || "Member"}
                   </p>
-                  <p className="text-[11px] text-muted-foreground">{m.user_id}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {m.email || m.user_id}
+                  </p>
                 </div>
                 {isAdmin && m.user_id !== user?.id ? (
                   <select

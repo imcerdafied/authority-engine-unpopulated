@@ -237,6 +237,20 @@ export function OrgProvider({ children }: { children: ReactNode }) {
 
     // Path 3: final local fallback - create directly, then membership.
     // This keeps onboarding unblocked if edge routing is flaky.
+    const { data: existingMembershipOrgs } = await supabase
+      .from("organization_memberships")
+      .select("org_id, organizations(id,name)")
+      .eq("user_id", user.id);
+    const existingByName = (existingMembershipOrgs || []).find((row: any) => {
+      const orgName = String(row?.organizations?.name || "").trim().toLowerCase();
+      return orgName === name.trim().toLowerCase();
+    });
+    if (existingByName?.org_id) {
+      await fetchMemberships();
+      handleSetCurrentOrgId(existingByName.org_id);
+      return existingByName.org_id;
+    }
+
     const insertData: any = {
       name,
       created_by: user.id,

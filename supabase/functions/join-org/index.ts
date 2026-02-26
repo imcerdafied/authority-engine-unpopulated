@@ -6,21 +6,20 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const CONVIVA_ORG_ID = "aa6d6ba6-5e88-4c61-a511-234a8cea4c12";
-const CONVIVA_ADMIN_EMAILS = new Set([
-  "aganjam@conviva.ai",
-  "aganjam@conviva.com",
-  "hwu@conviva.ai",
-  "hwu@conviva.com",
-  "hzhang@conviva.ai",
-  "hzhang@conviva.com",
-  "jzhan@conviva.ai",
-  "jzhan@conviva.com",
-  "kzubchevich@conviva.ai",
-  "kzubchevich@conviva.com",
-  "pkohli@conviva.ai",
-  "pkohli@conviva.com",
-]);
+function parseAllowedDomainRules(raw: unknown): { domains: Set<string>; emails: Set<string> } {
+  const out = { domains: new Set<string>(), emails: new Set<string>() };
+  const val = String(raw ?? "").trim().toLowerCase();
+  if (!val) return out;
+
+  for (const token of val.split(/[,\s;]+/).map((x) => x.trim()).filter(Boolean)) {
+    if (token.includes("@")) {
+      out.emails.add(token);
+      continue;
+    }
+    out.domains.add(token.replace(/^@+/, ""));
+  }
+  return out;
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -71,7 +70,7 @@ serve(async (req) => {
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
     const { data: orgData } = await serviceClient
       .from("organizations")
-      .select("id")
+      .select("id,allowed_email_domain")
       .eq("id", orgId)
       .maybeSingle();
 
@@ -80,6 +79,23 @@ serve(async (req) => {
         JSON.stringify({ error: "Organization not found" }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    const normalizedEmail = String(user.email ?? "").trim().toLowerCase();
+    const userDomain = normalizedEmail.includes("@")
+      ? normalizedEmail.split("@").pop() ?? ""
+      : "";
+    const rule = parseAllowedDomainRules((orgData as any).allowed_email_domain);
+    const hasRules = rule.domains.size > 0 || rule.emails.size > 0;
+    if (hasRules) {
+      const domainAllowed = userDomain ? rule.domains.has(userDomain) : false;
+      const emailAllowed = rule.emails.has(normalizedEmail);
+      if (!domainAllowed && !emailAllowed) {
+        return new Response(
+          JSON.stringify({ error: "Your email domain is not allowed for this organization." }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
     const { data: existing } = await serviceClient
@@ -96,11 +112,16 @@ serve(async (req) => {
       );
     }
 
-    const normalizedEmail = String(user.email ?? "").trim().toLowerCase();
-    const role =
-      orgId === CONVIVA_ORG_ID && CONVIVA_ADMIN_EMAILS.has(normalizedEmail)
-        ? "admin"
-        : "viewer";
+    let role = "viewer";
+    const { data: allow } = await serviceClient
+      .from("org_access_allowlist")
+      .select("role")
+      .eq("org_id", orgId)
+      .eq("email", normalizedEmail)
+      .maybeSingle();
+    if (allow?.role && ["admin", "pod_lead", "viewer"].includes(String(allow.role))) {
+      role = String(allow.role);
+    }
 
     const { error: insertError } = await serviceClient
       .from("organization_memberships")

@@ -114,29 +114,16 @@ async function getAccessTokenOrThrow(): Promise<string> {
     const { data: sessionData } = await supabase.auth.getSession();
     if (sessionData.session?.access_token) return sessionData.session.access_token;
 
-    const { data: refreshed } = await supabase.auth.refreshSession();
+    const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
     if (refreshed.session?.access_token) return refreshed.session.access_token;
-
-    await sleep(TOKEN_RETRY_DELAY_MS);
-  }
-
-  if (typeof window !== "undefined") {
-    for (const key of Object.keys(window.localStorage)) {
-      if (!key.startsWith("sb-") || !key.includes("-auth-token")) continue;
-      try {
-        const raw = window.localStorage.getItem(key);
-        if (!raw) continue;
-        const parsed = JSON.parse(raw);
-        const token =
-          parsed?.access_token ||
-          parsed?.currentSession?.access_token ||
-          parsed?.session?.access_token ||
-          (Array.isArray(parsed) ? parsed[0]?.access_token : null);
-        if (token && typeof token === "string") return token;
-      } catch {
-        // keep scanning auth-token keys
+    if (refreshError) {
+      const msg = String(refreshError.message || "").toLowerCase();
+      if (msg.includes("invalid_grant") || msg.includes("refresh token")) {
+        throw new Error("Authentication expired. Please sign in again.");
       }
     }
+
+    await sleep(TOKEN_RETRY_DELAY_MS);
   }
 
   throw new Error("Authentication expired. Please sign in again.");

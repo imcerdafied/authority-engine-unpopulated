@@ -49,6 +49,46 @@ serve(async (req) => {
     }
 
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Rate-limit org sprawl and keep onboarding predictable.
+    const { count: createdCount } = await serviceClient
+      .from("organizations")
+      .select("id", { count: "exact", head: true })
+      .eq("created_by", user.id);
+    if ((createdCount ?? 0) >= 20) {
+      return new Response(JSON.stringify({ error: "Organization limit reached for this account." }), {
+        status: 429,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Idempotency: if this creator already has an org with same name (case-insensitive), reuse it.
+    const { data: existingOrgs } = await serviceClient
+      .from("organizations")
+      .select("id,name")
+      .eq("created_by", user.id)
+      .order("created_at", { ascending: false })
+      .limit(100);
+    const existing = (existingOrgs || []).find(
+      (o: any) => String(o.name || "").trim().toLowerCase() === name.toLowerCase(),
+    );
+    if (existing?.id) {
+      const { data: existingMembership } = await serviceClient
+        .from("organization_memberships")
+        .select("id")
+        .eq("org_id", existing.id)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (!existingMembership) {
+        await serviceClient
+          .from("organization_memberships")
+          .insert({ user_id: user.id, org_id: existing.id, role: "admin" });
+      }
+      return new Response(JSON.stringify({ success: true, orgId: existing.id, reused: true }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     const baseInsertData: Record<string, unknown> = {
       name,
       created_by: user.id,
@@ -72,6 +112,12 @@ serve(async (req) => {
       .insert({ user_id: user.id, org_id: org.id, role: "admin" });
 
     if (membershipError) {
+      // Keep data consistent: don't leave orphan orgs with no admin.
+      await serviceClient
+        .from("organizations")
+        .delete()
+        .eq("id", org.id)
+        .eq("created_by", user.id);
       return new Response(JSON.stringify({ error: membershipError.message || "Failed to create membership" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
