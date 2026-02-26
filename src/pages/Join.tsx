@@ -70,7 +70,7 @@ export default function Join() {
   const { orgId } = useParams<{ orgId: string }>();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const { memberships, loading: orgLoading, refetchMemberships } = useOrg();
+  const { memberships, loading: orgLoading, refetchMemberships, setCurrentOrgId } = useOrg();
   const [joining, setJoining] = useState(false);
   const [orgName, setOrgName] = useState<string | null>(null);
   const [joinError, setJoinError] = useState<string | null>(null);
@@ -163,6 +163,7 @@ export default function Join() {
         });
         localStorage.removeItem(PENDING_ORG_JOIN_KEY);
         await refetchMemberships();
+        setCurrentOrgId(orgId);
         navigate("/", { replace: true });
       } else {
         throw new Error("Join failed");
@@ -178,7 +179,7 @@ export default function Join() {
       setJoinError(message);
       setJoining(false);
     }
-  }, [orgId, user, navigate, refetchMemberships]);
+  }, [orgId, user, navigate, refetchMemberships, setCurrentOrgId]);
 
   useEffect(() => {
     if (!orgId) {
@@ -194,6 +195,7 @@ export default function Join() {
     const isMember = memberships.some((m) => m.org_id === orgId);
     if (isMember) {
       localStorage.removeItem(PENDING_ORG_JOIN_KEY);
+      setCurrentOrgId(orgId);
       navigate("/");
       return;
     }
@@ -202,7 +204,7 @@ export default function Join() {
     if (attemptedKeyRef.current === attemptKey) return;
     attemptedKeyRef.current = attemptKey;
     joinOrg();
-  }, [orgId, user, authLoading, orgLoading, memberships, navigate, joinOrg]);
+  }, [orgId, user, authLoading, orgLoading, memberships, navigate, joinOrg, setCurrentOrgId]);
 
   if (!orgId) return null;
 
