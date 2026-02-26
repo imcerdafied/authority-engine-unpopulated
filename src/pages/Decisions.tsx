@@ -465,7 +465,7 @@ function DecisionActivityFeed({
   const { data: activity = [], isLoading } = useDecisionActivity(decisionId);
 
   return (
-    <div className="mt-3 pt-3 pb-3 px-4 md:px-6 border-t">
+    <div className="mt-3 pt-3 pb-4 px-5 md:px-6 border-t">
       <div className="flex items-center gap-2 flex-wrap">
         <button
           onClick={() => setExpanded(!expanded)}
@@ -1073,7 +1073,7 @@ function BetCard({
       <div className="px-4 md:px-5 py-3 border-b bg-black/90 text-white">
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
           <div className="min-w-0 w-full lg:w-auto">
-            <div className="flex items-start gap-2 justify-center">
+            <div className="flex items-start gap-2">
               <span className="text-lg font-semibold leading-snug !text-white/70">{index}.</span>
               <InlineEdit
                 value={d.title ?? ""}
@@ -1087,7 +1087,7 @@ function BetCard({
                 className="text-lg font-semibold leading-snug block !text-white"
               />
             </div>
-            <div className="flex items-center gap-2 flex-wrap mt-1.5 justify-center">
+            <div className="flex items-center gap-2 flex-wrap mt-1.5">
               <PillSelect
                 value={d.solution_domain ?? ""}
                 options={domainOptions}
@@ -1104,7 +1104,7 @@ function BetCard({
             </div>
           </div>
 
-          <MetaFieldGrid columns={3} className="lg:min-w-[480px]">
+          <MetaFieldGrid columns={3} className="w-full lg:min-w-[480px]">
             <MetaField label="Category">
               <CategorySelect value={(d.outcome_category_key ?? d.outcome_category) ?? ""} categories={categories} decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full !text-white" />
             </MetaField>
@@ -1211,13 +1211,13 @@ function BetCard({
           </ExposureCallout>
         </div>
 
-        <div className="flex items-center justify-between pt-1">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-1">
           <span className={cn("text-xs flex items-center gap-1.5", stale.textClass, stale.pulse && "font-semibold")}>
             <span className={cn("w-1.5 h-1.5 rounded-full inline-block", stale.dotClass, stale.pulse && "animate-pulse")} />
             {stale.label}
           </span>
           {!canUpdateStatus && (
-            <p className="text-[11px] text-muted-foreground">Only assigned owner or admin can update status.</p>
+            <p className="text-[11px] text-muted-foreground sm:text-right">Only assigned owner or admin can update status.</p>
           )}
           {showNudge && (
             <a

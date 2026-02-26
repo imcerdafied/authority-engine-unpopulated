@@ -138,7 +138,7 @@ export default function OrgSetup() {
   const canCreateOrg = !!name.trim() && !!categoryMode && (!useCustomCategories || hasValidCustomCategories);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-6 sm:px-6">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <h1 className="text-sm font-bold tracking-widest uppercase text-foreground">
@@ -236,7 +236,7 @@ export default function OrgSetup() {
                   </button>
                 )}
               </div>
-              <div className="flex gap-3 mt-6">
+              <div className="flex flex-col sm:flex-row gap-3 mt-6">
                 <button
                   onClick={handleBack}
                   className="flex-1 text-[11px] font-semibold uppercase tracking-wider text-foreground border border-foreground px-4 py-2.5 rounded-sm hover:bg-foreground hover:text-background transition-colors"
@@ -332,7 +332,7 @@ export default function OrgSetup() {
                   </p>
                 </div>
               )}
-              <div className="flex gap-3 mt-6">
+              <div className="flex flex-col sm:flex-row gap-3 mt-6">
                 <button
                   onClick={handleBack}
                   className="flex-1 text-[11px] font-semibold uppercase tracking-wider text-foreground border border-foreground px-4 py-2.5 rounded-sm hover:bg-foreground hover:text-background transition-colors"
@@ -370,17 +370,17 @@ export default function OrgSetup() {
                   <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">
                     Invite Link
                   </label>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <input
                       readOnly
                       value={inviteUrl}
                       placeholder={createdOrgId ? "" : "Invite link will appear after org is created"}
-                      className="flex-1 border rounded-sm px-3 py-2 text-sm bg-muted text-foreground"
+                      className="flex-1 border rounded-sm px-3 py-2 text-sm bg-muted text-foreground min-w-0"
                     />
                     <button
                       onClick={copyInviteLink}
                       disabled={!inviteUrl}
-                      className="text-[11px] font-semibold uppercase tracking-wider text-foreground border border-foreground px-3 py-2 rounded-sm hover:bg-foreground hover:text-background transition-colors shrink-0"
+                      className="text-[11px] font-semibold uppercase tracking-wider text-foreground border border-foreground px-3 py-2 rounded-sm hover:bg-foreground hover:text-background transition-colors shrink-0 w-full sm:w-auto"
                     >
                       {copied ? "Copied" : "Copy"}
                     </button>

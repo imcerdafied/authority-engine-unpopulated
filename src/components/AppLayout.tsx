@@ -81,7 +81,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               <Sep />
               <Link to="/review" className={navLinkClass} onClick={closeMenu}>Review</Link>
               <Sep />
-              <Link to="/capability-map" className={navLinkClass} onClick={closeMenu}>Capability Map</Link>
+              <Link to="/capability-map" className={navLinkClass} onClick={closeMenu}>Capability Map (Soon)</Link>
               <Sep />
               <Link to="/how-it-works" className={navLinkClass} onClick={closeMenu}>How It Works</Link>
             </div>
