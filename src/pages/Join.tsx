@@ -40,6 +40,16 @@ function friendlyError(status: number, message: string): string {
 }
 
 async function getAccessTokenOrThrow(): Promise<string> {
+  const search = typeof window !== "undefined" ? window.location.search : "";
+  if (search) {
+    const params = new URLSearchParams(search);
+    const code = params.get("code");
+    if (code) {
+      const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+      if (!error && data.session?.access_token) return data.session.access_token;
+    }
+  }
+
   const hash = typeof window !== "undefined" ? window.location.hash.replace(/^#/, "") : "";
   if (hash) {
     const params = new URLSearchParams(hash);
