@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useOrg, type ProductArea, type CustomCategory } from "@/contexts/OrgContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
+import { trackEvent } from "@/lib/telemetry";
 
 const SLOT_KEYS = ["S1", "S2", "S3", "S4", "S5"];
 
@@ -65,19 +66,29 @@ export default function OrgSetup() {
           }))
       : undefined;
 
-    const orgId = await createOrg(
-      name.trim(),
-      areas.length > 0 ? areas : undefined,
-      customCats,
-    );
-    if (!orgId) {
-      setCreateError("Organization creation failed. Please try again.");
+    try {
+      const orgId = await createOrg(
+        name.trim(),
+        areas.length > 0 ? areas : undefined,
+        customCats,
+      );
+      setCreatedOrgId(orgId);
       setLoading(false);
-      return;
+      setStep(4);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Organization creation failed. Please try again.";
+      setCreateError(message);
+      void trackEvent("organization_create_failed", {
+        userId: user?.id ?? null,
+        severity: "error",
+        metadata: {
+          message,
+          org_name: name.trim(),
+          step,
+        },
+      });
+      setLoading(false);
     }
-    setCreatedOrgId(orgId);
-    setLoading(false);
-    setStep(4);
   };
 
   const updateProductArea = (index: number, label: string) => {

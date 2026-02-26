@@ -36,7 +36,7 @@ interface OrgContextType {
   productAreas: ProductArea[];
   customOutcomeCategories: CustomCategory[] | null;
   setCurrentOrgId: (orgId: string) => void;
-  createOrg: (name: string, productAreas?: ProductArea[], customOutcomeCategories?: CustomCategory[]) => Promise<string | null>;
+  createOrg: (name: string, productAreas?: ProductArea[], customOutcomeCategories?: CustomCategory[]) => Promise<string>;
   updateOrg: (fields: { product_areas?: ProductArea[]; custom_outcome_categories?: CustomCategory[] }) => Promise<void>;
   refetchMemberships: () => Promise<void>;
 }
@@ -49,7 +49,9 @@ const OrgContext = createContext<OrgContextType>({
   productAreas: DEFAULT_PRODUCT_AREAS,
   customOutcomeCategories: null,
   setCurrentOrgId: () => {},
-  createOrg: async () => null,
+  createOrg: async () => {
+    throw new Error("Not implemented");
+  },
   updateOrg: async () => {},
   refetchMemberships: async () => {},
 });
@@ -159,8 +161,8 @@ export function OrgProvider({ children }: { children: ReactNode }) {
     name: string,
     productAreas?: ProductArea[],
     customOutcomeCategories?: CustomCategory[],
-  ): Promise<string | null> => {
-    if (!user) return null;
+  ): Promise<string> => {
+    if (!user) throw new Error("Please sign in again.");
     const payload = {
       name,
       productAreas: productAreas?.length ? productAreas : undefined,
@@ -174,6 +176,7 @@ export function OrgProvider({ children }: { children: ReactNode }) {
       handleSetCurrentOrgId(data.orgId);
       return data.orgId;
     }
+    let lastError = error?.message ? String(error.message) : "Edge create-org failed.";
 
     // Path 2: direct HTTP edge call (handles transport/non-2xx inconsistencies)
     try {
@@ -197,8 +200,10 @@ export function OrgProvider({ children }: { children: ReactNode }) {
           handleSetCurrentOrgId(body.orgId);
           return body.orgId;
         }
+        lastError = String(body?.error || `create-org HTTP ${res.status}`);
       }
     } catch (fallbackErr) {
+      lastError = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
       console.error("Fallback create-org HTTP failed:", fallbackErr);
     }
 
@@ -219,7 +224,7 @@ export function OrgProvider({ children }: { children: ReactNode }) {
       .single();
     if (orgError || !org?.id) {
       console.error("Failed to create org (all paths):", error, orgError);
-      return null;
+      throw new Error(orgError?.message || lastError || "Organization insert failed.");
     }
 
     const { error: memError } = await supabase
@@ -227,7 +232,7 @@ export function OrgProvider({ children }: { children: ReactNode }) {
       .insert({ user_id: user.id, org_id: org.id, role: "admin" as AppRole });
     if (memError) {
       console.error("Failed to create membership after org insert:", memError);
-      return null;
+      throw new Error(memError.message || "Failed to create admin membership.");
     }
 
     await fetchMemberships();
