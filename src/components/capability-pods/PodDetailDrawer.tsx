@@ -167,7 +167,7 @@ export default function PodDetailDrawer({ podId, onClose, canWrite }: PodDetailD
 
   return (
     <Drawer open={!!podId} onOpenChange={(open) => !open && onClose()}>
-      <DrawerContent className="max-h-[85vh] overflow-y-auto">
+      <DrawerContent className="max-h-[92svh] overflow-y-auto">
         <DrawerHeader className="pb-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -180,7 +180,7 @@ export default function PodDetailDrawer({ podId, onClose, canWrite }: PodDetailD
 
         <div className="px-4 pb-6 space-y-5">
           {/* Core fields */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <EditableField field="name" label="Name" value={pod.name} />
             <EditableField field="owner" label="Owner" value={pod.owner} />
           </div>
@@ -213,7 +213,7 @@ export default function PodDetailDrawer({ podId, onClose, canWrite }: PodDetailD
           </div>
 
           {/* Bet alignment */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <span className={labelClass}>Primary Bet</span>
               <p className="text-sm font-medium">{betTitle(pod.primary_bet_id)}</p>
@@ -242,7 +242,7 @@ export default function PodDetailDrawer({ podId, onClose, canWrite }: PodDetailD
           {/* Prototype-to-Production tracker */}
           <div>
             <span className={labelClass}>Prototype to Production</span>
-            <div className="flex items-center gap-6 mt-2">
+            <div className="flex flex-wrap items-center gap-4 md:gap-6 mt-2">
               {(["prototype_built", "customer_validated", "production_shipped"] as const).map((field, idx) => {
                 const checked = pod[field];
                 const labels = ["Prototype Built", "Customer Validated", "Production Shipped"];
@@ -322,7 +322,7 @@ export default function PodDetailDrawer({ podId, onClose, canWrite }: PodDetailD
             ) : (
               <div className="space-y-2">
                 {kpiTargets.map((kpi, idx) => (
-                  <div key={idx} className="grid grid-cols-5 gap-2 items-end">
+                  <div key={idx} className="grid grid-cols-1 md:grid-cols-5 gap-2 items-end">
                     <div>
                       <label className="text-[10px] text-muted-foreground">KPI Name</label>
                       <input value={kpi.kpi_name} onChange={(e) => updateKpi(idx, "kpi_name", e.target.value)} className="w-full border rounded-sm px-2 py-1 text-xs bg-background" disabled={!canWrite} />

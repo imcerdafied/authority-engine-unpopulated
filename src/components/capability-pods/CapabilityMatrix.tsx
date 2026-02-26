@@ -68,10 +68,14 @@ export default function CapabilityMatrix({ pods, bets, onPodClick }: CapabilityM
                 return (
                   <td key={bet.id} className="text-center px-2 py-2.5">
                     {isPrimary && (
-                      <span className="inline-block w-3 h-3 rounded-full bg-foreground" title="Primary" />
+                      <span className="inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-sm bg-foreground text-background text-[10px] font-semibold" title="Primary">
+                        P
+                      </span>
                     )}
                     {isSecondary && (
-                      <span className="inline-block w-3 h-3 rounded-full border-2 border-foreground" title="Secondary" />
+                      <span className="inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-sm border border-foreground text-foreground text-[10px] font-semibold" title="Secondary">
+                        S
+                      </span>
                     )}
                   </td>
                 );

@@ -33,9 +33,9 @@ export default function PodCard({ pod, betId, canWrite, onToggle, onClick }: Pod
                 : "border border-foreground text-foreground",
             )}
           >
-            {isPrimary ? "Primary" : "Secondary"}
+            {isPrimary ? "Primary to this bet" : "Secondary to this bet"}
           </span>
-          <span className="text-sm font-medium truncate">{pod.name}</span>
+          <span className="text-sm font-semibold truncate">{pod.name}</span>
         </div>
         <StatusBadge status={pod.status} />
       </div>

@@ -56,7 +56,7 @@ export default function CreateCapabilityPodForm({ defaultPrimaryBetId, onClose }
         <button onClick={onClose} className="text-xs text-muted-foreground hover:text-foreground">Cancel</button>
       </div>
       <form onSubmit={handleSubmit} className="space-y-3">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
             <label className={labelClass}>Name *</label>
             <input required value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
@@ -66,7 +66,7 @@ export default function CreateCapabilityPodForm({ defaultPrimaryBetId, onClose }
             <input required value={owner} onChange={(e) => setOwner(e.target.value)} className={inputClass} />
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
             <label className={labelClass}>Primary Bet *</label>
             <select
@@ -83,6 +83,9 @@ export default function CreateCapabilityPodForm({ defaultPrimaryBetId, onClose }
                 <option key={b.id} value={b.id}>{b.title}</option>
               ))}
             </select>
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Each capability pod must ladder to one primary bet.
+            </p>
           </div>
           <div>
             <label className={labelClass}>Secondary Bet</label>
@@ -100,7 +103,7 @@ export default function CreateCapabilityPodForm({ defaultPrimaryBetId, onClose }
             </select>
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
             <label className={labelClass}>Status</label>
             <select value={status} onChange={(e) => setStatus(e.target.value as CapabilityPodStatus)} className={inputClass}>

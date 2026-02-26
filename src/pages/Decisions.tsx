@@ -11,6 +11,7 @@ import TagPill from "@/components/bets/TagPill";
 import SectionBlock from "@/components/bets/SectionBlock";
 import ExposureCallout from "@/components/bets/ExposureCallout";
 import MetaFieldGrid, { MetaField } from "@/components/bets/MetaFieldGrid";
+import BetCapabilityPodsSection from "@/components/capability-pods/BetCapabilityPodsSection";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -1267,6 +1268,11 @@ function BetCard({
           {d.blocked_dependency_owner && <p className="text-muted-foreground mt-0.5">Dependency: {d.blocked_dependency_owner}</p>}
         </div>
       )}
+
+      <BetCapabilityPodsSection
+        betId={d.id}
+        canWrite={canWrite}
+      />
 
       <DecisionActivityFeed
           decisionId={d.id}

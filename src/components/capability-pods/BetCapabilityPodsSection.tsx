@@ -70,6 +70,9 @@ export default function BetCapabilityPodsSection({ betId, canWrite }: BetCapabil
 
       {primaryPods.length > 0 && (
         <div className="space-y-2 mb-2">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            Primary to this bet
+          </p>
           {primaryPods.map((pod) => (
             <PodCard
               key={pod.id}
@@ -85,6 +88,9 @@ export default function BetCapabilityPodsSection({ betId, canWrite }: BetCapabil
 
       {secondaryPods.length > 0 && (
         <div className="space-y-2">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            Secondary support for this bet
+          </p>
           {secondaryPods.map((pod) => (
             <PodCard
               key={pod.id}
@@ -96,6 +102,12 @@ export default function BetCapabilityPodsSection({ betId, canWrite }: BetCapabil
             />
           ))}
         </div>
+      )}
+
+      {pods.length === 0 && (
+        <p className="text-xs text-muted-foreground">
+          No capability pods linked yet. Each pod must ladder to one primary bet and may optionally support one secondary bet.
+        </p>
       )}
 
       <PodDetailDrawer
