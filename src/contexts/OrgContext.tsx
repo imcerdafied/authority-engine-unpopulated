@@ -161,22 +161,78 @@ export function OrgProvider({ children }: { children: ReactNode }) {
     customOutcomeCategories?: CustomCategory[],
   ): Promise<string | null> => {
     if (!user) return null;
-    const { data, error } = await supabase.functions.invoke("create-org", {
-      body: {
-        name,
-        productAreas: productAreas?.length ? productAreas : undefined,
-        customOutcomeCategories: customOutcomeCategories?.length ? customOutcomeCategories : undefined,
-      },
-    });
+    const payload = {
+      name,
+      productAreas: productAreas?.length ? productAreas : undefined,
+      customOutcomeCategories: customOutcomeCategories?.length ? customOutcomeCategories : undefined,
+    };
 
-    if (error || !data?.orgId) {
-      console.error("Failed to create org:", error || data);
+    // Path 1: standard edge invoke
+    const { data, error } = await supabase.functions.invoke("create-org", { body: payload });
+    if (!error && data?.orgId) {
+      await fetchMemberships();
+      handleSetCurrentOrgId(data.orgId);
+      return data.orgId;
+    }
+
+    // Path 2: direct HTTP edge call (handles transport/non-2xx inconsistencies)
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+      if (accessToken && supabaseUrl && supabaseAnonKey) {
+        const res = await fetch(`${supabaseUrl}/functions/v1/create-org`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+            apikey: supabaseAnonKey,
+          },
+          body: JSON.stringify(payload),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (res.ok && body?.orgId) {
+          await fetchMemberships();
+          handleSetCurrentOrgId(body.orgId);
+          return body.orgId;
+        }
+      }
+    } catch (fallbackErr) {
+      console.error("Fallback create-org HTTP failed:", fallbackErr);
+    }
+
+    // Path 3: final local fallback - create directly, then membership.
+    // This keeps onboarding unblocked if edge routing is flaky.
+    const insertData: any = {
+      name,
+      created_by: user.id,
+      allowed_email_domain: null,
+    };
+    if (productAreas?.length) insertData.product_areas = productAreas;
+    if (customOutcomeCategories?.length) insertData.custom_outcome_categories = customOutcomeCategories;
+
+    const { data: org, error: orgError } = await supabase
+      .from("organizations")
+      .insert(insertData)
+      .select("id")
+      .single();
+    if (orgError || !org?.id) {
+      console.error("Failed to create org (all paths):", error, orgError);
+      return null;
+    }
+
+    const { error: memError } = await supabase
+      .from("organization_memberships")
+      .insert({ user_id: user.id, org_id: org.id, role: "admin" as AppRole });
+    if (memError) {
+      console.error("Failed to create membership after org insert:", memError);
       return null;
     }
 
     await fetchMemberships();
-    handleSetCurrentOrgId(data.orgId);
-    return data.orgId;
+    handleSetCurrentOrgId(org.id);
+    return org.id;
   };
 
   const updateOrg = async (fields: { product_areas?: ProductArea[]; custom_outcome_categories?: CustomCategory[] }) => {
