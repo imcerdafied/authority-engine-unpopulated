@@ -57,11 +57,6 @@ const OrgContext = createContext<OrgContextType>({
 const ORG_STORAGE_KEY = "ba_current_org";
 const PENDING_ORG_JOIN_KEY = "pending_org_join";
 
-function extractEmailDomain(email: string | null | undefined): string | null {
-  if (!email || !email.includes("@")) return null;
-  return email.split("@")[1]?.trim().toLowerCase() || null;
-}
-
 function parseProductAreas(raw: unknown): ProductArea[] {
   if (!raw || !Array.isArray(raw)) return DEFAULT_PRODUCT_AREAS;
   const parsed = raw.filter(
@@ -166,7 +161,7 @@ export function OrgProvider({ children }: { children: ReactNode }) {
     customOutcomeCategories?: CustomCategory[],
   ): Promise<string | null> => {
     if (!user) return null;
-    const allowedEmailDomain = extractEmailDomain(user.email);
+    const allowedEmailDomain = null;
 
     const insertData: any = {
       name,

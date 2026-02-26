@@ -17,6 +17,7 @@ export default function OrgSetup() {
   const { signOut, user } = useAuth();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
   const [createdOrgId, setCreatedOrgId] = useState<string | null>(null);
 
   // Step 1: Org name
@@ -30,10 +31,11 @@ export default function OrgSetup() {
   ]);
 
   // Step 3: Outcome categories
-  const [useCustomCategories, setUseCustomCategories] = useState(false);
+  const [categoryMode, setCategoryMode] = useState<"defaults" | "custom" | null>(null);
   const [categories, setCategories] = useState<{ label: string }[]>(
     DEFAULT_CATEGORIES.map((c) => ({ label: c.label })),
   );
+  const useCustomCategories = categoryMode === "custom";
 
   const inviteUrl = createdOrgId
     ? `https://buildauthorityos.com/join/${createdOrgId}`
@@ -43,8 +45,9 @@ export default function OrgSetup() {
   const handleBack = () => setStep((s) => s - 1);
 
   const handleCreateOrg = async () => {
-    if (!name.trim()) return;
+    if (!name.trim() || !categoryMode) return;
     setLoading(true);
+    setCreateError(null);
 
     const areas: ProductArea[] = productAreas
       .filter((p) => p.label.trim())
@@ -67,6 +70,11 @@ export default function OrgSetup() {
       areas.length > 0 ? areas : undefined,
       customCats,
     );
+    if (!orgId) {
+      setCreateError("Organization creation failed. Please try again.");
+      setLoading(false);
+      return;
+    }
     setCreatedOrgId(orgId);
     setLoading(false);
     setStep(4);
@@ -108,12 +116,15 @@ export default function OrgSetup() {
 
   const [copied, setCopied] = useState(false);
   const copyInviteLink = () => {
+    if (!inviteUrl) return;
     navigator.clipboard.writeText(inviteUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   const filledAreas = productAreas.filter((p) => p.label.trim()).length;
+  const hasValidCustomCategories = categories.some((c) => c.label.trim());
+  const canCreateOrg = !!name.trim() && !!categoryMode && (!useCustomCategories || hasValidCustomCategories);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
@@ -240,10 +251,10 @@ export default function OrgSetup() {
               </p>
               <div className="flex gap-3 mb-4">
                 <button
-                  onClick={() => setUseCustomCategories(false)}
+                  onClick={() => setCategoryMode("defaults")}
                   className={cn(
                     "text-[11px] font-semibold uppercase tracking-wider px-3 py-1.5 rounded-sm border transition-colors",
-                    !useCustomCategories
+                    categoryMode === "defaults"
                       ? "bg-foreground text-background border-foreground"
                       : "border-foreground text-foreground hover:bg-foreground hover:text-background",
                   )}
@@ -251,10 +262,10 @@ export default function OrgSetup() {
                   Use Defaults
                 </button>
                 <button
-                  onClick={() => setUseCustomCategories(true)}
+                  onClick={() => setCategoryMode("custom")}
                   className={cn(
                     "text-[11px] font-semibold uppercase tracking-wider px-3 py-1.5 rounded-sm border transition-colors",
-                    useCustomCategories
+                    categoryMode === "custom"
                       ? "bg-foreground text-background border-foreground"
                       : "border-foreground text-foreground hover:bg-foreground hover:text-background",
                   )}
@@ -262,6 +273,11 @@ export default function OrgSetup() {
                   Customize
                 </button>
               </div>
+              {categoryMode === null && (
+                <p className="text-[11px] text-muted-foreground mb-3">
+                  Choose <span className="font-semibold">Use Defaults</span> or <span className="font-semibold">Customize</span> to continue.
+                </p>
+              )}
               {useCustomCategories ? (
                 <div className="space-y-3">
                   {categories.map((cat, i) => (
@@ -314,12 +330,18 @@ export default function OrgSetup() {
                 </button>
                 <button
                   onClick={handleCreateOrg}
-                  disabled={loading}
-                  className="flex-1 text-[11px] font-semibold uppercase tracking-wider text-background bg-foreground px-4 py-2.5 rounded-sm hover:bg-foreground/90 transition-colors disabled:opacity-50"
+                  disabled={loading || !canCreateOrg}
+                  className={cn(
+                    "flex-1 text-[11px] font-semibold uppercase tracking-wider px-4 py-2.5 rounded-sm transition-colors",
+                    canCreateOrg && !loading
+                      ? "text-background bg-foreground hover:bg-foreground/90"
+                      : "text-muted-foreground bg-muted cursor-not-allowed",
+                  )}
                 >
                   {loading ? "Creating..." : "Create Organization"}
                 </button>
               </div>
+              {createError && <p className="text-[11px] text-signal-red mt-3">{createError}</p>}
             </>
           )}
 
@@ -341,10 +363,12 @@ export default function OrgSetup() {
                     <input
                       readOnly
                       value={inviteUrl}
+                      placeholder={createdOrgId ? "" : "Invite link will appear after org is created"}
                       className="flex-1 border rounded-sm px-3 py-2 text-sm bg-muted text-foreground"
                     />
                     <button
                       onClick={copyInviteLink}
+                      disabled={!inviteUrl}
                       className="text-[11px] font-semibold uppercase tracking-wider text-foreground border border-foreground px-3 py-2 rounded-sm hover:bg-foreground hover:text-background transition-colors shrink-0"
                     >
                       {copied ? "Copied" : "Copy"}

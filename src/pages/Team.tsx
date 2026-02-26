@@ -112,7 +112,7 @@ export default function Team() {
               </button>
             </div>
             <p className="text-[11px] text-muted-foreground italic mt-2">
-              Share this link with your team. Joining is restricted by the allowed email domain below.
+              Share this link with your team. Anyone with this link can join for now.
             </p>
             <div className="mt-4 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 items-end">
               <div>
