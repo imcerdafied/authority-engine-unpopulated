@@ -161,40 +161,22 @@ export function OrgProvider({ children }: { children: ReactNode }) {
     customOutcomeCategories?: CustomCategory[],
   ): Promise<string | null> => {
     if (!user) return null;
-    const allowedEmailDomain = null;
+    const { data, error } = await supabase.functions.invoke("create-org", {
+      body: {
+        name,
+        productAreas: productAreas?.length ? productAreas : undefined,
+        customOutcomeCategories: customOutcomeCategories?.length ? customOutcomeCategories : undefined,
+      },
+    });
 
-    const insertData: any = {
-      name,
-      created_by: user.id,
-      allowed_email_domain: allowedEmailDomain,
-    };
-    if (productAreas?.length) insertData.product_areas = productAreas;
-    if (customOutcomeCategories?.length) insertData.custom_outcome_categories = customOutcomeCategories;
-
-    const { data: org, error: orgError } = await supabase
-      .from("organizations")
-      .insert(insertData)
-      .select()
-      .single();
-
-    if (orgError || !org) {
-      console.error("Failed to create org:", orgError);
-      return null;
-    }
-
-    // Add creator as admin
-    const { error: memError } = await supabase
-      .from("organization_memberships")
-      .insert({ user_id: user.id, org_id: org.id, role: "admin" as AppRole });
-
-    if (memError) {
-      console.error("Failed to add membership:", memError);
+    if (error || !data?.orgId) {
+      console.error("Failed to create org:", error || data);
       return null;
     }
 
     await fetchMemberships();
-    handleSetCurrentOrgId(org.id);
-    return org.id;
+    handleSetCurrentOrgId(data.orgId);
+    return data.orgId;
   };
 
   const updateOrg = async (fields: { product_areas?: ProductArea[]; custom_outcome_categories?: CustomCategory[] }) => {
