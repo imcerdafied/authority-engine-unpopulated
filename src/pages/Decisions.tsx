@@ -983,7 +983,7 @@ function PillSelect({
         value={currentValue}
         onChange={handleChange}
         onBlur={() => setEditing(false)}
-        className="text-[11px] border rounded-sm px-2 py-0.5 bg-background text-foreground"
+        className="text-[11px] border border-white/40 rounded-sm px-2 py-0.5 bg-white text-black"
       >
         <option value="">—</option>
         {options.map((option) => (
@@ -1002,8 +1002,8 @@ function PillSelect({
       onClick={() => canEdit && setEditing(true)}
       onKeyDown={(e) => canEdit && e.key === "Enter" && setEditing(true)}
       className={cn(
-        "inline-flex items-center text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-sm border border-foreground/20 bg-foreground/10 text-foreground",
-        canEdit && "cursor-pointer hover:bg-foreground/20",
+        "inline-flex items-center text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-sm border border-white/40 bg-white/15 text-white",
+        canEdit && "cursor-pointer hover:bg-white/25",
         !currentValue && "text-muted-foreground"
       )}
     >
@@ -1073,8 +1073,8 @@ function BetCard({
       {/* Header: Title + Tags + Meta */}
       <div className="px-4 md:px-5 py-3 border-b bg-black/90 text-white">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-          <div className="min-w-0 w-full lg:w-auto">
-            <div className="flex items-center gap-2">
+          <div className="min-w-0 w-full lg:w-auto lg:flex lg:flex-col lg:justify-center">
+            <div className="flex items-center gap-2 min-h-[44px]">
               <span className="text-lg font-semibold leading-snug !text-white/70">{index}.</span>
               <InlineEdit
                 value={d.title ?? ""}
