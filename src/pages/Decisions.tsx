@@ -89,6 +89,7 @@ function InlineEdit({
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
+  const titleAsMultiline = multiline || variant === "title";
 
   useEffect(() => {
     if (editing) {
@@ -108,7 +109,7 @@ function InlineEdit({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (multiline) {
+    if (titleAsMultiline) {
       if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
         e.preventDefault();
         handleSave();
@@ -133,14 +134,14 @@ function InlineEdit({
 
   if (!canEdit) {
     return (
-      <span className={cn(isEmpty && "text-muted-foreground/50 italic", multiline && "whitespace-pre-wrap", className)}>
+      <span className={cn(isEmpty && "text-muted-foreground/50 italic", titleAsMultiline && "whitespace-pre-wrap", className)}>
         {display}
       </span>
     );
   }
 
   if (editing) {
-    if (multiline) {
+    if (titleAsMultiline) {
       return (
         <textarea
           ref={inputRef as React.RefObject<HTMLTextAreaElement>}
@@ -148,10 +149,10 @@ function InlineEdit({
           onChange={(e) => setEditValue(e.target.value)}
           onBlur={handleSave}
           onKeyDown={handleKeyDown}
-          rows={4}
+          rows={variant === "title" ? 3 : 4}
           className={cn(
-            "border rounded bg-background text-foreground w-full text-sm px-1 py-0.5 resize-y",
-            variant === "title" && "bg-white text-black"
+            "border rounded bg-background text-foreground w-full text-sm px-2 py-1 resize-y",
+            variant === "title" && "bg-white text-black text-lg font-semibold leading-snug min-h-[84px]"
           )}
         />
       );
@@ -184,7 +185,7 @@ function InlineEdit({
         "cursor-pointer hover:bg-accent/50 rounded px-1 py-0.5 min-h-[1.5em] inline-block",
         variant === "title" && "font-semibold",
         isEmpty && "text-muted-foreground/50 italic",
-        multiline && "whitespace-pre-wrap",
+        titleAsMultiline && "whitespace-pre-wrap",
         className
       )}
     >
@@ -1073,7 +1074,7 @@ function BetCard({
       {/* Header: Title + Tags + Meta */}
       <div className="px-4 md:px-5 py-3 border-b bg-black/90 text-white">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-          <div className="min-w-0 w-full lg:w-auto lg:flex lg:flex-col lg:justify-center">
+          <div className="min-w-0 w-full lg:flex-1 lg:flex lg:flex-col lg:justify-center">
             <div className="flex items-center gap-2 min-h-[44px]">
               <span className="text-lg font-semibold leading-snug !text-white/70">{index}.</span>
               <InlineEdit
@@ -1085,7 +1086,7 @@ function BetCard({
                 logActivity={logActivity}
                 variant="title"
                 placeholder="Untitled"
-                className="text-lg font-semibold leading-snug block !text-white"
+                className="text-lg font-semibold leading-snug block w-full !text-white"
               />
             </div>
             <div className="flex items-center gap-2 flex-wrap mt-1.5">
@@ -1317,17 +1318,30 @@ export default function Decisions() {
   );
 
   const statusOptions = ["hypothesis", "defined", "piloting", "scaling", "at_risk", "closed"] as const;
+  const filterStatusOptions = statusOptions.filter((s) => s !== "closed");
   const [pendingStatus, setPendingStatus] = useState<{ decisionId: string; newStatus: string; oldStatus: string } | null>(null);
   const [statusNote, setStatusNote] = useState("");
+  const [closingIds, setClosingIds] = useState<Set<string>>(new Set());
 
   const handleStatusConfirm = () => {
     if (!pendingStatus || !statusNote.trim()) return;
+    if (pendingStatus.newStatus === "closed") {
+      setClosingIds((prev) => new Set(prev).add(pendingStatus.decisionId));
+    }
     updateDecision.mutate({
       id: pendingStatus.decisionId,
       status: pendingStatus.newStatus as any,
       state_changed_at: new Date().toISOString(),
       state_change_note: statusNote.trim(),
-    } as any);
+    } as any, {
+      onError: () => {
+        setClosingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(pendingStatus.decisionId);
+          return next;
+        });
+      },
+    });
     logActivity(pendingStatus.decisionId, "status", pendingStatus.oldStatus, pendingStatus.newStatus);
     setPendingStatus(null);
     setStatusNote("");
@@ -1347,15 +1361,18 @@ export default function Decisions() {
 
   if (decisionsLoading || risksLoading) return <p className="text-xs text-muted-foreground uppercase tracking-widest">Loading...</p>;
 
-  const activeDecisions = decisions.filter((d) => d.status !== "closed");
-  const activeHighImpact = activeDecisions.filter((d) => d.impact_tier === "High");
-  const orderedDecisions = [...decisions].reverse();
-  const atCapacity = activeHighImpact.length >= 10;
+  const activeDecisions = decisions.filter((d) => String(d.status || "").toLowerCase() !== "closed");
+  const closedCount = decisions.length - activeDecisions.length;
+  const orderedDecisions = [...activeDecisions].sort(
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+  );
   const isEmpty = decisions.length === 0;
 
   const selectClass = "text-xs border rounded-sm px-2 py-1.5 bg-background focus:outline-none focus:ring-1 focus:ring-foreground";
 
   const filteredDecisions = orderedDecisions.filter((d) => {
+    if (closingIds.has(d.id)) return false;
+    if (String(d.status || "").toLowerCase() === "closed") return false;
     if (filterStatus && d.status !== filterStatus) return false;
     if (filterDomain && d.solution_domain !== filterDomain) return false;
     return true;
@@ -1368,17 +1385,14 @@ export default function Decisions() {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div className="flex items-center gap-3">
             <h1 className="text-lg font-bold">Bets</h1>
-            <span className="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-sm bg-muted text-muted-foreground">
-              {activeHighImpact.length}/10 Active{atCapacity ? " · Full" : ""}
-            </span>
             <span className="text-xs text-muted-foreground hidden sm:inline">
-              {decisions.length} total · {activeDecisions.length} active
+              {decisions.length} total · {activeDecisions.length} open · {closedCount} closed
             </span>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className={selectClass}>
               <option value="">All Statuses</option>
-              {statusOptions.map((s) => (
+              {filterStatusOptions.map((s) => (
                 <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1).replace("_", " ")}</option>
               ))}
             </select>
@@ -1398,7 +1412,7 @@ export default function Decisions() {
                 Clear
               </button>
             )}
-            {canWrite && !showCreate && !atCapacity && (
+            {canWrite && !showCreate && (
               <button onClick={() => setShowCreate(true)}
                 className="text-[11px] font-semibold uppercase tracking-wider text-foreground border border-foreground px-3 py-1.5 rounded-sm hover:bg-foreground hover:text-background transition-colors min-h-[44px] md:min-h-0">
                 + Register Bet

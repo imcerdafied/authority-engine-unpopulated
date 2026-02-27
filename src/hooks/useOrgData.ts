@@ -182,7 +182,27 @@ export function useUpdateDecision() {
       });
       return data;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["decisions", currentOrg?.id] }),
+    onMutate: async ({ id, ...updates }) => {
+      const key = ["decisions", currentOrg?.id] as const;
+      await qc.cancelQueries({ queryKey: key });
+      const previous = qc.getQueryData<DecisionComputed[]>(key);
+      if (previous) {
+        qc.setQueryData<DecisionComputed[]>(
+          key,
+          previous.map((row) => (row.id === id ? { ...row, ...(updates as Partial<DecisionComputed>) } : row)),
+        );
+      }
+      return { previous, key };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous && ctx?.key) {
+        qc.setQueryData(ctx.key, ctx.previous);
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["decisions", currentOrg?.id] });
+      qc.invalidateQueries({ queryKey: ["closed_decisions", currentOrg?.id] });
+    },
   });
 }
 
