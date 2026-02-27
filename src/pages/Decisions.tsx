@@ -150,8 +150,8 @@ function InlineEdit({
           onKeyDown={handleKeyDown}
           rows={4}
           className={cn(
-            "border rounded bg-background w-full text-sm px-1 py-0.5 resize-y",
-            className
+            "border rounded bg-background text-foreground w-full text-sm px-1 py-0.5 resize-y",
+            variant === "title" && "bg-white text-black"
           )}
         />
       );
@@ -167,8 +167,8 @@ function InlineEdit({
         onBlur={handleSave}
         onKeyDown={handleKeyDown}
         className={cn(
-          "border rounded bg-background w-full text-sm px-1 py-0.5",
-          variant === "title" && "font-semibold"
+          "border rounded bg-background text-foreground w-full text-sm px-1 py-0.5",
+          variant === "title" && "font-semibold bg-white text-black"
         )}
       />
     );
@@ -886,7 +886,7 @@ function OwnerAccountSelect({
   }, [editing]);
 
   const labelFor = (member: OrgMember) => {
-    return member.display_name || member.email || member.user_id.slice(0, 8) + "...";
+    return member.display_name || member.email || "TBD";
   };
 
   const handleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -1072,9 +1072,9 @@ function BetCard({
     <div key={d.id} className={cn("border rounded-md overflow-hidden font-sans", d.is_exceeded ? "border-signal-red/40 bg-signal-red/5" : d.is_aging ? "border-signal-amber/40" : "bg-background")}>
       {/* Header: Title + Tags + Meta */}
       <div className="px-4 md:px-5 py-3 border-b bg-black/90 text-white">
-        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
           <div className="min-w-0 w-full lg:w-auto">
-            <div className="flex items-start gap-2">
+            <div className="flex items-center gap-2">
               <span className="text-lg font-semibold leading-snug !text-white/70">{index}.</span>
               <InlineEdit
                 value={d.title ?? ""}
@@ -1136,7 +1136,7 @@ function BetCard({
                   setStatusNote("");
                 }}
                 className={cn(
-                  "text-sm border border-white/30 rounded-sm px-2 py-1.5 bg-white/10 text-white w-full",
+                  "text-sm border border-white/40 rounded-sm px-2 py-1.5 bg-white text-black w-full",
                   !canUpdateStatus && "opacity-60 cursor-not-allowed"
                 )}
               >
