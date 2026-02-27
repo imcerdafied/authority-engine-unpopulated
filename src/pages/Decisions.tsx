@@ -100,10 +100,12 @@ function InlineEdit({
 
   const handleSave = async () => {
     const trimmed = editValue.trim();
+    const normalized = field === "title" ? trimmed.replace(/\s+/g, " ") : trimmed;
     const oldVal = (value ?? "").trim();
-    if (trimmed !== oldVal) {
-      await onSave(decisionId, field, oldVal || "", trimmed);
-      logActivity?.(decisionId, field, oldVal || null, trimmed || null)?.catch(() => {});
+    const normalizedOld = field === "title" ? oldVal.replace(/\s+/g, " ") : oldVal;
+    if (normalized !== normalizedOld) {
+      await onSave(decisionId, field, normalizedOld || "", normalized);
+      logActivity?.(decisionId, field, normalizedOld || null, normalized || null)?.catch(() => {});
     }
     setEditing(false);
   };
@@ -128,7 +130,8 @@ function InlineEdit({
     }
   };
 
-  const displayValue = displayTransform ? (value ? displayTransform(value) : "") : value;
+  const normalizedValue = field === "title" ? (value || "").replace(/\s+/g, " ").trim() : value;
+  const displayValue = displayTransform ? (normalizedValue ? displayTransform(normalizedValue) : "") : normalizedValue;
   const display = displayValue || placeholder;
   const isEmpty = !value;
 
@@ -1073,9 +1076,9 @@ function BetCard({
     <div key={d.id} className={cn("border rounded-md overflow-hidden font-sans", d.is_exceeded ? "border-signal-red/40 bg-signal-red/5" : d.is_aging ? "border-signal-amber/40" : "bg-background")}>
       {/* Header: Title + Tags + Meta */}
       <div className="px-4 md:px-5 py-3 border-b bg-black/90 text-white">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-          <div className="min-w-0 w-full lg:flex-1 lg:flex lg:flex-col lg:justify-center">
-            <div className="flex items-center gap-2 min-h-[44px]">
+        <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+          <div className="min-w-0 w-full xl:flex-[1.2]">
+            <div className="flex items-start gap-2 min-h-[44px]">
               <span className="text-lg font-semibold leading-snug !text-white/70">{index}.</span>
               <InlineEdit
                 value={d.title ?? ""}
@@ -1096,7 +1099,7 @@ function BetCard({
             </div>
           </div>
 
-          <MetaFieldGrid columns={4} className="w-full lg:min-w-[640px]">
+          <MetaFieldGrid columns={4} className="w-full xl:flex-1 xl:min-w-0">
             <MetaField label="Category">
               <CategorySelect value={(d.outcome_category_key ?? d.outcome_category) ?? ""} categories={categories} decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full !text-white" />
             </MetaField>
