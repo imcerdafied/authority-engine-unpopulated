@@ -6,6 +6,7 @@ import { useOrg } from "@/contexts/OrgContext";
 import StatusBadge from "@/components/StatusBadge";
 import { cn } from "@/lib/utils";
 import { CAPABILITY_POD_STATUSES, POD_STATUS_LABELS, canSetInProduction } from "@/lib/types";
+import { isClosedBetLifecycle } from "@/lib/bet-status";
 import type { CapabilityPod, CapabilityPodStatus, KpiTarget } from "@/lib/types";
 import { toast } from "sonner";
 
@@ -26,7 +27,7 @@ export default function PodDetailDrawer({ podId, onClose, canWrite }: PodDetailD
   const isAdmin = currentRole === "admin";
 
   const pod = pods.find((p) => p.id === podId) ?? null;
-  const activeBets = decisions.filter((d) => d.status !== "closed");
+  const activeBets = decisions.filter((d) => !isClosedBetLifecycle(d.status));
 
   // Local editing state
   const [editingField, setEditingField] = useState<string | null>(null);

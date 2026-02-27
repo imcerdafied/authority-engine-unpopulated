@@ -4,7 +4,7 @@ import { exportToCsv } from "@/lib/csvExport";
 import { toast } from "sonner";
 
 const decisionColumns = [
-  "id", "title", "surface", "owner", "status", "impact_tier", "solution_domain",
+  "id", "title", "surface", "owner", "status", "risk_level", "impact_tier", "solution_domain",
   "outcome_category", "expected_impact", "exposure_value", "outcome_target",
   "trigger_signal", "current_delta", "revenue_at_risk", "segment_impact",
   "decision_health", "blocked_reason", "blocked_dependency_owner",

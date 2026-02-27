@@ -4,6 +4,7 @@ import { useOrg } from "@/contexts/OrgContext";
 import StatusBadge from "@/components/StatusBadge";
 import RiskChip from "@/components/RiskChip";
 import CreatePodForm from "@/components/CreatePodForm";
+import { isClosedBetLifecycle } from "@/lib/bet-status";
 import { cn } from "@/lib/utils";
 
 function daysSince(dateStr: string): number {
@@ -34,9 +35,9 @@ export default function Pods() {
 
   const isEmpty = pods.length === 0;
 
-  const activeHighImpact = decisions.filter((d) => d.status !== "closed" && d.impact_tier === "High");
+  const activeHighImpact = decisions.filter((d) => !isClosedBetLifecycle(d.status) && d.impact_tier === "High");
   const authorityActive = activeHighImpact.length >= 5;
-  const activeDecisions = decisions.filter((d) => d.status !== "closed");
+  const activeDecisions = decisions.filter((d) => !isClosedBetLifecycle(d.status));
 
   // Group active decisions by solution_domain for unit matching
   const decisionsByDomain: Record<string, typeof decisions> = {};

@@ -1,5 +1,6 @@
 export type ImpactTier = "High" | "Medium" | "Low";
-export type DecisionStatus = "Draft" | "Active" | "Blocked" | "Closed";
+export type DecisionStatus = "defined" | "activated" | "proving_value" | "scaling" | "durable" | "closed";
+export type DecisionRiskLevel = "healthy" | "watch" | "at_risk";
 export type SignalType = "KPI Deviation" | "Segment Variance" | "Agent Drift" | "Exec Escalation" | "Launch Milestone" | "Renewal Risk" | "Cross-Solution Conflict";
 export type OutcomeCategory = "ARR" | "NRR" | "DPI_Adoption" | "Agent_Trust" | "Live_Event_Risk" | "Operational_Efficiency";
 export type SolutionDomain = "S1" | "S2" | "S3" | "Cross";
@@ -18,6 +19,7 @@ export interface Decision {
   segmentImpact?: string;
   owner: string;
   status: DecisionStatus;
+  riskLevel?: DecisionRiskLevel;
   createdDate: string;
   sliceDeadlineDays?: number;
   shippedSliceDate?: string;

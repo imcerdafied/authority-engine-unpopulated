@@ -4,6 +4,7 @@ import { useDecisions } from "@/hooks/useOrgData";
 import { useOrg } from "@/contexts/OrgContext";
 import { toast } from "sonner";
 import { CAPABILITY_POD_STATUSES, POD_STATUS_LABELS } from "@/lib/types";
+import { isClosedBetLifecycle } from "@/lib/bet-status";
 import type { CapabilityPodStatus } from "@/lib/types";
 
 interface CreateCapabilityPodFormProps {
@@ -17,7 +18,7 @@ export default function CreateCapabilityPodForm({ defaultPrimaryBetId, onClose }
   const { currentRole } = useOrg();
   const canWrite = currentRole === "admin" || currentRole === "pod_lead";
 
-  const activeBets = decisions.filter((d) => d.status !== "closed");
+  const activeBets = decisions.filter((d) => !isClosedBetLifecycle(d.status));
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");

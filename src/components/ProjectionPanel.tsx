@@ -37,11 +37,12 @@ function extractMonths(...texts: string[]): number | null {
 
 function statusToConfidence(status: string): "Low" | "Medium" | "High" {
   const s = (status || "").toLowerCase();
+  if (s === "durable") return "High";
   if (s === "scaling") return "High";
-  if (s === "piloting") return "Medium";
+  if (s === "proving_value") return "Medium";
+  if (s === "activated") return "Medium";
   if (s === "defined") return "Low";
-  if (s === "hypothesis") return "Low";
-  if (s === "at_risk") return "Low";
+  if (s === "closed") return "Low";
   return "Medium";
 }
 

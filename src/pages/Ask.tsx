@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useDecisions, useSignals, usePods } from "@/hooks/useOrgData";
 import StatusBadge from "@/components/StatusBadge";
+import { formatBetLifecycleStatus, isClosedBetLifecycle, toBetRiskLevel } from "@/lib/bet-status";
 
 function daysSince(dateStr: string): number {
   const d = new Date(dateStr);
@@ -27,7 +28,7 @@ function computeAnswer(question: string, decisions: any[], signals: any[], pods:
     case "What needs attention?": {
       const unlinkedSignals = signals.filter((s: any) => !s.decision_id);
       const agingDecisions = decisions.filter(
-        (d: any) => d.status === "active" && daysSince(d.created_at) > 7
+        (d: any) => !isClosedBetLifecycle(d.status) && daysSince(d.created_at) > 7
       );
       const noOutcome = pods
         .flatMap((p: any) => p.pod_initiatives || [])
@@ -42,7 +43,7 @@ function computeAnswer(question: string, decisions: any[], signals: any[], pods:
       };
     }
     case "What's blocked?": {
-      const blocked = decisions.filter((d: any) => d.status === "blocked");
+      const blocked = decisions.filter((d: any) => toBetRiskLevel(d.risk_level) === "at_risk");
       return {
         question,
         items: blocked.map((d: any) => ({
@@ -53,7 +54,7 @@ function computeAnswer(question: string, decisions: any[], signals: any[], pods:
       };
     }
     case "Which segment is at risk?": {
-      const segmentDecisions = decisions.filter((d: any) => d.segment_impact && d.status !== "archived");
+      const segmentDecisions = decisions.filter((d: any) => d.segment_impact && !isClosedBetLifecycle(d.status));
       const segmentSignals = signals.filter((s: any) => s.type === "Segment Variance");
       return {
         question,
@@ -61,7 +62,7 @@ function computeAnswer(question: string, decisions: any[], signals: any[], pods:
           ...segmentSignals.map((s: any) => ({ label: `Signal: ${s.type}`, detail: s.description, solution: s.solution_domain })),
           ...segmentDecisions.map((d: any) => ({
             label: `${d.segment_impact}: ${d.title}`,
-            detail: `${d.status} · ${daysSince(d.created_at)}d old · ${d.revenue_at_risk || "No exposure quantified"}`,
+            detail: `${formatBetLifecycleStatus(d.status)} · ${daysSince(d.created_at)}d old · ${d.revenue_at_risk || "No exposure quantified"}`,
             solution: d.solution_domain,
           })),
         ],
@@ -69,7 +70,7 @@ function computeAnswer(question: string, decisions: any[], signals: any[], pods:
     }
     case "What bet is aging?": {
       const aging = decisions
-        .filter((d: any) => d.status === "active")
+        .filter((d: any) => !isClosedBetLifecycle(d.status))
         .sort((a: any, b: any) => daysSince(b.created_at) - daysSince(a.created_at));
       return {
         question,
@@ -81,7 +82,7 @@ function computeAnswer(question: string, decisions: any[], signals: any[], pods:
       };
     }
     case "Where is legacy gravity?": {
-      const s1Decisions = decisions.filter((d: any) => d.solution_domain === "S1" && d.status === "active");
+      const s1Decisions = decisions.filter((d: any) => d.solution_domain === "S1" && !isClosedBetLifecycle(d.status));
       const s1Inits = pods.filter((p: any) => p.solution_domain === "S1").flatMap((p: any) => p.pod_initiatives || []).filter((i: any) => !i.shipped);
       return {
         question,
@@ -95,7 +96,7 @@ function computeAnswer(question: string, decisions: any[], signals: any[], pods:
       };
     }
     case "What renewal exposure exists?": {
-      const renewalDecisions = decisions.filter((d: any) => d.revenue_at_risk && d.status !== "archived");
+      const renewalDecisions = decisions.filter((d: any) => d.revenue_at_risk && !isClosedBetLifecycle(d.status));
       return {
         question,
         items: renewalDecisions.map((d: any) => ({

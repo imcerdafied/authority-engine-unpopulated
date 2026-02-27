@@ -7,13 +7,198 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.1"
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
+      auth_settings: {
+        Row: {
+          id: number
+          updated_at: string
+          workspace_domain: string | null
+        }
+        Insert: {
+          id: number
+          updated_at?: string
+          workspace_domain?: string | null
+        }
+        Update: {
+          id?: number
+          updated_at?: string
+          workspace_domain?: string | null
+        }
+        Relationships: []
+      }
+      capability_pod_events: {
+        Row: {
+          changed_by: string | null
+          created_at: string
+          field_name: string
+          id: string
+          new_value: string | null
+          old_value: string | null
+          org_id: string
+          pod_id: string
+        }
+        Insert: {
+          changed_by?: string | null
+          created_at?: string
+          field_name: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          org_id: string
+          pod_id: string
+        }
+        Update: {
+          changed_by?: string | null
+          created_at?: string
+          field_name?: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          org_id?: string
+          pod_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "capability_pod_events_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "capability_pod_events_pod_id_fkey"
+            columns: ["pod_id"]
+            isOneToOne: false
+            referencedRelation: "capability_pods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      capability_pods: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          customer_validated: boolean
+          cycle_time_days: number | null
+          deliverable: string | null
+          dependencies: Json
+          description: string | null
+          id: string
+          kpi_targets: Json
+          name: string
+          org_id: string
+          owner: string
+          primary_bet_id: string
+          production_shipped: boolean
+          prototype_built: boolean
+          secondary_bet_id: string | null
+          status: Database["public"]["Enums"]["capability_pod_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          customer_validated?: boolean
+          cycle_time_days?: number | null
+          deliverable?: string | null
+          dependencies?: Json
+          description?: string | null
+          id?: string
+          kpi_targets?: Json
+          name: string
+          org_id: string
+          owner: string
+          primary_bet_id: string
+          production_shipped?: boolean
+          prototype_built?: boolean
+          secondary_bet_id?: string | null
+          status?: Database["public"]["Enums"]["capability_pod_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          customer_validated?: boolean
+          cycle_time_days?: number | null
+          deliverable?: string | null
+          dependencies?: Json
+          description?: string | null
+          id?: string
+          kpi_targets?: Json
+          name?: string
+          org_id?: string
+          owner?: string
+          primary_bet_id?: string
+          production_shipped?: boolean
+          prototype_built?: boolean
+          secondary_bet_id?: string | null
+          status?: Database["public"]["Enums"]["capability_pod_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "capability_pods_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "capability_pods_primary_bet_id_fkey"
+            columns: ["primary_bet_id"]
+            isOneToOne: false
+            referencedRelation: "decisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "capability_pods_primary_bet_id_fkey"
+            columns: ["primary_bet_id"]
+            isOneToOne: false
+            referencedRelation: "decisions_computed"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "capability_pods_secondary_bet_id_fkey"
+            columns: ["secondary_bet_id"]
+            isOneToOne: false
+            referencedRelation: "decisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "capability_pods_secondary_bet_id_fkey"
+            columns: ["secondary_bet_id"]
+            isOneToOne: false
+            referencedRelation: "decisions_computed"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       closed_decisions: {
         Row: {
           actual_result: string
@@ -90,6 +275,61 @@ export type Database = {
           },
         ]
       }
+      decision_activity: {
+        Row: {
+          changed_by: string | null
+          created_at: string
+          decision_id: string
+          field_name: string
+          id: string
+          new_value: string | null
+          old_value: string | null
+          org_id: string
+        }
+        Insert: {
+          changed_by?: string | null
+          created_at?: string
+          decision_id: string
+          field_name: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          org_id: string
+        }
+        Update: {
+          changed_by?: string | null
+          created_at?: string
+          decision_id?: string
+          field_name?: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          org_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_activity_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: false
+            referencedRelation: "decisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_activity_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: false
+            referencedRelation: "decisions_computed"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_activity_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       decision_events: {
         Row: {
           actor_id: string | null
@@ -141,6 +381,67 @@ export type Database = {
           },
           {
             foreignKeyName: "decision_events_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      decision_interruptions: {
+        Row: {
+          created_at: string
+          decision_id: string
+          description: string
+          engineers_diverted: number
+          estimated_days: number
+          id: string
+          impact_note: string | null
+          logged_by: string | null
+          org_id: string
+          source: string
+        }
+        Insert: {
+          created_at?: string
+          decision_id: string
+          description: string
+          engineers_diverted?: number
+          estimated_days?: number
+          id?: string
+          impact_note?: string | null
+          logged_by?: string | null
+          org_id: string
+          source: string
+        }
+        Update: {
+          created_at?: string
+          decision_id?: string
+          description?: string
+          engineers_diverted?: number
+          estimated_days?: number
+          id?: string
+          impact_note?: string | null
+          logged_by?: string | null
+          org_id?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_interruptions_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: false
+            referencedRelation: "decisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_interruptions_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: false
+            referencedRelation: "decisions_computed"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_interruptions_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -200,22 +501,78 @@ export type Database = {
           },
         ]
       }
+      decision_risk: {
+        Row: {
+          decision_id: string
+          org_id: string
+          risk_indicator: string
+          risk_reason: string | null
+          risk_score: number
+          risk_source: string | null
+          updated_at: string
+        }
+        Insert: {
+          decision_id: string
+          org_id: string
+          risk_indicator?: string
+          risk_reason?: string | null
+          risk_score?: number
+          risk_source?: string | null
+          updated_at?: string
+        }
+        Update: {
+          decision_id?: string
+          org_id?: string
+          risk_indicator?: string
+          risk_reason?: string | null
+          risk_score?: number
+          risk_source?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_risk_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: false
+            referencedRelation: "decisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_risk_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: false
+            referencedRelation: "decisions_computed"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_risk_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       decisions: {
         Row: {
           activated_at: string | null
           actual_outcome_value: string | null
           blocked_dependency_owner: string | null
           blocked_reason: string | null
+          capacity_allocated: number | null
+          capacity_diverted: number | null
           closure_note: string | null
           created_at: string
           created_by: string | null
           current_delta: string | null
           decision_health: Database["public"]["Enums"]["decision_health"] | null
+          escalation_count: number | null
           executive_attention_required: boolean
           expected_impact: string | null
           exposure_value: string | null
           id: string
           impact_tier: Database["public"]["Enums"]["impact_tier"]
+          legacy_status_text: string | null
           measured_outcome_result: string | null
           org_id: string
           outcome_category:
@@ -225,16 +582,22 @@ export type Database = {
           outcome_target: string | null
           owner: string
           owner_user_id: string | null
+          pod_configuration: Json | null
+          previous_exposure_value: string | null
           revenue_at_risk: string | null
+          risk_level: Database["public"]["Enums"]["bet_risk_level"]
           segment_impact: string | null
           shipped_slice_date: string | null
           slice_deadline_days: number | null
           slice_due_at: string | null
           solution_domain: Database["public"]["Enums"]["solution_domain"]
+          state_change_note: string | null
+          state_changed_at: string | null
           status: Database["public"]["Enums"]["decision_status"]
           surface: string
           title: string
           trigger_signal: string | null
+          unplanned_interrupts: number | null
           updated_at: string
         }
         Insert: {
@@ -242,6 +605,8 @@ export type Database = {
           actual_outcome_value?: string | null
           blocked_dependency_owner?: string | null
           blocked_reason?: string | null
+          capacity_allocated?: number | null
+          capacity_diverted?: number | null
           closure_note?: string | null
           created_at?: string
           created_by?: string | null
@@ -249,11 +614,13 @@ export type Database = {
           decision_health?:
             | Database["public"]["Enums"]["decision_health"]
             | null
+          escalation_count?: number | null
           executive_attention_required?: boolean
           expected_impact?: string | null
           exposure_value?: string | null
           id?: string
           impact_tier?: Database["public"]["Enums"]["impact_tier"]
+          legacy_status_text?: string | null
           measured_outcome_result?: string | null
           org_id: string
           outcome_category?:
@@ -263,16 +630,22 @@ export type Database = {
           outcome_target?: string | null
           owner: string
           owner_user_id?: string | null
+          pod_configuration?: Json | null
+          previous_exposure_value?: string | null
           revenue_at_risk?: string | null
+          risk_level?: Database["public"]["Enums"]["bet_risk_level"]
           segment_impact?: string | null
           shipped_slice_date?: string | null
           slice_deadline_days?: number | null
           slice_due_at?: string | null
           solution_domain: Database["public"]["Enums"]["solution_domain"]
+          state_change_note?: string | null
+          state_changed_at?: string | null
           status?: Database["public"]["Enums"]["decision_status"]
           surface: string
           title: string
           trigger_signal?: string | null
+          unplanned_interrupts?: number | null
           updated_at?: string
         }
         Update: {
@@ -280,6 +653,8 @@ export type Database = {
           actual_outcome_value?: string | null
           blocked_dependency_owner?: string | null
           blocked_reason?: string | null
+          capacity_allocated?: number | null
+          capacity_diverted?: number | null
           closure_note?: string | null
           created_at?: string
           created_by?: string | null
@@ -287,11 +662,13 @@ export type Database = {
           decision_health?:
             | Database["public"]["Enums"]["decision_health"]
             | null
+          escalation_count?: number | null
           executive_attention_required?: boolean
           expected_impact?: string | null
           exposure_value?: string | null
           id?: string
           impact_tier?: Database["public"]["Enums"]["impact_tier"]
+          legacy_status_text?: string | null
           measured_outcome_result?: string | null
           org_id?: string
           outcome_category?:
@@ -301,21 +678,97 @@ export type Database = {
           outcome_target?: string | null
           owner?: string
           owner_user_id?: string | null
+          pod_configuration?: Json | null
+          previous_exposure_value?: string | null
           revenue_at_risk?: string | null
+          risk_level?: Database["public"]["Enums"]["bet_risk_level"]
           segment_impact?: string | null
           shipped_slice_date?: string | null
           slice_deadline_days?: number | null
           slice_due_at?: string | null
           solution_domain?: Database["public"]["Enums"]["solution_domain"]
+          state_change_note?: string | null
+          state_changed_at?: string | null
           status?: Database["public"]["Enums"]["decision_status"]
           surface?: string
           title?: string
           trigger_signal?: string | null
+          unplanned_interrupts?: number | null
           updated_at?: string
         }
         Relationships: [
           {
             foreignKeyName: "decisions_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      feedback: {
+        Row: {
+          created_at: string
+          feedback_type: string
+          id: string
+          message: string
+          org_id: string
+          page: string | null
+          user_email: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          feedback_type: string
+          id?: string
+          message: string
+          org_id: string
+          page?: string | null
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          feedback_type?: string
+          id?: string
+          message?: string
+          org_id?: string
+          page?: string | null
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      org_access_allowlist: {
+        Row: {
+          created_at: string
+          email: string
+          org_id: string
+          role: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          org_id: string
+          role: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          org_id?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_access_allowlist_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -435,139 +888,6 @@ export type Database = {
           },
         ]
       }
-      capability_pod_events: {
-        Row: {
-          id: string
-          pod_id: string
-          org_id: string
-          field_name: string
-          old_value: string | null
-          new_value: string | null
-          changed_by: string | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          pod_id: string
-          org_id: string
-          field_name: string
-          old_value?: string | null
-          new_value?: string | null
-          changed_by?: string | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          pod_id?: string
-          org_id?: string
-          field_name?: string
-          old_value?: string | null
-          new_value?: string | null
-          changed_by?: string | null
-          created_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "capability_pod_events_pod_id_fkey"
-            columns: ["pod_id"]
-            isOneToOne: false
-            referencedRelation: "capability_pods"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "capability_pod_events_org_id_fkey"
-            columns: ["org_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      capability_pods: {
-        Row: {
-          id: string
-          org_id: string
-          name: string
-          description: string | null
-          primary_bet_id: string
-          secondary_bet_id: string | null
-          owner: string
-          status: Database["public"]["Enums"]["capability_pod_status"]
-          deliverable: string | null
-          kpi_targets: Json
-          prototype_built: boolean
-          customer_validated: boolean
-          production_shipped: boolean
-          cycle_time_days: number | null
-          dependencies: Json
-          created_by: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          org_id: string
-          name: string
-          description?: string | null
-          primary_bet_id: string
-          secondary_bet_id?: string | null
-          owner: string
-          status?: Database["public"]["Enums"]["capability_pod_status"]
-          deliverable?: string | null
-          kpi_targets?: Json
-          prototype_built?: boolean
-          customer_validated?: boolean
-          production_shipped?: boolean
-          cycle_time_days?: number | null
-          dependencies?: Json
-          created_by?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          org_id?: string
-          name?: string
-          description?: string | null
-          primary_bet_id?: string
-          secondary_bet_id?: string | null
-          owner?: string
-          status?: Database["public"]["Enums"]["capability_pod_status"]
-          deliverable?: string | null
-          kpi_targets?: Json
-          prototype_built?: boolean
-          customer_validated?: boolean
-          production_shipped?: boolean
-          cycle_time_days?: number | null
-          dependencies?: Json
-          created_by?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "capability_pods_org_id_fkey"
-            columns: ["org_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "capability_pods_primary_bet_id_fkey"
-            columns: ["primary_bet_id"]
-            isOneToOne: false
-            referencedRelation: "decisions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "capability_pods_secondary_bet_id_fkey"
-            columns: ["secondary_bet_id"]
-            isOneToOne: false
-            referencedRelation: "decisions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       pods: {
         Row: {
           created_at: string
@@ -599,6 +919,53 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "pods_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_events: {
+        Row: {
+          created_at: string
+          event_name: string
+          id: number
+          metadata: Json
+          org_id: string | null
+          route: string | null
+          session_id: string | null
+          severity: string
+          source: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_name: string
+          id?: number
+          metadata?: Json
+          org_id?: string | null
+          route?: string | null
+          session_id?: string | null
+          severity?: string
+          source?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_name?: string
+          id?: number
+          metadata?: Json
+          org_id?: string | null
+          route?: string | null
+          session_id?: string | null
+          severity?: string
+          source?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_events_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -701,11 +1068,14 @@ export type Database = {
           age_days: number | null
           blocked_dependency_owner: string | null
           blocked_reason: string | null
+          capacity_allocated: number | null
+          capacity_diverted: number | null
           closure_note: string | null
           created_at: string | null
           created_by: string | null
           current_delta: string | null
           decision_health: Database["public"]["Enums"]["decision_health"] | null
+          escalation_count: number | null
           executive_attention_required: boolean | null
           expected_impact: string | null
           exposure_value: string | null
@@ -715,6 +1085,7 @@ export type Database = {
           is_exceeded: boolean | null
           is_unbound: boolean | null
           is_urgent: boolean | null
+          legacy_status_text: string | null
           measured_outcome_result: string | null
           needs_exec_attention: boolean | null
           org_id: string | null
@@ -724,17 +1095,24 @@ export type Database = {
           outcome_delta: string | null
           outcome_target: string | null
           owner: string | null
+          owner_user_id: string | null
+          pod_configuration: Json | null
+          previous_exposure_value: string | null
           revenue_at_risk: string | null
+          risk_level: Database["public"]["Enums"]["bet_risk_level"] | null
           segment_impact: string | null
           shipped_slice_date: string | null
           slice_deadline_days: number | null
           slice_due_at: string | null
           slice_remaining: number | null
           solution_domain: Database["public"]["Enums"]["solution_domain"] | null
+          state_change_note: string | null
+          state_changed_at: string | null
           status: Database["public"]["Enums"]["decision_status"] | null
           surface: string | null
           title: string | null
           trigger_signal: string | null
+          unplanned_interrupts: number | null
           updated_at: string | null
         }
         Insert: {
@@ -743,6 +1121,8 @@ export type Database = {
           age_days?: never
           blocked_dependency_owner?: string | null
           blocked_reason?: string | null
+          capacity_allocated?: number | null
+          capacity_diverted?: number | null
           closure_note?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -750,6 +1130,7 @@ export type Database = {
           decision_health?:
             | Database["public"]["Enums"]["decision_health"]
             | null
+          escalation_count?: number | null
           executive_attention_required?: boolean | null
           expected_impact?: string | null
           exposure_value?: string | null
@@ -759,6 +1140,7 @@ export type Database = {
           is_exceeded?: never
           is_unbound?: never
           is_urgent?: never
+          legacy_status_text?: string | null
           measured_outcome_result?: string | null
           needs_exec_attention?: never
           org_id?: string | null
@@ -768,7 +1150,11 @@ export type Database = {
           outcome_delta?: string | null
           outcome_target?: string | null
           owner?: string | null
+          owner_user_id?: string | null
+          pod_configuration?: Json | null
+          previous_exposure_value?: string | null
           revenue_at_risk?: string | null
+          risk_level?: Database["public"]["Enums"]["bet_risk_level"] | null
           segment_impact?: string | null
           shipped_slice_date?: string | null
           slice_deadline_days?: number | null
@@ -777,10 +1163,13 @@ export type Database = {
           solution_domain?:
             | Database["public"]["Enums"]["solution_domain"]
             | null
+          state_change_note?: string | null
+          state_changed_at?: string | null
           status?: Database["public"]["Enums"]["decision_status"] | null
           surface?: string | null
           title?: string | null
           trigger_signal?: string | null
+          unplanned_interrupts?: number | null
           updated_at?: string | null
         }
         Update: {
@@ -789,6 +1178,8 @@ export type Database = {
           age_days?: never
           blocked_dependency_owner?: string | null
           blocked_reason?: string | null
+          capacity_allocated?: number | null
+          capacity_diverted?: number | null
           closure_note?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -796,6 +1187,7 @@ export type Database = {
           decision_health?:
             | Database["public"]["Enums"]["decision_health"]
             | null
+          escalation_count?: number | null
           executive_attention_required?: boolean | null
           expected_impact?: string | null
           exposure_value?: string | null
@@ -805,6 +1197,7 @@ export type Database = {
           is_exceeded?: never
           is_unbound?: never
           is_urgent?: never
+          legacy_status_text?: string | null
           measured_outcome_result?: string | null
           needs_exec_attention?: never
           org_id?: string | null
@@ -814,7 +1207,11 @@ export type Database = {
           outcome_delta?: string | null
           outcome_target?: string | null
           owner?: string | null
+          owner_user_id?: string | null
+          pod_configuration?: Json | null
+          previous_exposure_value?: string | null
           revenue_at_risk?: string | null
+          risk_level?: Database["public"]["Enums"]["bet_risk_level"] | null
           segment_impact?: string | null
           shipped_slice_date?: string | null
           slice_deadline_days?: number | null
@@ -823,10 +1220,13 @@ export type Database = {
           solution_domain?:
             | Database["public"]["Enums"]["solution_domain"]
             | null
+          state_change_note?: string | null
+          state_changed_at?: string | null
           status?: Database["public"]["Enums"]["decision_status"] | null
           surface?: string | null
           title?: string | null
           trigger_signal?: string | null
+          unplanned_interrupts?: number | null
           updated_at?: string | null
         }
         Relationships: [
@@ -854,12 +1254,35 @@ export type Database = {
         Args: { _org_id: string; _user_id: string }
         Returns: boolean
       }
+      is_workspace_email_allowed: { Args: never; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "pod_lead" | "viewer"
-      capability_pod_status: "proposed" | "prototyping" | "validated" | "building" | "in_production" | "paused"
+      bet_risk_level: "healthy" | "watch" | "at_risk"
+      capability_pod_status:
+        | "proposed"
+        | "prototyping"
+        | "validated"
+        | "building"
+        | "in_production"
+        | "paused"
       decision_health: "On Track" | "At Risk" | "Degrading"
-      decision_status: "Draft" | "Active" | "Blocked" | "Closed" | "active" | "accepted" | "rejected" | "archived"
+      decision_status:
+        | "defined"
+        | "activated"
+        | "proving_value"
+        | "scaling"
+        | "durable"
+        | "closed"
+      decision_status_legacy:
+        | "Draft"
+        | "Active"
+        | "Blocked"
+        | "Closed"
+        | "active"
+        | "accepted"
+        | "rejected"
+        | "archived"
       impact_tier: "High" | "Medium" | "Low"
       outcome_category:
         | "ARR"
@@ -1003,12 +1426,40 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       app_role: ["admin", "pod_lead", "viewer"],
-      capability_pod_status: ["proposed", "prototyping", "validated", "building", "in_production", "paused"],
+      bet_risk_level: ["healthy", "watch", "at_risk"],
+      capability_pod_status: [
+        "proposed",
+        "prototyping",
+        "validated",
+        "building",
+        "in_production",
+        "paused",
+      ],
       decision_health: ["On Track", "At Risk", "Degrading"],
-      decision_status: ["Draft", "Active", "Blocked", "Closed", "active", "accepted", "rejected", "archived"],
+      decision_status: [
+        "defined",
+        "activated",
+        "proving_value",
+        "scaling",
+        "durable",
+        "closed",
+      ],
+      decision_status_legacy: [
+        "Draft",
+        "Active",
+        "Blocked",
+        "Closed",
+        "active",
+        "accepted",
+        "rejected",
+        "archived",
+      ],
       impact_tier: ["High", "Medium", "Low"],
       outcome_category: [
         "ARR",
@@ -1032,3 +1483,4 @@ export const Constants = {
     },
   },
 } as const
+

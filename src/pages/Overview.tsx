@@ -9,6 +9,7 @@ import { useOrg } from "@/contexts/OrgContext";
 import { toast } from "sonner";
 import CreateDecisionForm from "@/components/CreateDecisionForm";
 import type { DecisionComputed } from "@/hooks/useOrgData";
+import { formatBetLifecycleStatus, isClosedBetLifecycle, toBetRiskLevel } from "@/lib/bet-status";
 
 function daysSince(dateStr: string): number {
   return Math.floor((Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24));
@@ -73,7 +74,7 @@ function SeededDecisionsList({
   onAuthorityEngaged: () => void;
 }) {
   const highImpact = decisions.filter((d) => d.impact_tier === "High");
-  const activeHighCount = highImpact.filter((d) => d.status !== "closed").length;
+  const activeHighCount = highImpact.filter((d) => !isClosedBetLifecycle(d.status)).length;
   const [expandedFailureId, setExpandedFailureId] = useState<string | null>(null);
   const [failedFields, setFailedFields] = useState<string[]>([]);
   const preActivateCountRef = useRef(activeHighCount);
@@ -89,7 +90,7 @@ function SeededDecisionsList({
     setFailedFields([]);
 
     updateDecision.mutate(
-      { id: d.id, status: "active" as any, activated_at: new Date().toISOString() as any },
+      { id: d.id, status: "activated" as any, activated_at: new Date().toISOString() as any },
       {
         onSuccess: () => {
           const newCount = countBefore + 1;
@@ -141,8 +142,8 @@ function SeededDecisionsList({
       </h2>
       <div className="border rounded-md divide-y">
         {highImpact.map((d) => {
-          const isDraft = d.status === "active" && !d.activated_at;
-          const isActive = d.status !== "closed";
+          const isDraft = d.status === "defined";
+          const isActive = !isClosedBetLifecycle(d.status);
           const isExpanded = expandedFailureId === d.id;
           return (
             <div key={d.id}>
@@ -153,7 +154,7 @@ function SeededDecisionsList({
                 <div className="flex gap-1.5 shrink-0 items-center">
                   <StatusBadge status={d.solution_domain} />
                   <StatusBadge status={d.impact_tier} />
-                  <StatusBadge status={d.status} />
+                  <StatusBadge status={formatBetLifecycleStatus(d.status)} />
                   <RiskChip indicator={riskByDecision[d.id]?.risk_indicator ?? "Green"} />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -274,19 +275,19 @@ export default function Overview() {
     friction_drivers: [], at_capacity: false,
   };
 
-  const activeHighImpact = decisions.filter((d) => d.status !== "closed" && d.impact_tier === "High");
+  const activeHighImpact = decisions.filter((d) => !isClosedBetLifecycle(d.status) && d.impact_tier === "High");
   const authorityActive = activeHighImpact.length >= 5;
 
-  const activeDecisions = decisions.filter((d) => d.status !== "closed");
+  const activeDecisions = decisions.filter((d) => !isClosedBetLifecycle(d.status));
   const blockedDecisions = decisions.filter(
-    (d) => d.status === "Blocked" && daysSince(d.created_at) > 5
+    (d) => toBetRiskLevel((d as any).risk_level) === "at_risk" && daysSince(d.created_at) > 5
   );
   const unlinkedSignals = signals.filter((s) => !s.decision_id);
 
   const velocity = computeBuilderVelocity(pods);
 
   const totalRevenueAtRisk = decisions
-    .filter((d) => d.status !== "closed" && d.revenue_at_risk)
+    .filter((d) => !isClosedBetLifecycle(d.status) && d.revenue_at_risk)
     .map((d) => d.revenue_at_risk!)
     .join(" · ");
 
@@ -505,7 +506,7 @@ export default function Overview() {
                       <div key={d.id} className="px-4 py-3">
                         <div className="flex items-center gap-3 mb-1">
                           <StatusBadge status={d.solution_domain} />
-                          <StatusBadge status={d.status} />
+                          <StatusBadge status={formatBetLifecycleStatus(d.status)} />
                           <span className="text-sm font-medium flex-1">{d.title}</span>
                           <span className="text-[11px] font-semibold text-signal-red uppercase tracking-wider">
                             {age}d — Attention Required

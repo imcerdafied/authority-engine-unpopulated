@@ -7,6 +7,15 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-reminder-secret",
 };
 
+const lifecycleLabels: Record<string, string> = {
+  defined: "Defined",
+  activated: "Activated",
+  proving_value: "Proving Value",
+  scaling: "Scaling",
+  durable: "Durable",
+  closed: "Closed",
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -87,9 +96,7 @@ serve(async (req) => {
           const daysSinceUpdate = Math.floor(
             (Date.now() - new Date(b.updated_at).getTime()) / (1000 * 60 * 60 * 24),
           );
-          const statusLabel = String(b.status ?? "")
-            .charAt(0)
-            .toUpperCase() + String(b.status ?? "").slice(1).replace("_", " ");
+          const statusLabel = lifecycleLabels[String(b.status ?? "").toLowerCase()] ?? "Defined";
           const exposure = b.exposure_value || b.revenue_at_risk || "\u2014";
           return `<tr>
             <td style="padding:8px 12px;border-bottom:1px solid #eee;font-weight:500;">${b.title}</td>

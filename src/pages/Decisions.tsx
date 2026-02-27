@@ -11,8 +11,19 @@ import TagPill from "@/components/bets/TagPill";
 import SectionBlock from "@/components/bets/SectionBlock";
 import ExposureCallout from "@/components/bets/ExposureCallout";
 import MetaFieldGrid, { MetaField } from "@/components/bets/MetaFieldGrid";
+import LifecycleRiskControls from "@/components/bets/LifecycleRiskControls";
 import BetCapabilityPodsSection from "@/components/capability-pods/BetCapabilityPodsSection";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  BET_LIFECYCLE_LABELS,
+  BET_LIFECYCLE_STATUSES,
+  BET_RISK_LABELS,
+  BET_RISK_LEVELS,
+  isClosedBetLifecycle,
+  toBetLifecycleStatus,
+  toBetRiskLevel,
+  type BetLifecycleStatus,
+} from "@/lib/bet-status";
 import { cn } from "@/lib/utils";
 
 interface PodConfig {
@@ -56,7 +67,8 @@ const fieldLabels: Record<string, string> = {
   current_delta: "Current Delta",
   revenue_at_risk: "Enterprise Exposure",
   owner: "Owner",
-  status: "Status",
+  status: "Lifecycle",
+  risk_level: "Risk",
 };
 
 function InlineEdit({
@@ -1030,7 +1042,6 @@ function BetCard({
   createInterruption,
   updateDecision,
   qc,
-  statusOptions,
   pendingStatus,
   setPendingStatus,
   statusNote,
@@ -1052,7 +1063,6 @@ function BetCard({
   createInterruption: ReturnType<typeof useCreateInterruption>;
   updateDecision: ReturnType<typeof useUpdateDecision>;
   qc: ReturnType<typeof useQueryClient>;
-  statusOptions: readonly string[];
   pendingStatus: { decisionId: string; newStatus: string; oldStatus: string } | null;
   setPendingStatus: (v: { decisionId: string; newStatus: string; oldStatus: string } | null) => void;
   statusNote: string;
@@ -1067,8 +1077,8 @@ function BetCard({
   const unplannedInterrupts = (d.unplanned_interrupts ?? 0) as number;
   const hasResourceReality = capacityDiverted > 0 || unplannedInterrupts > 0;
 
-  const isActive = d.status !== "closed";
-  const statusDisplay = String(d.status ?? "").charAt(0).toUpperCase() + String(d.status ?? "").slice(1).replace("_", " ");
+  const lifecycle = toBetLifecycleStatus(d.status);
+  const riskLevel = toBetRiskLevel(d.risk_level);
   const stale = staleness(d.updated_at);
   const showNudge = stale.isAmber || stale.isRed;
 
@@ -1126,30 +1136,26 @@ function BetCard({
                 logActivity={logActivity}
               />
             </MetaField>
-            <MetaField label="Status">
-              <select
-                value={pendingStatus?.decisionId === d.id ? pendingStatus.newStatus : (d.status === "active" ? "piloting" : d.status)}
-                disabled={!canUpdateStatus}
-                onChange={(e) => {
+            <MetaField label="Lifecycle / Risk">
+              <LifecycleRiskControls
+                lifecycle={pendingStatus?.decisionId === d.id ? (pendingStatus.newStatus as BetLifecycleStatus) : lifecycle}
+                riskLevel={riskLevel}
+                canEdit={canUpdateStatus}
+                onLifecycleChange={(newStatus) => {
                   if (!canUpdateStatus) return;
-                  const newStatus = e.target.value;
-                  const oldStatus = d.status === "active" ? "piloting" : d.status;
-                  if (newStatus === oldStatus) {
+                  if (newStatus === lifecycle) {
                     setPendingStatus(null);
                     return;
                   }
-                  setPendingStatus({ decisionId: d.id, newStatus, oldStatus: d.status });
+                  setPendingStatus({ decisionId: d.id, newStatus, oldStatus: lifecycle });
                   setStatusNote("");
                 }}
-                className={cn(
-                  "text-sm border border-white/40 rounded-sm px-2 py-1.5 bg-white text-black w-full",
-                  !canUpdateStatus && "opacity-60 cursor-not-allowed"
-                )}
-              >
-                {statusOptions.map((s) => (
-                  <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1).replace("_", " ")}</option>
-                ))}
-              </select>
+                onRiskLevelChange={(newRiskLevel) => {
+                  if (!canUpdateStatus || newRiskLevel === riskLevel) return;
+                  updateDecision.mutate({ id: d.id, risk_level: newRiskLevel } as any);
+                  logActivity(d.id, "risk_level", riskLevel, newRiskLevel);
+                }}
+              />
             </MetaField>
           </MetaFieldGrid>
         </div>
@@ -1312,6 +1318,7 @@ export default function Decisions() {
   const canWrite = currentRole === "admin" || currentRole === "pod_lead";
   const canManageOwner = currentRole === "admin" || currentRole === "pod_lead";
   const [filterStatus, setFilterStatus] = useState("");
+  const [filterRisk, setFilterRisk] = useState("");
   const [filterDomain, setFilterDomain] = useState("");
 
   // Derive solution domain options from org product areas
@@ -1320,8 +1327,8 @@ export default function Decisions() {
     productAreas.map((pa) => [pa.key, pa.label]),
   );
 
-  const statusOptions = ["hypothesis", "defined", "piloting", "scaling", "at_risk", "closed"] as const;
-  const filterStatusOptions = statusOptions.filter((s) => s !== "closed");
+  const filterStatusOptions = BET_LIFECYCLE_STATUSES.filter((s) => s !== "closed");
+  const riskLevelOptions = BET_RISK_LEVELS;
   const [pendingStatus, setPendingStatus] = useState<{ decisionId: string; newStatus: string; oldStatus: string } | null>(null);
   const [statusNote, setStatusNote] = useState("");
   const [closingIds, setClosingIds] = useState<Set<string>>(new Set());
@@ -1364,7 +1371,7 @@ export default function Decisions() {
 
   if (decisionsLoading || risksLoading) return <p className="text-xs text-muted-foreground uppercase tracking-widest">Loading...</p>;
 
-  const activeDecisions = decisions.filter((d) => String(d.status || "").toLowerCase() !== "closed");
+  const activeDecisions = decisions.filter((d) => !isClosedBetLifecycle(d.status));
   const closedCount = decisions.length - activeDecisions.length;
   const orderedDecisions = [...activeDecisions].sort(
     (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
@@ -1375,8 +1382,9 @@ export default function Decisions() {
 
   const filteredDecisions = orderedDecisions.filter((d) => {
     if (closingIds.has(d.id)) return false;
-    if (String(d.status || "").toLowerCase() === "closed") return false;
+    if (isClosedBetLifecycle(d.status)) return false;
     if (filterStatus && d.status !== filterStatus) return false;
+    if (filterRisk && toBetRiskLevel(d.risk_level) !== filterRisk) return false;
     if (filterDomain && d.solution_domain !== filterDomain) return false;
     return true;
   });
@@ -1394,9 +1402,15 @@ export default function Decisions() {
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className={selectClass}>
-              <option value="">All Statuses</option>
+              <option value="">All Lifecycles</option>
               {filterStatusOptions.map((s) => (
-                <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1).replace("_", " ")}</option>
+                <option key={s} value={s}>{BET_LIFECYCLE_LABELS[s]}</option>
+              ))}
+            </select>
+            <select value={filterRisk} onChange={(e) => setFilterRisk(e.target.value)} className={selectClass}>
+              <option value="">All Risk Levels</option>
+              {riskLevelOptions.map((r) => (
+                <option key={r} value={r}>{BET_RISK_LABELS[r]}</option>
               ))}
             </select>
             {orgDomainOptions.length > 0 && (
@@ -1407,9 +1421,9 @@ export default function Decisions() {
                 ))}
               </select>
             )}
-            {(filterStatus || filterDomain) && (
+            {(filterStatus || filterRisk || filterDomain) && (
               <button
-                onClick={() => { setFilterStatus(""); setFilterDomain(""); }}
+                onClick={() => { setFilterStatus(""); setFilterRisk(""); setFilterDomain(""); }}
                 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
               >
                 Clear
@@ -1454,7 +1468,6 @@ export default function Decisions() {
                 createInterruption={createInterruption}
                 updateDecision={updateDecision}
                 qc={qc}
-                statusOptions={statusOptions}
                 pendingStatus={pendingStatus}
                 setPendingStatus={setPendingStatus}
                 statusNote={statusNote}
@@ -1465,7 +1478,7 @@ export default function Decisions() {
               />
             ))}
           </div>
-          {filteredDecisions.length === 0 && (filterStatus || filterDomain) && (
+          {filteredDecisions.length === 0 && (filterStatus || filterRisk || filterDomain) && (
             <p className="text-sm text-muted-foreground text-center py-8">No bets match the current filters.</p>
           )}
         </section>

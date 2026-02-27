@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useOrg } from "@/contexts/OrgContext";
 import { useDecisions } from "@/hooks/useOrgData";
 import StatusBadge from "@/components/StatusBadge";
+import { isClosedBetLifecycle } from "@/lib/bet-status";
 import { cn } from "@/lib/utils";
 
 const fieldLabels: Record<string, string> = {
@@ -62,7 +63,7 @@ export default function Review() {
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).getTime();
   const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).getTime();
 
-  const activeDecisions = decisions.filter((d) => (d.status as string)?.toLowerCase() !== "closed");
+  const activeDecisions = decisions.filter((d) => !isClosedBetLifecycle(d.status));
 
   const activityByDecision = allActivity.reduce<Record<string, any[]>>((acc, a) => {
     if (!acc[a.decision_id]) acc[a.decision_id] = [];

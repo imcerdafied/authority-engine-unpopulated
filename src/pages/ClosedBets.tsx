@@ -1,4 +1,5 @@
 import { useDecisions } from "@/hooks/useOrgData";
+import { isClosedBetLifecycle } from "@/lib/bet-status";
 
 function formatDate(ts: string): string {
   return new Date(ts).toLocaleDateString("en-US", {
@@ -16,7 +17,7 @@ export default function ClosedBets() {
   }
 
   const closed = decisions
-    .filter((d) => String(d.status || "").toLowerCase() === "closed")
+    .filter((d) => isClosedBetLifecycle(d.status))
     .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
 
   return (

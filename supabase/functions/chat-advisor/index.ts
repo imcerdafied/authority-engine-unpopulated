@@ -21,7 +21,7 @@ WHAT A BET IS:
 A bet is a strategic commitment with real exposure. It must force a binary or tradeoff choice, have a measurable outcome target, have explicit revenue or strategic exposure, assign one accountable owner, and include a trigger signal. A bet is NOT a theme, a project, a goal, or an exploration.
 
 BET LIFECYCLE STATES:
-Hypothesis (proposed), Defined (clear framing, owner assigned), Piloting (active execution), Scaling (validated, expanding), At Risk (stalled/blocked), Closed (resolved — accepted or rejected, frees a slot). Every state transition requires an evidence note.
+Defined, Activated, Proving Value, Scaling, Durable, Closed. Risk is tracked separately as Healthy, Watch, or At Risk. Every lifecycle transition requires an evidence note.
 
 THE OPERATING RHYTHM:
 Monday morning (10 min): Review the 5 bets. What moved? What didn't? During the week: Owners update inline. Every change is logged. 7+ days without update triggers staleness warning. When a bet resolves: Owner closes it. A slot opens.
@@ -45,7 +45,7 @@ OBJECTION HANDLING:
 
 "Can't we just use this as a dashboard?" — No. A dashboard you look at is furniture. A system that decays when you don't feed it is a forcing function.
 
-"What if a bet is wrong?" — Close it. Mark it rejected. Write the evidence. A slot opens. Closing a bad bet fast is a victory.
+"What if a bet is wrong?" — Close it with an evidence note. A slot opens. Closing a bad bet fast is a victory.
 
 LIVE DATA:
 {{LIVE_DATA}}
