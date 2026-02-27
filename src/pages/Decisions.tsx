@@ -1089,6 +1089,17 @@ function BetCard({
               />
             </div>
             <div className="flex items-center gap-2 flex-wrap mt-1.5">
+              {d.is_aging && <TagPill variant="warning">Aging</TagPill>}
+              {d.is_unbound && <TagPill variant="warning">Unbound</TagPill>}
+              {d.needs_exec_attention && <TagPill variant="danger">Exec Attention</TagPill>}
+            </div>
+          </div>
+
+          <MetaFieldGrid columns={4} className="w-full lg:min-w-[640px]">
+            <MetaField label="Category">
+              <CategorySelect value={(d.outcome_category_key ?? d.outcome_category) ?? ""} categories={categories} decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full !text-white" />
+            </MetaField>
+            <MetaField label="Solution">
               <PillSelect
                 value={d.solution_domain ?? ""}
                 options={domainOptions}
@@ -1099,15 +1110,6 @@ function BetCard({
                 logActivity={logActivity}
                 labelMap={domainLabels}
               />
-              {d.is_aging && <TagPill variant="warning">Aging</TagPill>}
-              {d.is_unbound && <TagPill variant="warning">Unbound</TagPill>}
-              {d.needs_exec_attention && <TagPill variant="danger">Exec Attention</TagPill>}
-            </div>
-          </div>
-
-          <MetaFieldGrid columns={3} className="w-full lg:min-w-[480px]">
-            <MetaField label="Category">
-              <CategorySelect value={(d.outcome_category_key ?? d.outcome_category) ?? ""} categories={categories} decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full !text-white" />
             </MetaField>
             <MetaField label="Owner">
               <OwnerAccountSelect
