@@ -197,6 +197,23 @@ export function OrgProvider({ children }: { children: ReactNode }) {
       }));
     }
 
+    // Final fallback via edge function (service-role backed), avoids RLS drift/timing issues.
+    if (mapped.length === 0) {
+      const { data: edgeData, error: edgeError } = await supabase.functions.invoke("my-orgs");
+      if (edgeError) {
+        console.error("Edge membership fallback failed:", edgeError);
+      } else {
+        const edgeMemberships = Array.isArray((edgeData as any)?.memberships)
+          ? (edgeData as any).memberships
+          : [];
+        mapped = edgeMemberships.map((m: any) => ({
+          org_id: m.org_id,
+          role: m.role,
+          organization: m.organizations ?? fallbackOrganization(m.org_id),
+        }));
+      }
+    }
+
     setMemberships(mapped);
 
     // Auto-select org
