@@ -131,6 +131,7 @@ export function OrgProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       return;
     }
+    setLoading(true);
 
     let mapped: OrgMembership[] = [];
 
