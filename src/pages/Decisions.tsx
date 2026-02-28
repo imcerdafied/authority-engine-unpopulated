@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   BET_LIFECYCLE_LABELS,
   BET_LIFECYCLE_STATUSES,
+  BET_RISK_LABELS,
   isClosedBetLifecycle,
   toBetLifecycleStatus,
   toBetRiskLevel,
