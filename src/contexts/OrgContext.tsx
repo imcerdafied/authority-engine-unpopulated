@@ -172,29 +172,27 @@ export function OrgProvider({ children }: { children: ReactNode }) {
       }
 
       if (membershipError) {
-        console.error("Fallback membership fetch failed:", membershipError);
-        setLoading(false);
-        return;
+        console.error("Fallback membership fetch failed. Continuing to edge fallback:", membershipError);
+      } else {
+        const orgIds = Array.from(new Set(membershipRows.map((row) => row.org_id)));
+        const { data: orgRows, error: orgError } = orgIds.length
+          ? await supabase
+              .from("organizations")
+              .select("*")
+              .in("id", orgIds)
+          : { data: [], error: null as any };
+
+        if (orgError) {
+          console.error("Fallback org fetch failed. Using minimal org objects:", orgError);
+        }
+
+        const orgById = new Map((orgRows || []).map((org) => [org.id, org]));
+        mapped = membershipRows.map((row) => ({
+          org_id: row.org_id,
+          role: row.role,
+          organization: (orgById.get(row.org_id) as Tables<"organizations"> | undefined) ?? fallbackOrganization(row.org_id),
+        }));
       }
-
-      const orgIds = Array.from(new Set(membershipRows.map((row) => row.org_id)));
-      const { data: orgRows, error: orgError } = orgIds.length
-        ? await supabase
-            .from("organizations")
-            .select("*")
-            .in("id", orgIds)
-        : { data: [], error: null as any };
-
-      if (orgError) {
-        console.error("Fallback org fetch failed. Using minimal org objects:", orgError);
-      }
-
-      const orgById = new Map((orgRows || []).map((org) => [org.id, org]));
-      mapped = membershipRows.map((row) => ({
-        org_id: row.org_id,
-        role: row.role,
-        organization: (orgById.get(row.org_id) as Tables<"organizations"> | undefined) ?? fallbackOrganization(row.org_id),
-      }));
     }
 
     // Final fallback via edge function (service-role backed), avoids RLS drift/timing issues.
