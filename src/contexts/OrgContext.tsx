@@ -117,6 +117,16 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function getAccessTokenWithRetry(): Promise<string | null> {
+  for (let i = 0; i < 8; i += 1) {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (token) return token;
+    await sleep(250);
+  }
+  return null;
+}
+
 export function OrgProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [memberships, setMemberships] = useState<OrgMembership[]>([]);
@@ -209,6 +219,41 @@ export function OrgProvider({ children }: { children: ReactNode }) {
           role: m.role,
           organization: m.organizations ?? fallbackOrganization(m.org_id),
         }));
+      }
+    }
+
+    // Extra fallback: direct authenticated fetch to avoid invoke/session propagation race.
+    if (mapped.length === 0) {
+      try {
+        const accessToken = await getAccessTokenWithRetry();
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+        if (accessToken && supabaseUrl && supabaseAnonKey) {
+          const res = await fetch(`${supabaseUrl}/functions/v1/my-orgs`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+              apikey: supabaseAnonKey,
+            },
+            body: JSON.stringify({}),
+          });
+          const body = await res.json().catch(() => ({}));
+          if (res.ok) {
+            const edgeMemberships = Array.isArray((body as any)?.memberships)
+              ? (body as any).memberships
+              : [];
+            mapped = edgeMemberships.map((m: any) => ({
+              org_id: m.org_id,
+              role: m.role,
+              organization: m.organizations ?? fallbackOrganization(m.org_id),
+            }));
+          } else {
+            console.error("Direct my-orgs fallback failed:", body);
+          }
+        }
+      } catch (directErr) {
+        console.error("Direct my-orgs fallback exception:", directErr);
       }
     }
 
