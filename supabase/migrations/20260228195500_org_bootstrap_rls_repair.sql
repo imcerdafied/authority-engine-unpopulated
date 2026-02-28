@@ -40,7 +40,7 @@ FOR INSERT
 TO authenticated
 WITH CHECK (
   auth.uid() = user_id
-  AND role = 'admin'::app_role
+  AND role = 'admin'
   AND NOT EXISTS (
     SELECT 1
     FROM public.organization_memberships om2
