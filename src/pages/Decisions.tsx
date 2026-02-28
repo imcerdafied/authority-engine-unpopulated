@@ -122,6 +122,11 @@ function InlineEdit({
     setEditing(false);
   };
 
+  const handleCancel = () => {
+    setEditValue(value);
+    setEditing(false);
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (titleAsMultiline) {
       if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
@@ -158,18 +163,45 @@ function InlineEdit({
   if (editing) {
     if (titleAsMultiline) {
       return (
-        <textarea
-          ref={inputRef as React.RefObject<HTMLTextAreaElement>}
-          value={editValue}
-          onChange={(e) => setEditValue(e.target.value)}
-          onBlur={handleSave}
-          onKeyDown={handleKeyDown}
-          rows={variant === "title" ? 3 : 4}
-          className={cn(
-            "border rounded bg-background text-foreground w-full text-sm px-2 py-1 resize-y",
-            variant === "title" && "bg-white text-black text-lg font-semibold leading-snug min-h-[84px]"
-          )}
-        />
+        <div className="space-y-1.5 w-full">
+          <textarea
+            ref={inputRef as React.RefObject<HTMLTextAreaElement>}
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            rows={variant === "title" ? 3 : 4}
+            className={cn(
+              "border rounded bg-background text-foreground w-full text-sm px-2 py-1 resize-y",
+              variant === "title" && "bg-white text-black text-lg font-semibold leading-snug min-h-[84px]"
+            )}
+          />
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleSave}
+              className={cn(
+                "text-[11px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-sm",
+                variant === "title"
+                  ? "bg-white text-black hover:bg-white/90"
+                  : "bg-foreground text-background hover:bg-foreground/90"
+              )}
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              onClick={handleCancel}
+              className={cn(
+                "text-[11px] uppercase tracking-wider px-2.5 py-1 rounded-sm border",
+                variant === "title"
+                  ? "border-white/40 text-white hover:bg-white/10"
+                  : "border-muted-foreground/40 text-muted-foreground hover:text-foreground hover:border-foreground/40"
+              )}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
       );
     }
     return (

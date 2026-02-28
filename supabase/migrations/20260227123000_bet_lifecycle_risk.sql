@@ -45,7 +45,27 @@ BEGIN
 END
 $$;
 
-DROP VIEW IF EXISTS public.decisions_computed;
+DO $$
+DECLARE
+  relkind "char";
+BEGIN
+  SELECT c.relkind
+  INTO relkind
+  FROM pg_class c
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE n.nspname = 'public'
+    AND c.relname = 'decisions_computed'
+  LIMIT 1;
+
+  IF relkind = 'v' THEN
+    EXECUTE 'DROP VIEW IF EXISTS public.decisions_computed';
+  ELSIF relkind = 'm' THEN
+    EXECUTE 'DROP MATERIALIZED VIEW IF EXISTS public.decisions_computed';
+  ELSIF relkind = 'r' THEN
+    EXECUTE 'DROP TABLE IF EXISTS public.decisions_computed';
+  END IF;
+END
+$$;
 
 ALTER TABLE public.decisions
   ALTER COLUMN status DROP DEFAULT;
@@ -70,8 +90,41 @@ SET risk_level = 'at_risk'
 WHERE lower(coalesce(legacy_status_text, '')) IN ('at risk', 'at_risk', 'blocked')
   AND risk_level = 'healthy';
 
-ALTER TYPE public.decision_status RENAME TO decision_status_legacy;
-ALTER TYPE public.decision_status_new RENAME TO decision_status;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'public' AND t.typname = 'decision_status'
+  ) AND NOT EXISTS (
+    SELECT 1
+    FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'public' AND t.typname = 'decision_status_legacy'
+  ) THEN
+    ALTER TYPE public.decision_status RENAME TO decision_status_legacy;
+  END IF;
+END
+$$;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'public' AND t.typname = 'decision_status_new'
+  ) AND NOT EXISTS (
+    SELECT 1
+    FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'public' AND t.typname = 'decision_status'
+  ) THEN
+    ALTER TYPE public.decision_status_new RENAME TO decision_status;
+  END IF;
+END
+$$;
 
 ALTER TABLE public.decisions
   ALTER COLUMN status SET DEFAULT 'defined'::public.decision_status;
