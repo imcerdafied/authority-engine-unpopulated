@@ -17,8 +17,6 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   BET_LIFECYCLE_LABELS,
   BET_LIFECYCLE_STATUSES,
-  BET_RISK_LABELS,
-  BET_RISK_LEVELS,
   isClosedBetLifecycle,
   toBetLifecycleStatus,
   toBetRiskLevel,
@@ -879,7 +877,7 @@ function CategorySelect({
         value={value || ""}
         onChange={handleChange}
         onBlur={() => setEditing(false)}
-        className="text-sm border rounded px-2 py-1 w-full bg-background"
+        className="text-sm border border-white/40 rounded px-2 py-1 w-full bg-white text-black"
       >
         <option value="">—</option>
         {categories.map((c) => (
@@ -1110,7 +1108,6 @@ function BetCard({
   const hasResourceReality = capacityDiverted > 0 || unplannedInterrupts > 0;
 
   const lifecycle = toBetLifecycleStatus(d.status);
-  const riskLevel = toBetRiskLevel(d.risk_level);
   const stale = staleness(d.updated_at);
   const showNudge = stale.isAmber || stale.isRed;
 
@@ -1158,20 +1155,20 @@ function BetCard({
               />
             </MetaField>
             <MetaField label="Owner">
-              <OwnerAccountSelect
-                value={d.owner_user_id ?? null}
-                members={members}
-                user={user}
+              <InlineEdit
+                value={d.owner ?? ""}
+                field="owner"
                 decisionId={d.id}
-                canEdit={canManageOwner}
+                canEdit={canWrite}
                 onSave={handleInlineSave}
                 logActivity={logActivity}
+                className="w-full block text-sm !text-white"
+                placeholder="TBD"
               />
             </MetaField>
-            <MetaField label="Lifecycle / Risk">
+            <MetaField label="Lifecycle">
               <LifecycleRiskControls
                 lifecycle={pendingStatus?.decisionId === d.id ? (pendingStatus.newStatus as BetLifecycleStatus) : lifecycle}
-                riskLevel={riskLevel}
                 canEdit={canUpdateStatus}
                 onLifecycleChange={(newStatus) => {
                   if (!canUpdateStatus) return;
@@ -1181,11 +1178,6 @@ function BetCard({
                   }
                   setPendingStatus({ decisionId: d.id, newStatus, oldStatus: lifecycle });
                   setStatusNote("");
-                }}
-                onRiskLevelChange={(newRiskLevel) => {
-                  if (!canUpdateStatus || newRiskLevel === riskLevel) return;
-                  updateDecision.mutate({ id: d.id, risk_level: newRiskLevel } as any);
-                  logActivity(d.id, "risk_level", riskLevel, newRiskLevel);
                 }}
               />
             </MetaField>
@@ -1262,7 +1254,7 @@ function BetCard({
             {stale.label}
           </span>
           {!canUpdateStatus && (
-            <p className="text-[11px] text-muted-foreground sm:text-right">Only assigned owner or admin can update status.</p>
+            <p className="text-[11px] text-muted-foreground sm:text-right">Only assigned owner or admin can update lifecycle.</p>
           )}
           {showNudge && (
             <a
@@ -1360,7 +1352,7 @@ export default function Decisions() {
   );
 
   const filterStatusOptions = BET_LIFECYCLE_STATUSES.filter((s) => s !== "closed");
-  const riskLevelOptions = BET_RISK_LEVELS;
+  const riskLevelOptions = ["at_risk", "watch", "healthy"] as const;
   const [pendingStatus, setPendingStatus] = useState<{ decisionId: string; newStatus: string; oldStatus: string } | null>(null);
   const [statusNote, setStatusNote] = useState("");
   const [closingIds, setClosingIds] = useState<Set<string>>(new Set());

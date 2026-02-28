@@ -160,7 +160,7 @@ export default function Team() {
                       : m.display_name || m.email || "Member"}
                   </p>
                   <p className="text-[11px] text-muted-foreground">
-                    {m.email || m.user_id}
+                    {m.display_name && m.email ? m.email : (m.display_name || m.email || "No profile info")}
                   </p>
                 </div>
                 {isAdmin && m.user_id !== user?.id ? (
