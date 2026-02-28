@@ -40,7 +40,7 @@ FOR INSERT
 TO authenticated
 WITH CHECK (
   auth.uid() = user_id
-  AND role = 'admin'::public.app_role
+  AND role = 'admin'::app_role
   AND NOT EXISTS (
     SELECT 1
     FROM public.organization_memberships om2
@@ -69,4 +69,3 @@ ON public.organization_memberships
 FOR DELETE
 TO authenticated
 USING (public.is_admin_of_org(auth.uid(), org_id));
-
