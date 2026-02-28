@@ -99,6 +99,18 @@ function parseCustomCategories(raw: unknown): CustomCategory[] | null {
   return parsed.length > 0 ? parsed : null;
 }
 
+function fallbackOrganization(orgId: string, fallbackName?: string): Tables<"organizations"> {
+  return {
+    id: orgId,
+    name: fallbackName || "Organization",
+    created_at: new Date(0).toISOString(),
+    created_by: null,
+    allowed_email_domain: null,
+    custom_outcome_categories: null,
+    product_areas: [],
+  };
+}
+
 export function OrgProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [memberships, setMemberships] = useState<OrgMembership[]>([]);
@@ -114,22 +126,55 @@ export function OrgProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    let mapped: OrgMembership[] = [];
+
     const { data, error } = await supabase
       .from("organization_memberships")
       .select("org_id, role, organizations(*)")
       .eq("user_id", user.id);
 
-    if (error) {
-      console.error("Failed to fetch memberships:", error);
-      setLoading(false);
-      return;
+    if (!error) {
+      mapped = (data || []).map((m: any) => ({
+        org_id: m.org_id,
+        role: m.role,
+        organization: m.organizations ?? fallbackOrganization(m.org_id),
+      }));
+    } else {
+      console.error("Primary membership fetch failed. Falling back:", error);
     }
 
-    const mapped: OrgMembership[] = (data || []).map((m: any) => ({
-      org_id: m.org_id,
-      role: m.role,
-      organization: m.organizations,
-    }));
+    // Fallback path: keep bootstrap resilient when relation expansion is blocked/flaky.
+    if (mapped.length === 0) {
+      const { data: membershipRows, error: membershipError } = await supabase
+        .from("organization_memberships")
+        .select("org_id, role")
+        .eq("user_id", user.id);
+
+      if (membershipError) {
+        console.error("Fallback membership fetch failed:", membershipError);
+        setLoading(false);
+        return;
+      }
+
+      const orgIds = Array.from(new Set((membershipRows || []).map((row) => row.org_id)));
+      const { data: orgRows, error: orgError } = orgIds.length
+        ? await supabase
+            .from("organizations")
+            .select("*")
+            .in("id", orgIds)
+        : { data: [], error: null as any };
+
+      if (orgError) {
+        console.error("Fallback org fetch failed. Using minimal org objects:", orgError);
+      }
+
+      const orgById = new Map((orgRows || []).map((org) => [org.id, org]));
+      mapped = (membershipRows || []).map((row) => ({
+        org_id: row.org_id,
+        role: row.role,
+        organization: (orgById.get(row.org_id) as Tables<"organizations"> | undefined) ?? fallbackOrganization(row.org_id),
+      }));
+    }
 
     setMemberships(mapped);
 
