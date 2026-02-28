@@ -59,6 +59,8 @@ const OrgContext = createContext<OrgContextType>({
 const ORG_STORAGE_KEY = "ba_current_org";
 const PENDING_ORG_JOIN_KEY = "pending_org_join";
 const PENDING_JOIN_TTL_MS = 1000 * 60 * 30;
+const MEMBERSHIP_RETRY_ATTEMPTS = 3;
+const MEMBERSHIP_RETRY_DELAY_MS = 250;
 
 function readPendingOrgJoin(): string | null {
   if (typeof window === "undefined") return null;
@@ -111,6 +113,10 @@ function fallbackOrganization(orgId: string, fallbackName?: string): Tables<"org
   };
 }
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export function OrgProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [memberships, setMemberships] = useState<OrgMembership[]>([]);
@@ -145,10 +151,24 @@ export function OrgProvider({ children }: { children: ReactNode }) {
 
     // Fallback path: keep bootstrap resilient when relation expansion is blocked/flaky.
     if (mapped.length === 0) {
-      const { data: membershipRows, error: membershipError } = await supabase
-        .from("organization_memberships")
-        .select("org_id, role")
-        .eq("user_id", user.id);
+      let membershipRows: Array<{ org_id: string; role: AppRole }> = [];
+      let membershipError: any = null;
+
+      for (let attempt = 0; attempt < MEMBERSHIP_RETRY_ATTEMPTS; attempt += 1) {
+        const { data: rows, error: rowError } = await supabase
+          .from("organization_memberships")
+          .select("org_id, role")
+          .eq("user_id", user.id);
+
+        membershipRows = (rows || []) as Array<{ org_id: string; role: AppRole }>;
+        membershipError = rowError;
+
+        if (membershipRows.length > 0) break;
+        if (rowError) break;
+        if (attempt < MEMBERSHIP_RETRY_ATTEMPTS - 1) {
+          await sleep(MEMBERSHIP_RETRY_DELAY_MS * (attempt + 1));
+        }
+      }
 
       if (membershipError) {
         console.error("Fallback membership fetch failed:", membershipError);
@@ -156,7 +176,7 @@ export function OrgProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const orgIds = Array.from(new Set((membershipRows || []).map((row) => row.org_id)));
+      const orgIds = Array.from(new Set(membershipRows.map((row) => row.org_id)));
       const { data: orgRows, error: orgError } = orgIds.length
         ? await supabase
             .from("organizations")
@@ -169,7 +189,7 @@ export function OrgProvider({ children }: { children: ReactNode }) {
       }
 
       const orgById = new Map((orgRows || []).map((org) => [org.id, org]));
-      mapped = (membershipRows || []).map((row) => ({
+      mapped = membershipRows.map((row) => ({
         org_id: row.org_id,
         role: row.role,
         organization: (orgById.get(row.org_id) as Tables<"organizations"> | undefined) ?? fallbackOrganization(row.org_id),
