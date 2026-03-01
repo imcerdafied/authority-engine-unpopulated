@@ -13,6 +13,9 @@ import ExposureCallout from "@/components/bets/ExposureCallout";
 import MetaFieldGrid, { MetaField } from "@/components/bets/MetaFieldGrid";
 import LifecycleRiskControls from "@/components/bets/LifecycleRiskControls";
 import BetCapabilityPodsSection from "@/components/capability-pods/BetCapabilityPodsSection";
+import InitiativesPanel from "@/components/InitiativesPanel";
+import MetricsSidebar from "@/components/MetricsSidebar";
+import ScoreHistory from "@/components/ScoreHistory";
 import { supabase } from "@/integrations/supabase/client";
 import {
   BET_LIFECYCLE_LABELS,
@@ -1247,6 +1250,10 @@ function BetCard({
         betId={d.id}
         canWrite={canWrite}
       />
+
+      <MetricsSidebar betId={d.id} canWrite={canWrite} />
+      <InitiativesPanel betId={d.id} canWrite={canWrite} />
+      <ScoreHistory betId={d.id} />
 
       <DecisionActivityFeed
           decisionId={d.id}
