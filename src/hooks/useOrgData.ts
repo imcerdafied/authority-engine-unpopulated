@@ -172,7 +172,16 @@ export function useUpdateDecision() {
         .eq("id", id)
         .select()
         .single();
-      if (error) throw error;
+      if (error) {
+        // Fallback through edge function when client RLS/write path is inconsistent.
+        const { data: edgeData, error: edgeError } = await supabase.functions.invoke("update-decision", {
+          body: { id, updates },
+        });
+        if (edgeError || !edgeData?.success || !edgeData?.data) {
+          throw edgeError || new Error(edgeData?.error || error.message || "Update failed");
+        }
+        return edgeData.data as any;
+      }
       const isStatusChange = typeof updates.status !== "undefined";
       void trackEvent(isStatusChange ? "decision_status_changed" : "decision_updated", {
         orgId: currentOrg?.id ?? null,
