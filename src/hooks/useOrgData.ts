@@ -6,6 +6,20 @@ import { trackEvent } from "@/lib/telemetry";
 import { isClosedBetLifecycle, toBetRiskLevel } from "@/lib/bet-status";
 import type { TablesInsert } from "@/integrations/supabase/types";
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function getAccessTokenWithRetry() {
+  for (let i = 0; i < 8; i += 1) {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (token) return token;
+    const { data: refreshed } = await supabase.auth.refreshSession();
+    if (refreshed.session?.access_token) return refreshed.session.access_token;
+    await sleep(250);
+  }
+  return null;
+}
+
 export interface DecisionComputed {
   id: string;
   org_id: string;
@@ -177,10 +191,34 @@ export function useUpdateDecision() {
         const { data: edgeData, error: edgeError } = await supabase.functions.invoke("update-decision", {
           body: { id, updates },
         });
-        if (edgeError || !edgeData?.success || !edgeData?.data) {
-          throw edgeError || new Error(edgeData?.error || error.message || "Update failed");
+        if (!edgeError && edgeData?.success && edgeData?.data) {
+          return edgeData.data as any;
         }
-        return edgeData.data as any;
+
+        // Last fallback: direct authenticated fetch to edge function to bypass invoke wrapper/token races.
+        const accessToken = await getAccessTokenWithRetry();
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+        if (accessToken && supabaseUrl && supabaseAnonKey) {
+          const res = await fetch(`${supabaseUrl}/functions/v1/update-decision`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+              apikey: supabaseAnonKey,
+            },
+            body: JSON.stringify({ id, updates }),
+          });
+          const body = await res.json().catch(() => ({}));
+          if (res.ok && body?.success && body?.data) {
+            return body.data as any;
+          }
+          const fallbackMsg = String(body?.error || `HTTP ${res.status}`).trim();
+          throw new Error(
+            `Direct update failed (${error.message}); edge invoke failed (${edgeError?.message || edgeData?.error || "unknown"}); direct edge failed (${fallbackMsg || "unknown"})`,
+          );
+        }
+        throw edgeError || new Error(edgeData?.error || error.message || "Update failed");
       }
       const isStatusChange = typeof updates.status !== "undefined";
       void trackEvent(isStatusChange ? "decision_status_changed" : "decision_updated", {
