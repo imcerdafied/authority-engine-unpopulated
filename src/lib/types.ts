@@ -197,3 +197,70 @@ export function daysSince(dateStr: string): number {
 export function daysUntil(dateStr: string): number {
   return -daysSince(dateStr);
 }
+
+// ── Converged Engine Types ──
+
+export interface BetMetric {
+  id: string;
+  bet_id: string;
+  outcome_key: string;
+  metric_name: string;
+  target_value: number;
+  current_value: number;
+  status: 'OnTrack' | 'AtRisk' | 'OffTrack';
+  created_at: string;
+  last_updated_at: string;
+}
+
+export interface BetInitiative {
+  id: string;
+  bet_id: string;
+  description: string;
+  aligned_outcomes: string[];
+  value: number;
+  confidence: number;
+  effort: number;
+  outcome_multiplier: number;
+  score_v3: number;
+  roadmap_position: number;
+  last_score_delta: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BetFinding {
+  id: string;
+  bet_id: string;
+  description: string;
+  aligned_outcomes: string[];
+  value: number;
+  confidence: number;
+  effort: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BetMonitoring {
+  bet_id: string;
+  drift_flags: DriftFlag[];
+  last_recalculated_at: string;
+}
+
+export interface DriftFlag {
+  type: 'alignment_drift' | 'metric_gap' | 'score_volatility';
+  severity: 'low' | 'medium' | 'high';
+  description: string;
+  detected_at: string;
+}
+
+export interface ScoreHistoryEntry {
+  id: string;
+  initiative_id: string;
+  bet_id: string;
+  previous_score: number;
+  new_score: number;
+  previous_rank: number;
+  new_rank: number;
+  trigger_event: string;
+  calculated_at: string;
+}
