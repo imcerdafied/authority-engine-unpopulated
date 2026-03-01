@@ -16,6 +16,8 @@ import BetCapabilityPodsSection from "@/components/capability-pods/BetCapability
 import InitiativesPanel from "@/components/InitiativesPanel";
 import MetricsSidebar from "@/components/MetricsSidebar";
 import ScoreHistory from "@/components/ScoreHistory";
+import DriftIndicators from "@/components/DriftIndicators";
+import { DriftBadge } from "@/components/DriftIndicators";
 import { supabase } from "@/integrations/supabase/client";
 import {
   BET_LIFECYCLE_LABELS,
@@ -1088,6 +1090,7 @@ function BetCard({
               {d.is_aging && <TagPill variant="warning">Aging</TagPill>}
               {d.is_unbound && <TagPill variant="warning">Unbound</TagPill>}
               {d.needs_exec_attention && <TagPill variant="danger">Exec Attention</TagPill>}
+              <DriftBadge betId={d.id} />
             </div>
           </div>
 
@@ -1251,6 +1254,7 @@ function BetCard({
         canWrite={canWrite}
       />
 
+      <DriftIndicators betId={d.id} />
       <MetricsSidebar betId={d.id} canWrite={canWrite} />
       <InitiativesPanel betId={d.id} canWrite={canWrite} />
       <ScoreHistory betId={d.id} />

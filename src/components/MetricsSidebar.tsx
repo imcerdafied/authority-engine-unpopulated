@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useMetrics, useAddMetric, useUpdateMetricValue } from "@/hooks/useMetrics";
+import { useInitiatives } from "@/hooks/useInitiatives";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { BetMetric } from "@/lib/types";
@@ -23,9 +24,22 @@ const BAR_COLORS: Record<BetMetric["status"], string> = {
 
 export default function MetricsSidebar({ betId, canWrite }: MetricsSidebarProps) {
   const { data: metrics = [], isLoading } = useMetrics(betId);
+  const { data: initiatives = [] } = useInitiatives(betId);
   const addMetric = useAddMetric(betId);
   const updateValue = useUpdateMetricValue(betId);
   const [showAdd, setShowAdd] = useState(false);
+
+  // Build a map of outcome_key -> count of initiatives aligned to it
+  const alignmentCounts = new Map<string, { aligned: number; total: number }>();
+  for (const m of metrics) {
+    const aligned = initiatives.filter((i) =>
+      i.aligned_outcomes.includes(m.outcome_key),
+    ).length;
+    alignmentCounts.set(m.outcome_key, {
+      aligned,
+      total: initiatives.length,
+    });
+  }
 
   if (isLoading) {
     return (
@@ -88,6 +102,7 @@ export default function MetricsSidebar({ betId, canWrite }: MetricsSidebarProps)
             key={m.id}
             metric={m}
             canWrite={canWrite}
+            alignment={alignmentCounts.get(m.outcome_key)}
             onUpdateValue={async (newValue) => {
               await updateValue.mutateAsync({ metricId: m.id, newValue });
               toast.success("Metric updated");
@@ -104,14 +119,28 @@ export default function MetricsSidebar({ betId, canWrite }: MetricsSidebarProps)
 function MetricRow({
   metric,
   canWrite,
+  alignment,
   onUpdateValue,
 }: {
   metric: BetMetric;
   canWrite: boolean;
+  alignment?: { aligned: number; total: number };
   onUpdateValue: (v: number) => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(String(metric.current_value));
+  const prevStatusRef = useRef(metric.status);
+  const [animating, setAnimating] = useState(false);
+
+  // Status transition animation
+  useEffect(() => {
+    if (prevStatusRef.current !== metric.status) {
+      setAnimating(true);
+      prevStatusRef.current = metric.status;
+      const timer = setTimeout(() => setAnimating(false), 600);
+      return () => clearTimeout(timer);
+    }
+  }, [metric.status]);
 
   const pct = metric.target_value > 0
     ? Math.min(100, Math.round((metric.current_value / metric.target_value) * 100))
@@ -128,18 +157,26 @@ function MetricRow({
     await onUpdateValue(parsed);
   };
 
+  const noAlignment = alignment && alignment.aligned === 0 && alignment.total > 0;
+
   return (
-    <div className="border rounded-sm px-3 py-2 bg-background">
+    <div className={cn(
+      "border rounded-sm px-3 py-2 bg-background transition-colors duration-500",
+      animating && "ring-1 ring-foreground/20",
+    )}>
       <div className="flex items-center justify-between mb-1">
         <span className="text-xs font-medium truncate">{metric.metric_name}</span>
-        <span className={cn("text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded-sm border", STATUS_COLORS[metric.status])}>
+        <span className={cn(
+          "text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded-sm border transition-colors duration-500",
+          STATUS_COLORS[metric.status],
+        )}>
           {metric.status}
         </span>
       </div>
       <div className="flex items-center gap-2">
         <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
           <div
-            className={cn("h-full rounded-full transition-all duration-300", BAR_COLORS[metric.status])}
+            className={cn("h-full rounded-full transition-all duration-500", BAR_COLORS[metric.status])}
             style={{ width: `${pct}%` }}
           />
         </div>
@@ -168,7 +205,17 @@ function MetricRow({
           <span className="text-muted-foreground/60"> / {metric.target_value}</span>
         </div>
       </div>
-      <div className="text-[10px] text-muted-foreground/60 mt-0.5">{metric.outcome_key}</div>
+      <div className="flex items-center justify-between mt-0.5">
+        <span className="text-[10px] text-muted-foreground/60">{metric.outcome_key}</span>
+        {alignment && (
+          <span className={cn(
+            "text-[10px] tabular-nums",
+            noAlignment ? "text-signal-red" : "text-muted-foreground/50",
+          )}>
+            {alignment.aligned} of {alignment.total} initiatives aligned
+          </span>
+        )}
+      </div>
     </div>
   );
 }

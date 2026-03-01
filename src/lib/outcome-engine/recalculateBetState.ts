@@ -59,11 +59,15 @@ export async function recalculateBetState(
   // 5. Rank
   const ranked = rankInitiatives(scored);
 
-  // 6. Log score movements for rank changes
+  // 6. Log score movements for rank or score changes
   const logPromises: Promise<void>[] = [];
   for (const updated of ranked) {
     const original = rawInitiatives.find((i) => i.id === updated.id);
-    if (original && original.roadmap_position !== updated.roadmap_position) {
+    if (
+      original &&
+      (original.roadmap_position !== updated.roadmap_position ||
+        Math.abs(original.score_v3 - updated.score_v3) > 0.001)
+    ) {
       logPromises.push(
         logScoreMovement(
           { score_v3: original.score_v3, roadmap_position: original.roadmap_position },

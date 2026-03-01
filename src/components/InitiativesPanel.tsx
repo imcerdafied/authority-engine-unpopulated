@@ -1,15 +1,36 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useInitiatives, useAddInitiative, useUpdateInitiative, useDeleteInitiative } from "@/hooks/useInitiatives";
 import { useMetrics } from "@/hooks/useMetrics";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import type { BetInitiative } from "@/lib/types";
+import type { BetInitiative, BetMetric } from "@/lib/types";
 
 interface InitiativesPanelProps {
   betId: string;
   canWrite: boolean;
 }
+
+/** Map outcome_key to the worst metric status for that outcome. */
+function buildOutcomeStatusMap(metrics: BetMetric[]): Map<string, BetMetric["status"]> {
+  const map = new Map<string, BetMetric["status"]>();
+  const priority: Record<BetMetric["status"], number> = { OffTrack: 0, AtRisk: 1, OnTrack: 2 };
+  for (const m of metrics) {
+    const existing = map.get(m.outcome_key);
+    if (!existing || priority[m.status] < priority[existing]) {
+      map.set(m.outcome_key, m.status);
+    }
+  }
+  return map;
+}
+
+const OUTCOME_PILL_COLORS: Record<BetMetric["status"], string> = {
+  OnTrack: "bg-signal-green/15 text-signal-green border-signal-green/25",
+  AtRisk: "bg-signal-amber/15 text-signal-amber border-signal-amber/25",
+  OffTrack: "bg-signal-red/15 text-signal-red border-signal-red/25",
+};
+
+const OUTCOME_PILL_GREY = "bg-muted text-muted-foreground";
 
 export default function InitiativesPanel({ betId, canWrite }: InitiativesPanelProps) {
   const { data: initiatives = [], isLoading } = useInitiatives(betId);
@@ -21,6 +42,7 @@ export default function InitiativesPanel({ betId, canWrite }: InitiativesPanelPr
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const outcomeKeys = [...new Set(metrics.map((m) => m.outcome_key))];
+  const outcomeStatusMap = useMemo(() => buildOutcomeStatusMap(metrics), [metrics]);
 
   if (isLoading) {
     return (
@@ -87,6 +109,7 @@ export default function InitiativesPanel({ betId, canWrite }: InitiativesPanelPr
             onToggle={() => setExpandedId(expandedId === init.id ? null : init.id)}
             canWrite={canWrite}
             outcomeKeys={outcomeKeys}
+            outcomeStatusMap={outcomeStatusMap}
             onUpdate={async (updates) => {
               await updateInit.mutateAsync({ id: init.id, ...updates });
               toast.success("Initiative updated");
@@ -112,6 +135,7 @@ function InitiativeCard({
   onToggle,
   canWrite,
   outcomeKeys,
+  outcomeStatusMap,
   onUpdate,
   onDelete,
   updating,
@@ -121,6 +145,7 @@ function InitiativeCard({
   onToggle: () => void;
   canWrite: boolean;
   outcomeKeys: string[];
+  outcomeStatusMap: Map<string, BetMetric["status"]>;
   onUpdate: (updates: Partial<BetInitiative>) => Promise<void>;
   onDelete: () => Promise<void>;
   updating: boolean;
@@ -138,6 +163,9 @@ function InitiativeCard({
       ? "text-signal-red"
       : "text-muted-foreground";
   const deltaIcon = init.last_score_delta > 0 ? "▲" : init.last_score_delta < 0 ? "▼" : "–";
+
+  const isUnaligned = init.aligned_outcomes.length === 0;
+  const alignedCount = init.aligned_outcomes.length;
 
   return (
     <div className="border rounded-sm bg-background">
@@ -160,18 +188,48 @@ function InitiativeCard({
             <span className={cn("text-[10px] font-semibold tabular-nums", deltaColor)}>
               {deltaIcon} {deltaSign}{Math.abs(init.last_score_delta).toFixed(2)}
             </span>
-            <span className="text-[10px] text-muted-foreground tabular-nums">
-              V:{init.value} × C:{init.confidence} × M:{init.outcome_multiplier.toFixed(2)} / E:{init.effort}
+            {/* Multiplier badge */}
+            <span
+              className={cn(
+                "text-[10px] font-semibold tabular-nums px-1 py-px rounded-sm",
+                init.outcome_multiplier > 1
+                  ? "bg-signal-green/10 text-signal-green"
+                  : "text-muted-foreground",
+              )}
+              title={
+                alignedCount > 0
+                  ? `Aligned to ${alignedCount} outcome${alignedCount !== 1 ? "s" : ""} — each adds 0.15x boost`
+                  : "No outcome alignment — multiplier is 1.0x"
+              }
+            >
+              {init.outcome_multiplier.toFixed(2)}x
             </span>
           </div>
-          {init.aligned_outcomes.length > 0 && (
+          {/* Outcome pills — color-coded by metric status */}
+          {init.aligned_outcomes.length > 0 ? (
             <div className="flex flex-wrap gap-1 mt-1.5">
-              {init.aligned_outcomes.map((o) => (
-                <span key={o} className="text-[10px] px-1.5 py-0.5 rounded-sm bg-muted text-muted-foreground">
-                  {o}
-                </span>
-              ))}
+              {init.aligned_outcomes.map((o) => {
+                const status = outcomeStatusMap.get(o);
+                const pillClass = status
+                  ? OUTCOME_PILL_COLORS[status]
+                  : OUTCOME_PILL_GREY;
+                return (
+                  <span
+                    key={o}
+                    className={cn(
+                      "text-[10px] px-1.5 py-0.5 rounded-sm border border-transparent",
+                      pillClass,
+                    )}
+                  >
+                    {o}
+                  </span>
+                );
+              })}
             </div>
+          ) : (
+            <p className="text-[10px] text-muted-foreground/50 mt-1.5">
+              No outcome alignment — multiplier is 1.0x
+            </p>
           )}
         </div>
 
