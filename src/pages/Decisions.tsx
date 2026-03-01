@@ -70,6 +70,14 @@ const fieldLabels: Record<string, string> = {
   risk_level: "Risk",
 };
 
+const BET_CATEGORY_OPTIONS = [
+  { key: "growth_revenue_expansion", label: "Growth (Revenue Expansion)" },
+  { key: "retention_renewal_defense", label: "Retention (Renewal Defense)" },
+  { key: "efficiency_cost_capital", label: "Efficiency (Cost & Capital)" },
+  { key: "execution_speed_delivery", label: "Execution (Speed & Delivery)" },
+  { key: "strategic_positioning", label: "Strategic Positioning" },
+] as const;
+
 function InlineEdit({
   value,
   field,
@@ -99,6 +107,7 @@ function InlineEdit({
 }) {
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
   const titleAsMultiline = multiline || variant === "title";
 
@@ -110,15 +119,19 @@ function InlineEdit({
   }, [editing, value]);
 
   const handleSave = async () => {
-    const trimmed = editValue.trim();
-    const normalized = field === "title" ? trimmed.replace(/\s+/g, " ") : trimmed;
-    const oldVal = (value ?? "").trim();
-    const normalizedOld = field === "title" ? oldVal.replace(/\s+/g, " ") : oldVal;
-    if (normalized !== normalizedOld) {
-      await onSave(decisionId, field, normalizedOld || "", normalized);
-      logActivity?.(decisionId, field, normalizedOld || null, normalized || null)?.catch(() => {});
+    setSaveError(null);
+    try {
+      const normalized = editValue.trim();
+      const normalizedOld = (value ?? "").trim();
+      if (normalized !== normalizedOld) {
+        await onSave(decisionId, field, normalizedOld || "", normalized);
+        logActivity?.(decisionId, field, normalizedOld || null, normalized || null)?.catch(() => {});
+      }
+      setEditing(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to save changes";
+      setSaveError(message);
     }
-    setEditing(false);
   };
 
   const handleCancel = () => {
@@ -200,6 +213,7 @@ function InlineEdit({
               Cancel
             </button>
           </div>
+          {saveError && <p className="text-[11px] text-signal-red">{saveError}</p>}
         </div>
       );
     }
@@ -241,9 +255,20 @@ function InlineEdit({
 }
 
 const categoryLabels: Record<string, string> = {
-  arr: "ARR",
-  renewal_retention: "Renewal & Retention",
+  growth_revenue_expansion: "Growth (Revenue Expansion)",
+  retention_renewal_defense: "Retention (Renewal Defense)",
+  efficiency_cost_capital: "Efficiency (Cost & Capital)",
+  execution_speed_delivery: "Execution (Speed & Delivery)",
   strategic_positioning: "Strategic Positioning",
+  arr: "Growth (Revenue Expansion)",
+  product_market_fit: "Growth (Revenue Expansion)",
+  product_differentiation: "Growth (Revenue Expansion)",
+  renewal_retention: "Retention (Renewal Defense)",
+  risk_trust: "Retention (Renewal Defense)",
+  cost_efficiency: "Efficiency (Cost & Capital)",
+  capital_allocation: "Efficiency (Cost & Capital)",
+  execution_velocity: "Execution (Speed & Delivery)",
+  ai_native_operating_model: "Execution (Speed & Delivery)",
   dpi_adoption: "DPI Adoption",
   agent_trust: "Agent Trust",
   live_event_risk: "Live Event Risk",
@@ -987,78 +1012,6 @@ function OwnerAccountSelect({
   );
 }
 
-function PillSelect({
-  value,
-  options,
-  field,
-  decisionId,
-  canEdit,
-  onSave,
-  logActivity,
-  labelMap,
-}: {
-  value: string;
-  options: readonly string[];
-  field: "solution_domain" | "surface";
-  decisionId: string;
-  canEdit: boolean;
-  onSave: (id: string, field: string, oldValue: string, newValue: string) => Promise<void>;
-  logActivity?: (decisionId: string, field: string, oldValue: string | null, newValue: string | null) => void | Promise<void>;
-  labelMap?: Record<string, string>;
-}) {
-  const [editing, setEditing] = useState(false);
-  const selectRef = useRef<HTMLSelectElement>(null);
-  const currentValue = value || "";
-
-  useEffect(() => {
-    if (editing) selectRef.current?.focus();
-  }, [editing]);
-
-  const handleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newValue = e.target.value || "";
-    if (newValue !== currentValue) {
-      await onSave(decisionId, field, currentValue, newValue);
-      logActivity?.(decisionId, field, currentValue || null, newValue || null)?.catch(() => {});
-    }
-    setEditing(false);
-  };
-
-  if (editing && canEdit) {
-    return (
-      <select
-        ref={selectRef}
-        value={currentValue}
-        onChange={handleChange}
-        onBlur={() => setEditing(false)}
-        className="text-[11px] border border-white/40 rounded-sm px-2 py-0.5 bg-white text-black"
-      >
-        <option value="">—</option>
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {labelMap?.[option] ?? option}
-          </option>
-        ))}
-      </select>
-    );
-  }
-
-  return (
-    <span
-      role={canEdit ? "button" : undefined}
-      tabIndex={canEdit ? 0 : undefined}
-      onClick={() => canEdit && setEditing(true)}
-      onKeyDown={(e) => canEdit && e.key === "Enter" && setEditing(true)}
-      className={cn(
-        "inline-flex items-center text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-sm border border-white/40 bg-white/15 text-white",
-        canEdit && "cursor-pointer hover:bg-white/25",
-        !currentValue && "text-muted-foreground"
-      )}
-    >
-      {(currentValue && labelMap?.[currentValue]) || currentValue || "—"}
-    </span>
-  );
-}
-
 function BetCard({
   d,
   index,
@@ -1078,8 +1031,6 @@ function BetCard({
   statusNote,
   setStatusNote,
   handleStatusConfirm,
-  domainOptions,
-  domainLabels,
 }: {
   d: any;
   index: number;
@@ -1099,8 +1050,6 @@ function BetCard({
   statusNote: string;
   setStatusNote: (v: string) => void;
   handleStatusConfirm: () => void;
-  domainOptions: string[];
-  domainLabels: Record<string, string>;
 }) {
   const [logFormExpanded, setLogFormExpanded] = useState(false);
 
@@ -1139,21 +1088,9 @@ function BetCard({
             </div>
           </div>
 
-          <MetaFieldGrid columns={4} className="w-full xl:flex-1 xl:min-w-0">
+          <MetaFieldGrid columns={3} className="w-full xl:flex-1 xl:min-w-0">
             <MetaField label="Category">
               <CategorySelect value={(d.outcome_category_key ?? d.outcome_category) ?? ""} categories={categories} decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full !text-white" />
-            </MetaField>
-            <MetaField label="Solution">
-              <PillSelect
-                value={d.solution_domain ?? ""}
-                options={domainOptions}
-                field="solution_domain"
-                decisionId={d.id}
-                canEdit={canWrite}
-                onSave={handleInlineSave}
-                logActivity={logActivity}
-                labelMap={domainLabels}
-              />
             </MetaField>
             <MetaField label="Owner">
               <InlineEdit
@@ -1324,19 +1261,12 @@ export default function Decisions() {
   const qc = useQueryClient();
   const { data: decisions = [], isLoading: decisionsLoading } = useDecisions();
   const { data: members = [] } = useOrgMembers();
-  const { data: globalCategories = [] } = useQuery({
-    queryKey: ["outcome_categories"],
-    queryFn: async () => {
-      const { data } = await supabase.from("outcome_categories").select("key, label").order("label");
-      return data || [];
-    },
-  });
   const { isLoading: risksLoading } = useDecisionRisks();
   const updateDecision = useUpdateDecision();
   const logActivity = useLogActivity();
   const createInterruption = useCreateInterruption();
-  const { currentRole, productAreas, customOutcomeCategories } = useOrg();
-  const categories = customOutcomeCategories ?? globalCategories;
+  const { currentRole, productAreas } = useOrg();
+  const categories = BET_CATEGORY_OPTIONS as unknown as { key: string; label: string }[];
   const { user } = useAuth();
   const [showCreate, setShowCreate] = useState(false);
 
@@ -1498,8 +1428,6 @@ export default function Decisions() {
                 statusNote={statusNote}
                 setStatusNote={setStatusNote}
                 handleStatusConfirm={handleStatusConfirm}
-                domainOptions={orgDomainOptions}
-                domainLabels={orgDomainLabels}
               />
             ))}
           </div>
