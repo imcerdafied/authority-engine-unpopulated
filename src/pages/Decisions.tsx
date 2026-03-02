@@ -1303,7 +1303,6 @@ export default function Decisions() {
   const [pendingStatus, setPendingStatus] = useState<{ decisionId: string; newStatus: string; oldStatus: string } | null>(null);
   const [statusNote, setStatusNote] = useState("");
   const [closedBetsOpen, setClosedBetsOpen] = useState(false);
-  const [expandedBetId, setExpandedBetId] = useState<string | null>(null);
   const [closingIds, setClosingIds] = useState<Set<string>>(new Set());
 
   const handleStatusConfirm = () => {
@@ -1365,9 +1364,10 @@ export default function Decisions() {
     return true;
   });
 
-  // If a bet is expanded, find it
-  const expandedBet = expandedBetId ? filteredDecisions.find((d) => d.id === expandedBetId) : null;
-  const expandedBetIndex = expandedBet ? filteredDecisions.indexOf(expandedBet) + 1 : 0;
+  const scrollToBet = (betId: string) => {
+    const el = document.getElementById(`bet-${betId}`);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   return (
     <div>
@@ -1375,24 +1375,12 @@ export default function Decisions() {
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-3 mb-4">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div className="flex items-center gap-3">
-            {expandedBetId ? (
-              <button
-                onClick={() => setExpandedBetId(null)}
-                className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
-              >
-                <span aria-hidden="true">&larr;</span> All Bets
-              </button>
-            ) : (
-              <>
-                <h1 className="text-lg font-bold">Bets</h1>
-                <span className="text-xs text-muted-foreground hidden sm:inline">
-                  {decisions.length} total · {activeDecisions.length} open · {closedCount} closed
-                </span>
-              </>
-            )}
+            <h1 className="text-lg font-bold">Bets</h1>
+            <span className="text-xs text-muted-foreground hidden sm:inline">
+              {decisions.length} total · {activeDecisions.length} open · {closedCount} closed
+            </span>
           </div>
-          {!expandedBetId && (
-            <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
               <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className={selectClass}>
                 <option value="">All Lifecycles</option>
                 {filterStatusOptions.map((s) => (
@@ -1428,7 +1416,6 @@ export default function Decisions() {
                 </button>
               )}
             </div>
-          )}
         </div>
       </div>
 
@@ -1442,34 +1429,9 @@ export default function Decisions() {
             <span>Hard cap: 10</span><span>10-day slice rule</span><span>Outcome required</span><span>Owner required</span>
           </div>
         </div>
-      ) : expandedBet ? (
-        /* Expanded single-bet detail view */
-        <section className="mb-8">
-          <BetCard
-            key={expandedBet.id}
-            d={expandedBet}
-            index={expandedBetIndex}
-            canWrite={canWrite}
-            canUpdateStatus={currentRole === "admin" || isDecisionOwner(expandedBet, user)}
-            canManageOwner={canManageOwner}
-            members={members}
-            user={user}
-            categories={categories}
-            handleInlineSave={handleInlineSave}
-            logActivity={logActivity}
-            createInterruption={createInterruption}
-            updateDecision={updateDecision}
-            qc={qc}
-            pendingStatus={pendingStatus}
-            setPendingStatus={setPendingStatus}
-            statusNote={statusNote}
-            setStatusNote={setStatusNote}
-            handleStatusConfirm={handleStatusConfirm}
-          />
-        </section>
       ) : (
         <>
-          {/* Compact card strip */}
+          {/* Compact card strip — nav aid */}
           <section className="mb-6">
             <div className="relative -mx-4 sm:-mx-6 lg:-mx-8">
               <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-6 z-10 bg-gradient-to-r from-background to-transparent" />
@@ -1480,10 +1442,9 @@ export default function Decisions() {
                   return (
                     <button
                       key={d.id}
-                      onClick={() => setExpandedBetId(d.id)}
+                      onClick={() => scrollToBet(d.id)}
                       className={cn(
                         "snap-start shrink-0 w-[calc(50vw-2rem)] sm:w-[180px] border rounded-md text-left flex flex-col overflow-hidden transition-all hover:shadow-sm hover:border-foreground/30",
-                        expandedBetId === d.id && "ring-2 ring-foreground/20",
                         d.is_exceeded ? "border-signal-red/40 bg-signal-red/5" : d.is_aging ? "border-signal-amber/40" : "bg-background"
                       )}
                     >
@@ -1507,36 +1468,35 @@ export default function Decisions() {
             )}
           </section>
 
-          {/* List view */}
-          {filteredDecisions.length > 0 && (
-            <section className="mb-8">
-              <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">All Bets</h2>
-              <div className="border rounded-md divide-y">
-                {filteredDecisions.map((d, index) => {
-                  const lifecycle = toBetLifecycleStatus(d.status);
-                  const stale = staleness(d.updated_at);
-                  const catLabel = categoryLabels[(d.outcome_category_key ?? d.outcome_category) ?? ""] ?? (d.outcome_category_key ?? d.outcome_category ?? "");
-                  return (
-                    <button
-                      key={d.id}
-                      onClick={() => setExpandedBetId(d.id)}
-                      className="w-full text-left px-3 py-2 flex items-center gap-3 hover:bg-muted/30 transition-colors group"
-                    >
-                      <span className="text-[11px] text-muted-foreground tabular-nums w-5 shrink-0 text-right">{index + 1}</span>
-                      <span className="text-sm font-medium truncate min-w-0 flex-1">{d.title || "Untitled"}</span>
-                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground truncate max-w-[140px] hidden md:inline shrink-0">{catLabel || "—"}</span>
-                      <span className="text-[10px] text-muted-foreground truncate max-w-[100px] hidden lg:inline shrink-0">{d.owner || "—"}</span>
-                      <StatusBadge status={lifecycle} className="shrink-0" />
-                      <span className={cn("text-[10px] flex items-center gap-1 shrink-0 w-16 justify-end", stale.textClass)}>
-                        <span className={cn("w-1.5 h-1.5 rounded-full inline-block", stale.dotClass, stale.pulse && "animate-pulse")} />
-                        {relativeTime(d.updated_at)}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-          )}
+          {/* Full expanded bets */}
+          <section className="mb-8">
+            <div className="space-y-5">
+              {filteredDecisions.map((d, index) => (
+                <div key={d.id} id={`bet-${d.id}`} className="scroll-mt-20">
+                  <BetCard
+                    d={d}
+                    index={index + 1}
+                    canWrite={canWrite}
+                    canUpdateStatus={currentRole === "admin" || isDecisionOwner(d, user)}
+                    canManageOwner={canManageOwner}
+                    members={members}
+                    user={user}
+                    categories={categories}
+                    handleInlineSave={handleInlineSave}
+                    logActivity={logActivity}
+                    createInterruption={createInterruption}
+                    updateDecision={updateDecision}
+                    qc={qc}
+                    pendingStatus={pendingStatus}
+                    setPendingStatus={setPendingStatus}
+                    statusNote={statusNote}
+                    setStatusNote={setStatusNote}
+                    handleStatusConfirm={handleStatusConfirm}
+                  />
+                </div>
+              ))}
+            </div>
+          </section>
 
           {/* Closed Bets — collapsible section */}
           {closedCount > 0 && (
