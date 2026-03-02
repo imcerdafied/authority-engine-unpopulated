@@ -1433,10 +1433,19 @@ export default function Decisions() {
         <>
           {/* Compact card strip — nav aid */}
           <section className="mb-6">
-            <div className="relative -mx-4 sm:-mx-6 lg:-mx-8">
-              <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-6 z-10 bg-gradient-to-r from-background to-transparent" />
-              <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-6 z-10 bg-gradient-to-l from-background to-transparent" />
-              <div className="flex gap-2 overflow-x-auto scrollbar-hide px-4 sm:px-6 lg:px-8 py-1 snap-x snap-mandatory">
+            <div className={cn("relative", filteredDecisions.length > 6 && "-mx-4 sm:-mx-6 lg:-mx-8")}>
+              {filteredDecisions.length > 6 && (
+                <>
+                  <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-6 z-10 bg-gradient-to-r from-background to-transparent" />
+                  <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-6 z-10 bg-gradient-to-l from-background to-transparent" />
+                </>
+              )}
+              <div className={cn(
+                "flex gap-2 py-1",
+                filteredDecisions.length > 6
+                  ? "overflow-x-auto scrollbar-hide px-4 sm:px-6 lg:px-8 snap-x snap-mandatory"
+                  : ""
+              )}>
                 {filteredDecisions.map((d, index) => {
                   const lifecycle = toBetLifecycleStatus(d.status);
                   return (
@@ -1444,7 +1453,10 @@ export default function Decisions() {
                       key={d.id}
                       onClick={() => scrollToBet(d.id)}
                       className={cn(
-                        "snap-start shrink-0 w-[calc(50vw-2rem)] sm:w-[180px] border rounded-md text-left flex flex-col overflow-hidden transition-all hover:shadow-sm hover:border-foreground/30",
+                        "border rounded-md text-left flex flex-col overflow-hidden transition-all hover:shadow-sm hover:border-foreground/30",
+                        filteredDecisions.length > 6
+                          ? "snap-start shrink-0 w-[calc(50vw-2rem)] sm:w-[180px]"
+                          : "flex-1 min-w-0",
                         d.is_exceeded ? "border-signal-red/40 bg-signal-red/5" : d.is_aging ? "border-signal-amber/40" : "bg-background"
                       )}
                     >
