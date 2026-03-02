@@ -110,23 +110,6 @@ export default function InitiativesPanel({ betId, canWrite }: InitiativesPanelPr
         )}
       </div>
 
-      {showAdd && (
-        <AddInitiativeForm
-          outcomeKeys={outcomeKeys}
-          onSubmit={async (data) => {
-            try {
-              await addInit.mutateAsync(data);
-              setShowAdd(false);
-              toast.success("Initiative added");
-            } catch {
-              toast.error("Failed to add initiative — try again");
-            }
-          }}
-          onCancel={() => setShowAdd(false)}
-          submitting={addInit.isPending}
-        />
-      )}
-
       <div className="space-y-2">
         {initiatives.map((init) => (
           <InitiativeCard
@@ -158,6 +141,23 @@ export default function InitiativesPanel({ betId, canWrite }: InitiativesPanelPr
           />
         ))}
       </div>
+
+      {showAdd && (
+        <AddInitiativeForm
+          outcomeKeys={outcomeKeys}
+          onSubmit={async (data) => {
+            try {
+              await addInit.mutateAsync(data);
+              setShowAdd(false);
+              toast.success("Initiative added");
+            } catch {
+              toast.error("Failed to add initiative — try again");
+            }
+          }}
+          onCancel={() => setShowAdd(false)}
+          submitting={addInit.isPending}
+        />
+      )}
     </div>
   );
 }
@@ -191,13 +191,14 @@ function InitiativeCard({
   const [aligned, setAligned] = useState<string[]>(init.aligned_outcomes);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const deltaSign = init.last_score_delta > 0 ? "+" : init.last_score_delta < 0 ? "" : "";
-  const deltaColor = init.last_score_delta > 0
-    ? "text-signal-green"
-    : init.last_score_delta < 0
-      ? "text-signal-red"
-      : "text-muted-foreground";
-  const deltaIcon = init.last_score_delta > 0 ? "▲" : init.last_score_delta < 0 ? "▼" : "–";
+  const deltaIsZero = Math.abs(init.last_score_delta) < 0.01;
+  const deltaSign = deltaIsZero ? "" : init.last_score_delta > 0 ? "+" : "";
+  const deltaColor = deltaIsZero
+    ? "text-muted-foreground/50"
+    : init.last_score_delta > 0
+      ? "text-signal-green"
+      : "text-signal-red";
+  const deltaIcon = deltaIsZero ? "—" : init.last_score_delta > 0 ? "▲" : "▼";
 
   const alignedCount = init.aligned_outcomes.length;
 
@@ -534,6 +535,10 @@ function SliderField({
         step={step}
         className="w-full"
       />
+      <div className="flex justify-between mt-0.5">
+        <span className="text-[9px] text-muted-foreground/40 tabular-nums">{min.toFixed(decimals)}</span>
+        <span className="text-[9px] text-muted-foreground/40 tabular-nums">{max.toFixed(decimals)}</span>
+      </div>
     </div>
   );
 }
