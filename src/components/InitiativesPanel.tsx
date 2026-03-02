@@ -451,6 +451,45 @@ function AddInitiativeForm({
   );
 }
 
+// ── Slider calibration labels ──
+
+const VALUE_LABELS: [number, string][] = [
+  [2, "Marginal impact"],
+  [4, "Incremental improvement"],
+  [6, "Meaningful advancement"],
+  [8, "High impact"],
+  [10, "Transformative"],
+];
+
+const CONFIDENCE_LABELS: [number, string][] = [
+  [0.2, "Speculative"],
+  [0.4, "Hypothesis"],
+  [0.6, "Probable"],
+  [0.8, "High confidence"],
+  [1.0, "Near-certain"],
+];
+
+const EFFORT_LABELS: [number, string][] = [
+  [2, "Days of work"],
+  [4, "A sprint or two"],
+  [6, "Multi-sprint"],
+  [8, "Quarter-long"],
+  [10, "Multi-quarter"],
+];
+
+function getCalibrationLabel(value: number, thresholds: [number, string][]): string {
+  for (const [max, label] of thresholds) {
+    if (value <= max) return label;
+  }
+  return thresholds[thresholds.length - 1][1];
+}
+
+const SLIDER_CALIBRATIONS: Record<string, [number, string][]> = {
+  Value: VALUE_LABELS,
+  Confidence: CONFIDENCE_LABELS,
+  Effort: EFFORT_LABELS,
+};
+
 // ── Slider Field ──
 
 function SliderField({
@@ -472,11 +511,19 @@ function SliderField({
   step: number;
   decimals?: number;
 }) {
+  const calibration = SLIDER_CALIBRATIONS[label];
+  const calibrationLabel = calibration ? getCalibrationLabel(value, calibration) : null;
+
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
         <label htmlFor={id} className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">{label}</label>
-        <span className="text-xs font-medium tabular-nums" aria-live="polite">{value.toFixed(decimals)}</span>
+        <div className="flex items-center gap-2">
+          {calibrationLabel && (
+            <span className="text-[10px] text-muted-foreground/60">{calibrationLabel}</span>
+          )}
+          <span className="text-xs font-medium tabular-nums" aria-live="polite">{value.toFixed(decimals)}</span>
+        </div>
       </div>
       <Slider
         id={id}
