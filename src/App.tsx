@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { OrgProvider, useOrg } from "@/contexts/OrgContext";
 import AppLayout from "@/components/AppLayout";
@@ -16,7 +16,7 @@ import Ask from "@/pages/Ask";
 import Team from "@/pages/Team";
 import FeedbackAdmin from "@/pages/FeedbackAdmin";
 import CapabilityMap from "@/pages/CapabilityMap";
-import ClosedBets from "@/pages/ClosedBets";
+// ClosedBets moved inline to Decisions page
 import OrgSettings from "@/pages/OrgSettings";
 import Join from "@/pages/Join";
 import Auth from "@/pages/Auth";
@@ -57,7 +57,7 @@ function AppContent() {
               <Route path="/how-it-works" element={<HowItWorks />} />
               <Route path="/signals" element={<Signals />} />
               <Route path="/capability-map" element={<CapabilityMap />} />
-              <Route path="/closed-bets" element={<ClosedBets />} />
+              <Route path="/closed-bets" element={<Navigate to="/" replace />} />
               <Route path="/pods" element={<Pods />} />
               <Route path="/memory" element={<Memory />} />
               <Route path="/ask" element={<Ask />} />

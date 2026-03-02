@@ -151,64 +151,70 @@ export default function Team() {
           </div>
         ) : (
           <div className="border rounded-md divide-y w-full">
-            {members.map((m) => (
-              <div key={m.user_id} className="px-4 py-3 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">
-                    {m.user_id === user?.id
-                      ? `You (${roleLabels[m.role] || m.role})`
-                      : m.display_name || m.email || "Member"}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground">
-                    {m.display_name && m.email ? m.email : (m.display_name || m.email || "No profile info")}
-                  </p>
-                </div>
-                {isAdmin && m.user_id !== user?.id ? (
-                  <select
-                    value={m.role}
-                    onChange={(e) =>
-                      updateMemberRole.mutate(
-                        {
-                          userId: m.user_id,
-                          role: e.target.value as "admin" | "pod_lead" | "viewer",
-                        },
-                        {
-                          onSuccess: () => {
-                            void trackEvent("member_role_updated", {
-                              orgId: currentOrg?.id ?? null,
-                              userId: user?.id ?? null,
-                              metadata: {
-                                target_user_id: m.user_id,
-                                new_role: e.target.value,
-                              },
-                            });
-                          },
-                        }
-                      )
-                    }
-                    disabled={updateMemberRole.isPending}
-                    className="text-[11px] font-semibold uppercase tracking-wider border rounded-sm px-2 py-1 bg-background"
-                  >
-                    <option value="viewer">Viewer</option>
-                    <option value="pod_lead">Pod Lead</option>
-                    <option value="admin">Admin</option>
-                  </select>
-                ) : (
-                  <span
-                    className={cn(
-                      "text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-sm",
-                      m.role === "admin"
-                        ? "bg-foreground/10 text-foreground"
-                        : m.role === "pod_lead"
-                        ? "bg-muted text-foreground"
-                        : "bg-muted text-muted-foreground"
+            {members.map((m) => {
+              const isYou = m.user_id === user?.id;
+              const hasName = !!m.display_name;
+              const primaryText = hasName ? m.display_name : (m.email || "Unknown");
+              return (
+                <div key={m.user_id} className="px-4 py-3 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">
+                      {primaryText}
+                      {isYou && <span className="text-muted-foreground ml-1">(You)</span>}
+                    </p>
+                    {hasName && m.email && (
+                      <p className="text-[11px] text-muted-foreground truncate">{m.email}</p>
                     )}
-                  >
-                    {roleLabels[m.role] || m.role}
-                  </span>
-                )}
-              </div>
-            ))}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {isAdmin && !isYou ? (
+                      <select
+                        value={m.role}
+                        onChange={(e) =>
+                          updateMemberRole.mutate(
+                            {
+                              userId: m.user_id,
+                              role: e.target.value as "admin" | "pod_lead" | "viewer",
+                            },
+                            {
+                              onSuccess: () => {
+                                void trackEvent("member_role_updated", {
+                                  orgId: currentOrg?.id ?? null,
+                                  userId: user?.id ?? null,
+                                  metadata: {
+                                    target_user_id: m.user_id,
+                                    new_role: e.target.value,
+                                  },
+                                });
+                              },
+                            }
+                          )
+                        }
+                        disabled={updateMemberRole.isPending}
+                        className="text-[11px] font-semibold uppercase tracking-wider border rounded-sm px-2 py-1 bg-background"
+                      >
+                        <option value="viewer">Viewer</option>
+                        <option value="pod_lead">Pod Lead</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    ) : (
+                      <span
+                        className={cn(
+                          "text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-sm",
+                          m.role === "admin"
+                            ? "bg-foreground/10 text-foreground"
+                            : m.role === "pod_lead"
+                            ? "bg-muted text-foreground"
+                            : "bg-muted text-muted-foreground"
+                        )}
+                      >
+                        {roleLabels[m.role] || m.role}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </section>

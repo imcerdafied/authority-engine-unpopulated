@@ -1,5 +1,5 @@
 import { ReactNode, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrg } from "@/contexts/OrgContext";
@@ -8,6 +8,13 @@ import { cn } from "@/lib/utils";
 import ChatAdvisor from "@/components/ChatAdvisor";
 import FeedbackButton from "@/components/FeedbackButton";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 
 const roleLabels: Record<string, string> = {
   admin: "Admin",
@@ -24,6 +31,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const [chatOpen, setChatOpen] = useState(false);
   const { user, signOut } = useAuth();
   const { currentOrg, currentRole } = useOrg();
+  const navigate = useNavigate();
 
   const lastViewed = typeof window !== "undefined" ? (localStorage.getItem("feedback_last_viewed") || "1970-01-01") : "1970-01-01";
   const { data: unreadCount } = useQuery({
@@ -83,49 +91,69 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               <Sep />
               <Link to="/capability-map" className={navLinkClass} onClick={closeMenu}>Capability Map</Link>
               <Sep />
-              <Link to="/closed-bets" className={navLinkClass} onClick={closeMenu}>Closed Bets</Link>
-              <Sep />
               <Link to="/how-it-works" className={navLinkClass} onClick={closeMenu}>How It Works</Link>
             </div>
             <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-4 pt-2 md:pt-0 border-t md:border-t-0 mt-2 md:mt-0">
               <Sep />
-              <Link to="/team" className={navLinkClass} onClick={closeMenu}>Team</Link>
-              <Sep />
-              <span className="text-[10px] text-muted-foreground truncate max-w-[180px] py-2 md:py-0">
-                {user?.email}
-              </span>
-              {currentRole && (
-                <>
-                  <Sep />
-                  {currentRole === "admin" ? (
-                    <>
-                      <Link
-                        to="/feedback"
-                        onClick={closeMenu}
-                        className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors py-2 md:py-0 flex items-center"
-                      >
-                        {roleLabels[currentRole] || currentRole}
-                        {unreadCount != null && unreadCount > 0 && (
-                          <span className="w-2 h-2 rounded-full bg-signal-red inline-block ml-1" />
-                        )}
-                      </Link>
-                      <Sep />
-                      <Link to="/settings" className={navLinkClass} onClick={closeMenu}>Settings</Link>
-                    </>
-                  ) : (
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground py-2 md:py-0">
-                      {roleLabels[currentRole] || currentRole}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className="text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2 min-h-[44px] md:min-h-0"
+                    aria-label="Profile menu"
+                  >
+                    <span className="w-6 h-6 rounded-full bg-foreground/10 border border-foreground/20 flex items-center justify-center text-[10px] font-bold uppercase text-foreground shrink-0">
+                      {user?.email?.[0] ?? "?"}
                     </span>
+                    <span className="truncate max-w-[140px] hidden md:inline">{user?.email}</span>
+                    {unreadCount != null && unreadCount > 0 && (
+                      <span className="w-2 h-2 rounded-full bg-signal-red inline-block" />
+                    )}
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <div className="px-2 py-1.5">
+                    <p className="text-xs font-medium truncate">{user?.email}</p>
+                    {currentRole && (
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-0.5">
+                        {roleLabels[currentRole] || currentRole}
+                      </p>
+                    )}
+                  </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onSelect={() => { closeMenu(); navigate("/team"); }}
+                    className="text-[11px] uppercase tracking-wider cursor-pointer"
+                  >
+                    Team
+                  </DropdownMenuItem>
+                  {currentRole === "admin" && (
+                    <DropdownMenuItem
+                      onSelect={() => { closeMenu(); navigate("/feedback"); }}
+                      className="text-[11px] uppercase tracking-wider cursor-pointer flex items-center justify-between"
+                    >
+                      <span>Feedback</span>
+                      {unreadCount != null && unreadCount > 0 && (
+                        <span className="w-2 h-2 rounded-full bg-signal-red inline-block" />
+                      )}
+                    </DropdownMenuItem>
                   )}
-                </>
-              )}
-              <Sep />
-              <button
-                onClick={() => { closeMenu(); signOut(); }}
-                className="text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors min-h-[44px] min-w-[44px] flex items-center justify-start md:justify-center md:min-h-0 md:min-w-0 pl-4 md:pl-0"
-              >
-                Sign Out
-              </button>
+                  {currentRole === "admin" && (
+                    <DropdownMenuItem
+                      onSelect={() => { closeMenu(); navigate("/settings"); }}
+                      className="text-[11px] uppercase tracking-wider cursor-pointer"
+                    >
+                      Settings
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onSelect={() => { closeMenu(); signOut(); }}
+                    className="text-[11px] uppercase tracking-wider cursor-pointer text-muted-foreground"
+                  >
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </nav>
         </div>

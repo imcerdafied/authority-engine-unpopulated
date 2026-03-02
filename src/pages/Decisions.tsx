@@ -18,6 +18,7 @@ import MetricsSidebar from "@/components/MetricsSidebar";
 import ScoreHistory from "@/components/ScoreHistory";
 import DriftIndicators from "@/components/DriftIndicators";
 import { DriftBadge } from "@/components/DriftIndicators";
+import StatusBadge from "@/components/StatusBadge";
 import { supabase } from "@/integrations/supabase/client";
 import {
   BET_LIFECYCLE_LABELS,
@@ -288,6 +289,10 @@ const solutionDomainLabels: Record<string, string> = {
   S3: "Agent Intelligence",
   Cross: "Cross-Solution",
 };
+
+function formatDate(ts: string): string {
+  return new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
 
 function relativeTime(dateStr: string): string {
   const sec = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
@@ -1297,6 +1302,8 @@ export default function Decisions() {
   const riskLevelOptions = ["at_risk", "watch", "healthy"] as const;
   const [pendingStatus, setPendingStatus] = useState<{ decisionId: string; newStatus: string; oldStatus: string } | null>(null);
   const [statusNote, setStatusNote] = useState("");
+  const [closedBetsOpen, setClosedBetsOpen] = useState(false);
+  const [expandedBetId, setExpandedBetId] = useState<string | null>(null);
   const [closingIds, setClosingIds] = useState<Set<string>>(new Set());
 
   const handleStatusConfirm = () => {
@@ -1338,7 +1345,10 @@ export default function Decisions() {
   if (decisionsLoading || risksLoading) return <p className="text-xs text-muted-foreground uppercase tracking-widest">Loading...</p>;
 
   const activeDecisions = decisions.filter((d) => !isClosedBetLifecycle(d.status));
-  const closedCount = decisions.length - activeDecisions.length;
+  const closedDecisions = decisions
+    .filter((d) => isClosedBetLifecycle(d.status))
+    .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+  const closedCount = closedDecisions.length;
   const orderedDecisions = [...activeDecisions].sort(
     (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
   );
@@ -1355,53 +1365,70 @@ export default function Decisions() {
     return true;
   });
 
+  // If a bet is expanded, find it
+  const expandedBet = expandedBetId ? filteredDecisions.find((d) => d.id === expandedBetId) : null;
+  const expandedBetIndex = expandedBet ? filteredDecisions.indexOf(expandedBet) + 1 : 0;
+
   return (
     <div>
       {/* Sticky header */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-3 mb-4">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div className="flex items-center gap-3">
-            <h1 className="text-lg font-bold">Bets</h1>
-            <span className="text-xs text-muted-foreground hidden sm:inline">
-              {decisions.length} total · {activeDecisions.length} open · {closedCount} closed
-            </span>
+            {expandedBetId ? (
+              <button
+                onClick={() => setExpandedBetId(null)}
+                className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
+              >
+                <span aria-hidden="true">&larr;</span> All Bets
+              </button>
+            ) : (
+              <>
+                <h1 className="text-lg font-bold">Bets</h1>
+                <span className="text-xs text-muted-foreground hidden sm:inline">
+                  {decisions.length} total · {activeDecisions.length} open · {closedCount} closed
+                </span>
+              </>
+            )}
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className={selectClass}>
-              <option value="">All Lifecycles</option>
-              {filterStatusOptions.map((s) => (
-                <option key={s} value={s}>{BET_LIFECYCLE_LABELS[s]}</option>
-              ))}
-            </select>
-            <select value={filterRisk} onChange={(e) => setFilterRisk(e.target.value)} className={selectClass}>
-              <option value="">All Risk Levels</option>
-              {riskLevelOptions.map((r) => (
-                <option key={r} value={r}>{BET_RISK_LABELS[r]}</option>
-              ))}
-            </select>
-            {orgDomainOptions.length > 0 && (
-              <select value={filterDomain} onChange={(e) => setFilterDomain(e.target.value)} className={selectClass}>
-                <option value="">All Domains</option>
-                {orgDomainOptions.map((d) => (
-                  <option key={d} value={d}>{orgDomainLabels[d] ?? d}</option>
+          {!expandedBetId && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className={selectClass}>
+                <option value="">All Lifecycles</option>
+                {filterStatusOptions.map((s) => (
+                  <option key={s} value={s}>{BET_LIFECYCLE_LABELS[s]}</option>
                 ))}
               </select>
-            )}
-            {(filterStatus || filterRisk || filterDomain) && (
-              <button
-                onClick={() => { setFilterStatus(""); setFilterRisk(""); setFilterDomain(""); }}
-                className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
-              >
-                Clear
-              </button>
-            )}
-            {canWrite && !showCreate && (
-              <button onClick={() => setShowCreate(true)}
-                className="text-[11px] font-semibold uppercase tracking-wider text-foreground border border-foreground px-3 py-1.5 rounded-sm hover:bg-foreground hover:text-background transition-colors min-h-[44px] md:min-h-0">
-                + Register Bet
-              </button>
-            )}
-          </div>
+              <select value={filterRisk} onChange={(e) => setFilterRisk(e.target.value)} className={selectClass}>
+                <option value="">All Risk Levels</option>
+                {riskLevelOptions.map((r) => (
+                  <option key={r} value={r}>{BET_RISK_LABELS[r]}</option>
+                ))}
+              </select>
+              {orgDomainOptions.length > 0 && (
+                <select value={filterDomain} onChange={(e) => setFilterDomain(e.target.value)} className={selectClass}>
+                  <option value="">All Domains</option>
+                  {orgDomainOptions.map((d) => (
+                    <option key={d} value={d}>{orgDomainLabels[d] ?? d}</option>
+                  ))}
+                </select>
+              )}
+              {(filterStatus || filterRisk || filterDomain) && (
+                <button
+                  onClick={() => { setFilterStatus(""); setFilterRisk(""); setFilterDomain(""); }}
+                  className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
+                >
+                  Clear
+                </button>
+              )}
+              {canWrite && !showCreate && (
+                <button onClick={() => setShowCreate(true)}
+                  className="text-[11px] font-semibold uppercase tracking-wider text-foreground border border-foreground px-3 py-1.5 rounded-sm hover:bg-foreground hover:text-background transition-colors min-h-[44px] md:min-h-0">
+                  + Register Bet
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -1415,37 +1442,118 @@ export default function Decisions() {
             <span>Hard cap: 10</span><span>10-day slice rule</span><span>Outcome required</span><span>Owner required</span>
           </div>
         </div>
-      ) : (
+      ) : expandedBet ? (
+        /* Expanded single-bet detail view */
         <section className="mb-8">
-          <div className="space-y-5">
-            {filteredDecisions.map((d, index) => (
-              <BetCard
-                key={d.id}
-                d={d}
-                index={index + 1}
-                canWrite={canWrite}
-                canUpdateStatus={currentRole === "admin" || isDecisionOwner(d, user)}
-                canManageOwner={canManageOwner}
-                members={members}
-                user={user}
-                categories={categories}
-                handleInlineSave={handleInlineSave}
-                logActivity={logActivity}
-                createInterruption={createInterruption}
-                updateDecision={updateDecision}
-                qc={qc}
-                pendingStatus={pendingStatus}
-                setPendingStatus={setPendingStatus}
-                statusNote={statusNote}
-                setStatusNote={setStatusNote}
-                handleStatusConfirm={handleStatusConfirm}
-              />
-            ))}
-          </div>
-          {filteredDecisions.length === 0 && (filterStatus || filterRisk || filterDomain) && (
-            <p className="text-sm text-muted-foreground text-center py-8">No bets match the current filters.</p>
-          )}
+          <BetCard
+            key={expandedBet.id}
+            d={expandedBet}
+            index={expandedBetIndex}
+            canWrite={canWrite}
+            canUpdateStatus={currentRole === "admin" || isDecisionOwner(expandedBet, user)}
+            canManageOwner={canManageOwner}
+            members={members}
+            user={user}
+            categories={categories}
+            handleInlineSave={handleInlineSave}
+            logActivity={logActivity}
+            createInterruption={createInterruption}
+            updateDecision={updateDecision}
+            qc={qc}
+            pendingStatus={pendingStatus}
+            setPendingStatus={setPendingStatus}
+            statusNote={statusNote}
+            setStatusNote={setStatusNote}
+            handleStatusConfirm={handleStatusConfirm}
+          />
         </section>
+      ) : (
+        <>
+          {/* Grid view */}
+          <section className="mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              {filteredDecisions.map((d, index) => {
+                const lifecycle = toBetLifecycleStatus(d.status);
+                const stale = staleness(d.updated_at);
+                const catLabel = categoryLabels[(d.outcome_category_key ?? d.outcome_category) ?? ""] ?? (d.outcome_category_key ?? d.outcome_category ?? "");
+                return (
+                  <button
+                    key={d.id}
+                    onClick={() => setExpandedBetId(d.id)}
+                    className={cn(
+                      "border rounded-md text-left p-4 hover:border-foreground/40 transition-colors flex flex-col gap-2.5 min-h-[140px]",
+                      d.is_exceeded ? "border-signal-red/40 bg-signal-red/5" : d.is_aging ? "border-signal-amber/40" : "bg-background"
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-semibold leading-snug line-clamp-2 min-w-0">
+                        <span className="text-muted-foreground mr-1">{index + 1}.</span>
+                        {d.title || "Untitled"}
+                      </p>
+                      <DriftBadge betId={d.id} />
+                    </div>
+                    {catLabel && (
+                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground truncate">
+                        {catLabel}
+                      </span>
+                    )}
+                    <div className="flex items-center gap-2 flex-wrap mt-auto">
+                      <StatusBadge status={lifecycle} />
+                      {d.is_aging && <TagPill variant="warning">Aging</TagPill>}
+                      {d.needs_exec_attention && <TagPill variant="danger">Exec</TagPill>}
+                    </div>
+                    <div className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
+                      <span className="truncate">{d.owner || "No owner"}</span>
+                      <span className={cn("flex items-center gap-1 shrink-0", stale.textClass)}>
+                        <span className={cn("w-1.5 h-1.5 rounded-full inline-block", stale.dotClass, stale.pulse && "animate-pulse")} />
+                        {relativeTime(d.updated_at)}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            {filteredDecisions.length === 0 && (filterStatus || filterRisk || filterDomain) && (
+              <p className="text-sm text-muted-foreground text-center py-8">No bets match the current filters.</p>
+            )}
+          </section>
+
+          {/* Closed Bets — collapsible section */}
+          {closedCount > 0 && (
+            <section className="border-t pt-4 mb-8">
+              <button
+                onClick={() => setClosedBetsOpen(!closedBetsOpen)}
+                aria-expanded={closedBetsOpen}
+                className="flex items-center gap-2 w-full text-left group"
+              >
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground group-hover:text-foreground transition-colors">
+                  Closed Bets
+                </span>
+                <span className="text-[11px] text-muted-foreground">({closedCount})</span>
+                <span className={cn("text-muted-foreground transition-transform text-xs", closedBetsOpen && "rotate-90")}>
+                  &#9654;
+                </span>
+              </button>
+              {closedBetsOpen && (
+                <div className="mt-3 space-y-2">
+                  {closedDecisions.map((d) => (
+                    <div key={d.id} className="border rounded-md px-4 py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{d.title || "Untitled"}</p>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">
+                          {categoryLabels[(d.outcome_category_key ?? d.outcome_category) ?? ""] || "—"}
+                        </p>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground shrink-0">
+                        Closed {formatDate(d.updated_at)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+        </>
       )}
     </div>
   );
