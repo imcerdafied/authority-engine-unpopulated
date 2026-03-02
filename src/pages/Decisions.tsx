@@ -1469,49 +1469,65 @@ export default function Decisions() {
         </section>
       ) : (
         <>
-          {/* Grid view */}
+          {/* Horizontal card strip */}
           <section className="mb-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-              {filteredDecisions.map((d, index) => {
-                const lifecycle = toBetLifecycleStatus(d.status);
-                const stale = staleness(d.updated_at);
-                const catLabel = categoryLabels[(d.outcome_category_key ?? d.outcome_category) ?? ""] ?? (d.outcome_category_key ?? d.outcome_category ?? "");
-                return (
-                  <button
-                    key={d.id}
-                    onClick={() => setExpandedBetId(d.id)}
-                    className={cn(
-                      "border rounded-md text-left p-4 hover:border-foreground/40 transition-colors flex flex-col gap-2.5 min-h-[140px]",
-                      d.is_exceeded ? "border-signal-red/40 bg-signal-red/5" : d.is_aging ? "border-signal-amber/40" : "bg-background"
-                    )}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-semibold leading-snug line-clamp-2 min-w-0">
-                        <span className="text-muted-foreground mr-1">{index + 1}.</span>
-                        {d.title || "Untitled"}
-                      </p>
-                      <DriftBadge betId={d.id} />
-                    </div>
-                    {catLabel && (
-                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground truncate">
-                        {catLabel}
-                      </span>
-                    )}
-                    <div className="flex items-center gap-2 flex-wrap mt-auto">
-                      <StatusBadge status={lifecycle} />
-                      {d.is_aging && <TagPill variant="warning">Aging</TagPill>}
-                      {d.needs_exec_attention && <TagPill variant="danger">Exec</TagPill>}
-                    </div>
-                    <div className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
-                      <span className="truncate">{d.owner || "No owner"}</span>
-                      <span className={cn("flex items-center gap-1 shrink-0", stale.textClass)}>
-                        <span className={cn("w-1.5 h-1.5 rounded-full inline-block", stale.dotClass, stale.pulse && "animate-pulse")} />
-                        {relativeTime(d.updated_at)}
-                      </span>
-                    </div>
-                  </button>
-                );
-              })}
+            <div className="relative -mx-4 sm:-mx-6 lg:-mx-8">
+              {/* Left fade */}
+              <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-8 z-10 bg-gradient-to-r from-background to-transparent" />
+              {/* Right fade */}
+              <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 z-10 bg-gradient-to-l from-background to-transparent" />
+              <div
+                className="flex gap-3 overflow-x-auto scrollbar-hide px-4 sm:px-6 lg:px-8 py-1 snap-x snap-mandatory"
+              >
+                {filteredDecisions.map((d, index) => {
+                  const lifecycle = toBetLifecycleStatus(d.status);
+                  const stale = staleness(d.updated_at);
+                  const catLabel = categoryLabels[(d.outcome_category_key ?? d.outcome_category) ?? ""] ?? (d.outcome_category_key ?? d.outcome_category ?? "");
+                  return (
+                    <button
+                      key={d.id}
+                      onClick={() => setExpandedBetId(d.id)}
+                      className={cn(
+                        "snap-start shrink-0 w-[calc(100vw-4rem)] sm:w-[340px] border rounded-md text-left flex flex-col overflow-hidden transition-shadow hover:shadow-sm hover:border-foreground/30",
+                        d.is_exceeded ? "border-signal-red/40 bg-signal-red/5" : d.is_aging ? "border-signal-amber/40" : "bg-background"
+                      )}
+                    >
+                      {/* Dark header */}
+                      <div className="px-3 py-2.5 bg-black/90 text-white">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-sm font-semibold leading-snug line-clamp-2 min-w-0">
+                            <span className="text-white/50 mr-1">{index + 1}.</span>
+                            {d.title || "Untitled"}
+                          </p>
+                          <DriftBadge betId={d.id} />
+                        </div>
+                      </div>
+                      {/* Card body */}
+                      <div className="px-3 py-2.5 flex flex-col gap-2 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <StatusBadge status={lifecycle} />
+                          {catLabel && (
+                            <span className="text-[10px] uppercase tracking-wider text-muted-foreground truncate">
+                              {catLabel}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {d.is_aging && <TagPill variant="warning">Aging</TagPill>}
+                          {d.needs_exec_attention && <TagPill variant="danger">Exec</TagPill>}
+                        </div>
+                        <div className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground mt-auto pt-1 border-t border-border/50">
+                          <span className="truncate">{d.owner || "No owner"}</span>
+                          <span className={cn("flex items-center gap-1 shrink-0", stale.textClass)}>
+                            <span className={cn("w-1.5 h-1.5 rounded-full inline-block", stale.dotClass, stale.pulse && "animate-pulse")} />
+                            {relativeTime(d.updated_at)}
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
             {filteredDecisions.length === 0 && (filterStatus || filterRisk || filterDomain) && (
               <p className="text-sm text-muted-foreground text-center py-8">No bets match the current filters.</p>
