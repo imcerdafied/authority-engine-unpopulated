@@ -46,6 +46,23 @@ export function useOrgMembers() {
     queryKey: ["org_members", currentOrg?.id],
     queryFn: async () => {
       if (!currentOrg) return [];
+
+      // Try RPC first (SECURITY DEFINER — bypasses profiles RLS)
+      const { data: rpcData, error: rpcError } = await supabase.rpc(
+        "get_org_members" as any,
+        { target_org_id: currentOrg.id },
+      );
+      if (!rpcError && rpcData && Array.isArray(rpcData)) {
+        return (rpcData as any[]).map((r) => ({
+          user_id: r.user_id,
+          org_id: currentOrg.id,
+          role: r.role,
+          email: r.email || undefined,
+          display_name: r.display_name || null,
+        }));
+      }
+
+      // Fallback: direct query (limited by profiles RLS)
       const { data: membersData, error } = await supabase
         .from("organization_memberships")
         .select("user_id, org_id, role")
