@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useDrift } from "@/hooks/useDrift";
 import { cn } from "@/lib/utils";
 import type { DriftFlag } from "@/lib/types";
@@ -9,25 +9,28 @@ interface DriftIndicatorsProps {
 
 const DRIFT_CONFIG: Record<
   DriftFlag["type"],
-  { label: string; color: string; bg: string; border: string }
+  { label: string; color: string; bg: string; border: string; sortOrder: number }
 > = {
-  alignment_drift: {
-    label: "Alignment Drift",
-    color: "text-signal-amber",
-    bg: "bg-signal-amber/8",
-    border: "border-signal-amber/20",
-  },
   metric_gap: {
     label: "Metric Gap",
     color: "text-signal-red",
     bg: "bg-signal-red/8",
     border: "border-signal-red/20",
+    sortOrder: 0,
+  },
+  alignment_drift: {
+    label: "Alignment Drift",
+    color: "text-signal-amber",
+    bg: "bg-signal-amber/8",
+    border: "border-signal-amber/20",
+    sortOrder: 1,
   },
   score_volatility: {
     label: "Score Volatility",
     color: "text-signal-amber",
     bg: "bg-signal-amber/8",
     border: "border-signal-amber/20",
+    sortOrder: 2,
   },
 };
 
@@ -35,16 +38,17 @@ export default function DriftIndicators({ betId }: DriftIndicatorsProps) {
   const { driftFlags, isLoading } = useDrift(betId);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
 
-  if (isLoading) return null;
+  // Sort by severity (metric_gap first), filter dismissed
+  const visible = useMemo(() => {
+    return driftFlags
+      .filter((f) => !dismissed.has(`${f.type}-${f.detected_at}`))
+      .sort((a, b) => DRIFT_CONFIG[a.type].sortOrder - DRIFT_CONFIG[b.type].sortOrder);
+  }, [driftFlags, dismissed]);
 
-  const visible = driftFlags.filter(
-    (f) => !dismissed.has(`${f.type}-${f.detected_at}`),
-  );
-
-  if (visible.length === 0) return null;
+  if (isLoading || visible.length === 0) return null;
 
   return (
-    <div className="px-4 md:px-6 py-3 border-t space-y-1.5">
+    <div className="px-4 md:px-6 py-3 border-t space-y-1.5" role="alert" aria-label="Drift warnings">
       {visible.map((flag) => {
         const config = DRIFT_CONFIG[flag.type];
         const key = `${flag.type}-${flag.detected_at}`;
@@ -57,7 +61,7 @@ export default function DriftIndicators({ betId }: DriftIndicatorsProps) {
               config.border,
             )}
           >
-            <span className={cn("shrink-0 mt-px", config.color)}>
+            <span className={cn("shrink-0 mt-px", config.color)} aria-hidden="true">
               {flag.type === "metric_gap" ? "!" : "~"}
             </span>
             <div className="flex-1 min-w-0">
@@ -77,8 +81,8 @@ export default function DriftIndicators({ betId }: DriftIndicatorsProps) {
               onClick={() =>
                 setDismissed((prev) => new Set([...prev, key]))
               }
-              className="shrink-0 text-muted-foreground/40 hover:text-muted-foreground transition-colors text-[10px] mt-0.5"
-              title="Dismiss"
+              className="shrink-0 text-muted-foreground/40 hover:text-muted-foreground transition-colors text-sm leading-none mt-px px-0.5"
+              aria-label={`Dismiss ${config.label} warning`}
             >
               &times;
             </button>
@@ -110,12 +114,12 @@ export function DriftBadge({ betId }: { betId: string }) {
   const tooltip = summaryLines.join("\n");
 
   return (
-    <span className="inline-flex items-center gap-1" title={tooltip}>
+    <span className="inline-flex items-center gap-1" title={tooltip} aria-label={`${driftFlags.length} drift warning${driftFlags.length !== 1 ? "s" : ""}`}>
       {hasMetricGap && (
-        <span className="inline-block w-2 h-2 rounded-full bg-signal-red" />
+        <span className="inline-block w-2 h-2 rounded-full bg-signal-red" aria-hidden="true" />
       )}
       {hasAmber && (
-        <span className="inline-block w-2 h-2 rounded-full bg-signal-amber" />
+        <span className="inline-block w-2 h-2 rounded-full bg-signal-amber" aria-hidden="true" />
       )}
     </span>
   );

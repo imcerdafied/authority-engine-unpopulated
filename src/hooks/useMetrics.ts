@@ -4,6 +4,7 @@ import { useOrg } from "@/contexts/OrgContext";
 import type { BetMetric } from "@/lib/types";
 import { defineMetric } from "@/lib/metric-substrate/defineMetric";
 import { updateMetricValue } from "@/lib/metric-substrate/updateMetricValue";
+import { calculateMetricStatus } from "@/lib/metric-substrate/calculateMetricStatus";
 
 export function useMetrics(betId: string | undefined) {
   const { currentOrg } = useOrg();
@@ -46,7 +47,27 @@ export function useUpdateMetricValue(betId: string | undefined) {
     mutationFn: async ({ metricId, newValue }: { metricId: string; newValue: number }) => {
       return updateMetricValue(metricId, newValue, supabase);
     },
-    onSuccess: () => {
+    // Optimistic: show new value and progress bar immediately
+    onMutate: async ({ metricId, newValue }) => {
+      await qc.cancelQueries({ queryKey: ["bet_metrics", betId] });
+      const previous = qc.getQueryData<BetMetric[]>(["bet_metrics", betId]);
+      if (previous) {
+        qc.setQueryData<BetMetric[]>(["bet_metrics", betId], (old) =>
+          (old ?? []).map((m) => {
+            if (m.id !== metricId) return m;
+            const newStatus = calculateMetricStatus(newValue, m.target_value);
+            return { ...m, current_value: newValue, status: newStatus };
+          }),
+        );
+      }
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        qc.setQueryData(["bet_metrics", betId], context.previous);
+      }
+    },
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: ["bet_metrics", betId] });
       qc.invalidateQueries({ queryKey: ["bet_initiatives", betId] });
       qc.invalidateQueries({ queryKey: ["score_history", betId] });

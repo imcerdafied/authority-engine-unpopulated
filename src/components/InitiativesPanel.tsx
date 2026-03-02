@@ -32,6 +32,26 @@ const OUTCOME_PILL_COLORS: Record<BetMetric["status"], string> = {
 
 const OUTCOME_PILL_GREY = "bg-muted text-muted-foreground";
 
+// ── Skeleton ──
+
+function InitiativeSkeleton() {
+  return (
+    <div className="border rounded-sm bg-background px-3 py-2.5 space-y-2 animate-pulse">
+      <div className="flex items-start gap-3">
+        <div className="w-5 h-5 rounded-sm bg-muted" />
+        <div className="flex-1 space-y-1.5">
+          <div className="h-3.5 bg-muted rounded-sm w-3/4" />
+          <div className="h-2.5 bg-muted rounded-sm w-1/2" />
+          <div className="flex gap-1 mt-1">
+            <div className="h-4 w-12 bg-muted rounded-sm" />
+            <div className="h-4 w-10 bg-muted rounded-sm" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function InitiativesPanel({ betId, canWrite }: InitiativesPanelProps) {
   const { data: initiatives = [], isLoading } = useInitiatives(betId);
   const { data: metrics = [] } = useMetrics(betId);
@@ -48,7 +68,10 @@ export default function InitiativesPanel({ betId, canWrite }: InitiativesPanelPr
     return (
       <div className="px-4 md:px-6 py-3 border-t">
         <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Initiatives</span>
-        <p className="text-xs text-muted-foreground mt-2">Loading…</p>
+        <div className="mt-2 space-y-2">
+          <InitiativeSkeleton />
+          <InitiativeSkeleton />
+        </div>
       </div>
     );
   }
@@ -91,9 +114,13 @@ export default function InitiativesPanel({ betId, canWrite }: InitiativesPanelPr
         <AddInitiativeForm
           outcomeKeys={outcomeKeys}
           onSubmit={async (data) => {
-            await addInit.mutateAsync(data);
-            setShowAdd(false);
-            toast.success("Initiative added");
+            try {
+              await addInit.mutateAsync(data);
+              setShowAdd(false);
+              toast.success("Initiative added");
+            } catch {
+              toast.error("Failed to add initiative — try again");
+            }
           }}
           onCancel={() => setShowAdd(false)}
           submitting={addInit.isPending}
@@ -111,13 +138,21 @@ export default function InitiativesPanel({ betId, canWrite }: InitiativesPanelPr
             outcomeKeys={outcomeKeys}
             outcomeStatusMap={outcomeStatusMap}
             onUpdate={async (updates) => {
-              await updateInit.mutateAsync({ id: init.id, ...updates });
-              toast.success("Initiative updated");
+              try {
+                await updateInit.mutateAsync({ id: init.id, ...updates });
+                toast.success("Initiative updated");
+              } catch {
+                toast.error("Failed to update — try again");
+              }
             }}
             onDelete={async () => {
-              await deleteInit.mutateAsync(init.id);
-              setExpandedId(null);
-              toast.success("Initiative removed");
+              try {
+                await deleteInit.mutateAsync(init.id);
+                setExpandedId(null);
+                toast.success("Initiative removed");
+              } catch {
+                toast.error("Failed to delete — try again");
+              }
             }}
             updating={updateInit.isPending}
           />
@@ -164,14 +199,24 @@ function InitiativeCard({
       : "text-muted-foreground";
   const deltaIcon = init.last_score_delta > 0 ? "▲" : init.last_score_delta < 0 ? "▼" : "–";
 
-  const isUnaligned = init.aligned_outcomes.length === 0;
   const alignedCount = init.aligned_outcomes.length;
 
+  // Truncate long descriptions in collapsed view
+  const maxDescLen = 80;
+  const descTruncated = init.description.length > maxDescLen;
+  const displayDesc = descTruncated && !expanded
+    ? init.description.slice(0, maxDescLen) + "…"
+    : init.description;
+
   return (
-    <div className="border rounded-sm bg-background">
+    <div className={cn(
+      "border rounded-sm bg-background transition-all duration-200",
+      updating && "opacity-70",
+    )}>
       <button
         onClick={onToggle}
         className="w-full text-left px-3 py-2.5 flex items-start gap-3"
+        aria-expanded={expanded}
       >
         {/* Rank */}
         <span className="text-lg font-bold text-muted-foreground/60 tabular-nums leading-tight min-w-[1.5rem] text-right">
@@ -180,7 +225,7 @@ function InitiativeCard({
 
         {/* Main content */}
         <div className="flex-1 min-w-0">
-          <p className="text-sm leading-snug">{init.description}</p>
+          <p className="text-sm leading-snug">{displayDesc}</p>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
             <span className="text-xs font-medium tabular-nums">
               V³ {init.score_v3.toFixed(2)}
@@ -234,22 +279,22 @@ function InitiativeCard({
         </div>
 
         {/* Expand indicator */}
-        <span className="text-[10px] text-muted-foreground mt-1">
+        <span className="text-[10px] text-muted-foreground mt-1" aria-hidden="true">
           {expanded ? "▼" : "▶"}
         </span>
       </button>
 
       {expanded && canWrite && (
         <div className="px-3 pb-3 pt-1 border-t space-y-3">
-          <SliderField label="Value" value={value} onChange={setValue} min={1} max={10} step={1} />
-          <SliderField label="Confidence" value={confidence} onChange={setConfidence} min={0} max={1} step={0.05} decimals={2} />
-          <SliderField label="Effort" value={effort} onChange={setEffort} min={1} max={10} step={1} />
+          <SliderField label="Value" id={`val-${init.id}`} value={value} onChange={setValue} min={1} max={10} step={1} />
+          <SliderField label="Confidence" id={`conf-${init.id}`} value={confidence} onChange={setConfidence} min={0} max={1} step={0.05} decimals={2} />
+          <SliderField label="Effort" id={`eff-${init.id}`} value={effort} onChange={setEffort} min={1} max={10} step={1} />
 
           {outcomeKeys.length > 0 && (
-            <div>
-              <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground block mb-1">
+            <fieldset>
+              <legend className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">
                 Aligned Outcomes
-              </span>
+              </legend>
               <div className="flex flex-wrap gap-1.5">
                 {outcomeKeys.map((key) => {
                   const active = aligned.includes(key);
@@ -258,6 +303,7 @@ function InitiativeCard({
                       key={key}
                       type="button"
                       onClick={() => setAligned(active ? aligned.filter((k) => k !== key) : [...aligned, key])}
+                      aria-pressed={active}
                       className={cn(
                         "text-[10px] px-2 py-1 rounded-sm border transition-colors",
                         active
@@ -270,13 +316,15 @@ function InitiativeCard({
                   );
                 })}
               </div>
-            </div>
+            </fieldset>
           )}
 
           <div className="flex items-center justify-between pt-1">
             <button
               onClick={async () => {
-                await onUpdate({ value, confidence, effort, aligned_outcomes: aligned });
+                // Enforce effort floor of 1
+                const safeEffort = Math.max(1, effort);
+                await onUpdate({ value, confidence, effort: safeEffort, aligned_outcomes: aligned });
               }}
               disabled={updating}
               className="text-[11px] font-semibold uppercase tracking-wider text-background bg-foreground px-4 py-1.5 rounded-sm hover:bg-foreground/90 transition-colors disabled:opacity-50"
@@ -335,14 +383,17 @@ function AddInitiativeForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!description.trim()) return;
-    await onSubmit({ description: description.trim(), value, confidence, effort, aligned_outcomes: aligned });
+    // Enforce effort floor of 1
+    const safeEffort = Math.max(1, effort);
+    await onSubmit({ description: description.trim(), value, confidence, effort: safeEffort, aligned_outcomes: aligned });
   };
 
   return (
     <form onSubmit={handleSubmit} className="border rounded-sm p-3 mb-3 space-y-3 bg-muted/30">
       <div>
-        <label className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground block mb-1">Description</label>
+        <label htmlFor="init-desc" className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground block mb-1">Description</label>
         <input
+          id="init-desc"
           required
           value={description}
           onChange={(e) => setDescription(e.target.value)}
@@ -351,15 +402,15 @@ function AddInitiativeForm({
         />
       </div>
 
-      <SliderField label="Value" value={value} onChange={setValue} min={1} max={10} step={1} />
-      <SliderField label="Confidence" value={confidence} onChange={setConfidence} min={0} max={1} step={0.05} decimals={2} />
-      <SliderField label="Effort" value={effort} onChange={setEffort} min={1} max={10} step={1} />
+      <SliderField label="Value" id="init-val" value={value} onChange={setValue} min={1} max={10} step={1} />
+      <SliderField label="Confidence" id="init-conf" value={confidence} onChange={setConfidence} min={0} max={1} step={0.05} decimals={2} />
+      <SliderField label="Effort" id="init-eff" value={effort} onChange={setEffort} min={1} max={10} step={1} />
 
       {outcomeKeys.length > 0 && (
-        <div>
-          <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground block mb-1">
+        <fieldset>
+          <legend className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-1">
             Aligned Outcomes
-          </span>
+          </legend>
           <div className="flex flex-wrap gap-1.5">
             {outcomeKeys.map((key) => {
               const active = aligned.includes(key);
@@ -368,6 +419,7 @@ function AddInitiativeForm({
                   key={key}
                   type="button"
                   onClick={() => setAligned(active ? aligned.filter((k) => k !== key) : [...aligned, key])}
+                  aria-pressed={active}
                   className={cn(
                     "text-[10px] px-2 py-1 rounded-sm border transition-colors",
                     active
@@ -380,7 +432,7 @@ function AddInitiativeForm({
               );
             })}
           </div>
-        </div>
+        </fieldset>
       )}
 
       <div className="flex items-center gap-2 pt-1">
@@ -403,6 +455,7 @@ function AddInitiativeForm({
 
 function SliderField({
   label,
+  id,
   value,
   onChange,
   min,
@@ -411,6 +464,7 @@ function SliderField({
   decimals = 0,
 }: {
   label: string;
+  id: string;
   value: number;
   onChange: (v: number) => void;
   min: number;
@@ -421,10 +475,11 @@ function SliderField({
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
-        <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">{label}</span>
-        <span className="text-xs font-medium tabular-nums">{value.toFixed(decimals)}</span>
+        <label htmlFor={id} className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">{label}</label>
+        <span className="text-xs font-medium tabular-nums" aria-live="polite">{value.toFixed(decimals)}</span>
       </div>
       <Slider
+        id={id}
         value={[value]}
         onValueChange={([v]) => onChange(v)}
         min={min}

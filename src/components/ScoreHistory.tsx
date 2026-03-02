@@ -20,7 +20,7 @@ function relativeTime(dateStr: string): string {
   const diffDays = Math.floor(diffHrs / 24);
   if (diffDays === 1) return "yesterday";
   if (diffDays < 30) return `${diffDays}d ago`;
-  return new Date(dateStr).toLocaleDateString();
+  return new Date(dateStr).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 const TRIGGER_LABELS: Record<string, string> = {
@@ -53,8 +53,8 @@ interface RecalcGroup {
 
 /**
  * Group entries by recalculation event.
- * Entries that happened within 2 seconds of each other with the same
- * trigger_event are considered part of the same recalculation.
+ * Entries within 2 seconds of each other with the same trigger_event
+ * are considered part of the same recalculation.
  */
 function groupByRecalc(history: ScoreHistoryEntry[]): RecalcGroup[] {
   if (history.length === 0) return [];
@@ -84,6 +84,27 @@ function groupByRecalc(history: ScoreHistoryEntry[]): RecalcGroup[] {
   return groups;
 }
 
+// ── Skeleton ──
+
+function HistorySkeleton() {
+  return (
+    <div className="mt-2 space-y-2 animate-pulse">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="space-y-1">
+          <div className="flex gap-2">
+            <div className="h-2.5 bg-muted rounded-sm w-12" />
+            <div className="h-2.5 bg-muted rounded-sm w-20" />
+          </div>
+          <div className="ml-3 pl-2 border-l border-muted space-y-1">
+            <div className="h-2.5 bg-muted rounded-sm w-36" />
+            <div className="h-2.5 bg-muted rounded-sm w-24" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function ScoreHistory({ betId }: ScoreHistoryProps) {
   const { data: history = [], isLoading } = useScoreHistory(betId);
   const { data: initiatives = [] } = useInitiatives(betId);
@@ -104,7 +125,17 @@ export default function ScoreHistory({ betId }: ScoreHistoryProps) {
 
   const groups = useMemo(() => groupByRecalc(filtered), [filtered]);
 
-  if (isLoading) return null;
+  // Skeleton loading state
+  if (isLoading) {
+    return (
+      <div className="px-4 md:px-6 py-3 border-t">
+        <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+          What Moved
+        </span>
+        <HistorySkeleton />
+      </div>
+    );
+  }
 
   // Empty state
   if (history.length === 0) {
@@ -126,19 +157,21 @@ export default function ScoreHistory({ betId }: ScoreHistoryProps) {
       <button
         onClick={() => setOpen(!open)}
         className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.16em] text-muted-foreground hover:text-foreground transition-colors"
+        aria-expanded={open}
       >
-        <span className="text-[10px]">{open ? "▼" : "▶"}</span>
+        <span className="text-[10px]" aria-hidden="true">{open ? "▼" : "▶"}</span>
         What Moved ({history.length})
       </button>
 
       {open && (
-        <>
+        <div role="region" aria-label="Score history">
           {/* Filter pills */}
-          <div className="flex items-center gap-1.5 mt-2 mb-2">
+          <div className="flex items-center gap-1.5 mt-2 mb-2" role="group" aria-label="Filter score history">
             {FILTERS.map((f) => (
               <button
                 key={f.key}
                 onClick={() => setFilter(f.key)}
+                aria-pressed={filter === f.key}
                 className={cn(
                   "text-[10px] px-2 py-0.5 rounded-sm border transition-colors",
                   filter === f.key
@@ -165,7 +198,7 @@ export default function ScoreHistory({ betId }: ScoreHistoryProps) {
               </p>
             )}
           </div>
-        </>
+        </div>
       )}
     </div>
   );
@@ -189,11 +222,11 @@ function RecalcGroupView({
         <span className="tabular-nums whitespace-nowrap">
           {relativeTime(group.timestamp)}
         </span>
-        <span className="text-foreground/30">·</span>
+        <span className="text-foreground/30" aria-hidden="true">·</span>
         <span>{triggerLabel}</span>
         {count > 1 && (
           <>
-            <span className="text-foreground/30">·</span>
+            <span className="text-foreground/30" aria-hidden="true">·</span>
             <span>
               {count} initiative{count !== 1 ? "s" : ""} re-ranked
             </span>
@@ -243,11 +276,11 @@ function EntryLine({
 
   return (
     <div className="flex items-start gap-2 text-[11px]">
-      <span className="text-muted-foreground/30 shrink-0 leading-tight">
+      <span className="text-muted-foreground/30 shrink-0 leading-tight" aria-hidden="true">
         {isLast ? "└" : "├"}
       </span>
       <div className="flex-1 min-w-0">
-        <span className="text-foreground/70 truncate">{truncDesc}</span>
+        <span className="text-foreground/70">{truncDesc}</span>
         <div className="flex items-center gap-3 mt-px">
           <span
             className={cn(
