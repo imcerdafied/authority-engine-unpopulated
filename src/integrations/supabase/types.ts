@@ -782,6 +782,7 @@ export type Database = {
           id: string
           org_id: string
           role: Database["public"]["Enums"]["app_role"]
+          role_label: string | null
           user_id: string
         }
         Insert: {
@@ -789,6 +790,7 @@ export type Database = {
           id?: string
           org_id: string
           role?: Database["public"]["Enums"]["app_role"]
+          role_label?: string | null
           user_id: string
         }
         Update: {
@@ -796,6 +798,7 @@ export type Database = {
           id?: string
           org_id?: string
           role?: Database["public"]["Enums"]["app_role"]
+          role_label?: string | null
           user_id?: string
         }
         Relationships: [

@@ -7,6 +7,7 @@ import logo from "@/assets/logo.png";
 import { cn } from "@/lib/utils";
 import ChatAdvisor from "@/components/ChatAdvisor";
 import FeedbackButton from "@/components/FeedbackButton";
+import CreateWorkspaceModal from "@/components/CreateWorkspaceModal";
 import { supabase } from "@/integrations/supabase/client";
 import {
   DropdownMenu,
@@ -29,6 +30,7 @@ const navLinkClass = "text-[10px] uppercase tracking-wider text-muted-foreground
 export default function AppLayout({ children }: { children: ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  const [createWsOpen, setCreateWsOpen] = useState(false);
   const { user, signOut } = useAuth();
   const { currentOrg, currentRole } = useOrg();
   const navigate = useNavigate();
@@ -145,6 +147,12 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                       Settings
                     </DropdownMenuItem>
                   )}
+                  <DropdownMenuItem
+                    onSelect={() => { closeMenu(); setCreateWsOpen(true); }}
+                    className="text-[11px] uppercase tracking-wider cursor-pointer"
+                  >
+                    Create Workspace
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onSelect={() => { closeMenu(); signOut(); }}
@@ -167,6 +175,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
       <ChatAdvisor chatOpen={chatOpen} setChatOpen={setChatOpen} />
       <FeedbackButton />
+      <CreateWorkspaceModal open={createWsOpen} onOpenChange={setCreateWsOpen} />
     </div>
   );
 }
