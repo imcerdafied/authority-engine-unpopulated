@@ -39,7 +39,7 @@ export default function OrgSetup() {
   const useCustomCategories = categoryMode === "custom";
 
   const inviteUrl = createdOrgId
-    ? `https://buildauthorityos.com/join/${createdOrgId}`
+    ? `https://buildauthorityos.com/auth?org=${encodeURIComponent(createdOrgId)}`
     : "";
 
   const handleNext = () => setStep((s) => s + 1);

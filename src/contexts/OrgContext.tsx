@@ -25,6 +25,7 @@ const DEFAULT_PRODUCT_AREAS: ProductArea[] = [
 interface OrgMembership {
   org_id: string;
   role: AppRole;
+  role_label: string | null;
   organization: Tables<"organizations">;
 }
 
@@ -56,11 +57,32 @@ const OrgContext = createContext<OrgContextType>({
   refetchMemberships: async () => {},
 });
 
-const ORG_STORAGE_KEY = "ba_current_org";
+const LAST_ACTIVE_ORG_STORAGE_KEY = "ba_last_active_org";
+const LEGACY_ORG_STORAGE_KEY = "ba_current_org";
 const PENDING_ORG_JOIN_KEY = "pending_org_join";
 const PENDING_JOIN_TTL_MS = 1000 * 60 * 30;
 const MEMBERSHIP_RETRY_ATTEMPTS = 3;
 const MEMBERSHIP_RETRY_DELAY_MS = 250;
+
+function readLastActiveOrgId(): string | null {
+  if (typeof window === "undefined") return null;
+  return (
+    localStorage.getItem(LAST_ACTIVE_ORG_STORAGE_KEY) ||
+    localStorage.getItem(LEGACY_ORG_STORAGE_KEY)
+  );
+}
+
+function writeLastActiveOrgId(orgId: string) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(LAST_ACTIVE_ORG_STORAGE_KEY, orgId);
+  localStorage.setItem(LEGACY_ORG_STORAGE_KEY, orgId);
+}
+
+function clearLastActiveOrgId() {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(LAST_ACTIVE_ORG_STORAGE_KEY);
+  localStorage.removeItem(LEGACY_ORG_STORAGE_KEY);
+}
 
 function readPendingOrgJoin(): string | null {
   if (typeof window === "undefined") return null;
@@ -131,7 +153,7 @@ export function OrgProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [memberships, setMemberships] = useState<OrgMembership[]>([]);
   const [currentOrgId, setCurrentOrgId] = useState<string | null>(
-    localStorage.getItem(ORG_STORAGE_KEY),
+    readLastActiveOrgId(),
   );
   const [loading, setLoading] = useState(true);
 
@@ -145,15 +167,25 @@ export function OrgProvider({ children }: { children: ReactNode }) {
 
     let mapped: OrgMembership[] = [];
 
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from("organization_memberships")
-      .select("org_id, role, organizations(*)")
+      .select("org_id, role, role_label, organizations(*)")
       .eq("user_id", user.id);
+
+    if (error && String(error.message || "").includes("role_label")) {
+      const retry = await supabase
+        .from("organization_memberships")
+        .select("org_id, role, organizations(*)")
+        .eq("user_id", user.id);
+      data = retry.data?.map((row: any) => ({ ...row, role_label: null })) as any;
+      error = retry.error as any;
+    }
 
     if (!error) {
       mapped = (data || []).map((m: any) => ({
         org_id: m.org_id,
         role: m.role,
+        role_label: m.role_label ?? null,
         organization: m.organizations ?? fallbackOrganization(m.org_id),
       }));
     } else {
@@ -162,16 +194,24 @@ export function OrgProvider({ children }: { children: ReactNode }) {
 
     // Fallback path: keep bootstrap resilient when relation expansion is blocked/flaky.
     if (mapped.length === 0) {
-      let membershipRows: Array<{ org_id: string; role: AppRole }> = [];
+      let membershipRows: Array<{ org_id: string; role: AppRole; role_label?: string | null }> = [];
       let membershipError: any = null;
 
       for (let attempt = 0; attempt < MEMBERSHIP_RETRY_ATTEMPTS; attempt += 1) {
-        const { data: rows, error: rowError } = await supabase
+        let { data: rows, error: rowError } = await supabase
           .from("organization_memberships")
-          .select("org_id, role")
+          .select("org_id, role, role_label")
           .eq("user_id", user.id);
+        if (rowError && String(rowError.message || "").includes("role_label")) {
+          const retry = await supabase
+            .from("organization_memberships")
+            .select("org_id, role")
+            .eq("user_id", user.id);
+          rows = retry.data?.map((row: any) => ({ ...row, role_label: null })) as any;
+          rowError = retry.error as any;
+        }
 
-        membershipRows = (rows || []) as Array<{ org_id: string; role: AppRole }>;
+        membershipRows = (rows || []) as Array<{ org_id: string; role: AppRole; role_label?: string | null }>;
         membershipError = rowError;
 
         if (membershipRows.length > 0) break;
@@ -200,6 +240,7 @@ export function OrgProvider({ children }: { children: ReactNode }) {
         mapped = membershipRows.map((row) => ({
           org_id: row.org_id,
           role: row.role,
+          role_label: row.role_label ?? null,
           organization: (orgById.get(row.org_id) as Tables<"organizations"> | undefined) ?? fallbackOrganization(row.org_id),
         }));
       }
@@ -217,6 +258,7 @@ export function OrgProvider({ children }: { children: ReactNode }) {
         mapped = edgeMemberships.map((m: any) => ({
           org_id: m.org_id,
           role: m.role,
+          role_label: m.role_label ?? null,
           organization: m.organizations ?? fallbackOrganization(m.org_id),
         }));
       }
@@ -246,6 +288,7 @@ export function OrgProvider({ children }: { children: ReactNode }) {
             mapped = edgeMemberships.map((m: any) => ({
               org_id: m.org_id,
               role: m.role,
+              role_label: m.role_label ?? null,
               organization: m.organizations ?? fallbackOrganization(m.org_id),
             }));
           } else {
@@ -261,15 +304,15 @@ export function OrgProvider({ children }: { children: ReactNode }) {
 
     // Auto-select org
     if (mapped.length > 0) {
-      const stored = localStorage.getItem(ORG_STORAGE_KEY);
+      const stored = readLastActiveOrgId();
       const validStored = mapped.find((m) => m.org_id === stored);
       if (!validStored) {
         setCurrentOrgId(mapped[0].org_id);
-        localStorage.setItem(ORG_STORAGE_KEY, mapped[0].org_id);
+        writeLastActiveOrgId(mapped[0].org_id);
       }
     } else {
       setCurrentOrgId(null);
-      localStorage.removeItem(ORG_STORAGE_KEY);
+      clearLastActiveOrgId();
     }
 
     setLoading(false);
@@ -296,7 +339,7 @@ export function OrgProvider({ children }: { children: ReactNode }) {
           localStorage.removeItem(PENDING_ORG_JOIN_KEY);
           await fetchMemberships();
           setCurrentOrgId(pendingOrgId);
-          localStorage.setItem(ORG_STORAGE_KEY, pendingOrgId);
+          writeLastActiveOrgId(pendingOrgId);
         }
       } catch {
         // leave key for retry
@@ -308,7 +351,7 @@ export function OrgProvider({ children }: { children: ReactNode }) {
 
   const handleSetCurrentOrgId = (orgId: string) => {
     setCurrentOrgId(orgId);
-    localStorage.setItem(ORG_STORAGE_KEY, orgId);
+    writeLastActiveOrgId(orgId);
   };
 
   const createOrg = async (

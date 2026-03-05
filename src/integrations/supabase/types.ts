@@ -782,6 +782,7 @@ export type Database = {
           id: string
           org_id: string
           role: Database["public"]["Enums"]["app_role"]
+          role_label: string | null
           user_id: string
         }
         Insert: {
@@ -789,6 +790,7 @@ export type Database = {
           id?: string
           org_id: string
           role?: Database["public"]["Enums"]["app_role"]
+          role_label?: string | null
           user_id: string
         }
         Update: {
@@ -796,6 +798,7 @@ export type Database = {
           id?: string
           org_id?: string
           role?: Database["public"]["Enums"]["app_role"]
+          role_label?: string | null
           user_id?: string
         }
         Relationships: [
@@ -837,6 +840,47 @@ export type Database = {
           product_areas?: Json
         }
         Relationships: []
+      }
+      pending_invitations: {
+        Row: {
+          claimed_at: string | null
+          created_at: string
+          email: string
+          id: string
+          invited_by: string | null
+          org_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          role_label: string | null
+        }
+        Insert: {
+          claimed_at?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          invited_by?: string | null
+          org_id: string
+          role?: Database["public"]["Enums"]["app_role"]
+          role_label?: string | null
+        }
+        Update: {
+          claimed_at?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          invited_by?: string | null
+          org_id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          role_label?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_invitations_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pod_initiatives: {
         Row: {
@@ -1241,6 +1285,17 @@ export type Database = {
       }
     }
     Functions: {
+      get_org_members: {
+        Args: { target_org_id: string }
+        Returns: {
+          display_name: string
+          email: string
+          joined_at: string
+          role: string
+          role_label: string | null
+          user_id: string
+        }[]
+      }
       get_overview_metrics: { Args: { _org_id: string }; Returns: Json }
       get_user_role_in_org: {
         Args: { _org_id: string; _user_id: string }
@@ -1483,4 +1538,3 @@ export const Constants = {
     },
   },
 } as const
-

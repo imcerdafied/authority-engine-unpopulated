@@ -7,7 +7,8 @@ export interface PendingInvitation {
   id: string;
   org_id: string;
   email: string;
-  role: string;
+  role: "admin" | "pod_lead" | "viewer";
+  role_label: string | null;
   invited_by: string | null;
   created_at: string;
   claimed_at: string | null;
@@ -16,7 +17,9 @@ export interface PendingInvitation {
 export interface OrgMember {
   user_id: string;
   org_id: string;
-  role: string;
+  role: "admin" | "pod_lead" | "viewer";
+  role_label: string | null;
+  joined_at: string;
   email?: string;
   display_name?: string | null;
 }
@@ -28,7 +31,7 @@ export function usePendingInvitations() {
     queryFn: async () => {
       if (!currentOrg) return [];
       const { data, error } = await supabase
-        .from("pending_invitations" as any)
+        .from("pending_invitations")
         .select("*")
         .eq("org_id", currentOrg.id)
         .is("claimed_at", null)
@@ -57,18 +60,34 @@ export function useOrgMembers() {
           user_id: r.user_id,
           org_id: currentOrg.id,
           role: r.role,
+          role_label: r.role_label || null,
+          joined_at: r.joined_at,
           email: r.email || undefined,
           display_name: r.display_name || null,
         }));
       }
 
       // Fallback: direct query (limited by profiles RLS)
-      const { data: membersData, error } = await supabase
+      let { data: membersData, error } = await supabase
         .from("organization_memberships")
-        .select("user_id, org_id, role")
+        .select("user_id, org_id, role, role_label, created_at")
         .eq("org_id", currentOrg.id);
+      if (error && String(error.message || "").includes("role_label")) {
+        const retry = await supabase
+          .from("organization_memberships")
+          .select("user_id, org_id, role, created_at")
+          .eq("org_id", currentOrg.id);
+        membersData = retry.data?.map((row) => ({ ...row, role_label: null })) as any;
+        error = retry.error as any;
+      }
       if (error) throw error;
-      const members = (membersData || []) as OrgMember[];
+      const members = (membersData || []).map((m) => ({
+        user_id: m.user_id,
+        org_id: m.org_id,
+        role: m.role as "admin" | "pod_lead" | "viewer",
+        role_label: m.role_label ?? null,
+        joined_at: m.created_at,
+      }));
       const userIds = members.map((m) => m.user_id);
       if (userIds.length === 0) return members;
       const { data: profiles } = await supabase
@@ -94,18 +113,41 @@ export function useInviteMember() {
   const { currentOrg } = useOrg();
   const { user } = useAuth();
   return useMutation({
-    mutationFn: async ({ email, role }: { email: string; role: string }) => {
+    mutationFn: async ({
+      email,
+      role,
+      roleLabel,
+    }: {
+      email: string;
+      role: "admin" | "pod_lead" | "viewer";
+      roleLabel?: string;
+    }) => {
       if (!currentOrg || !user) throw new Error("No org or user");
-      const { data, error } = await supabase
-        .from("pending_invitations" as any)
+      let { data, error } = await supabase
+        .from("pending_invitations")
         .insert({
           org_id: currentOrg.id,
           email: email.toLowerCase().trim(),
           role,
+          role_label: roleLabel?.trim() || null,
           invited_by: user.id,
         })
         .select()
         .single();
+      if (error && String(error.message || "").includes("role_label")) {
+        const retry = await supabase
+          .from("pending_invitations")
+          .insert({
+            org_id: currentOrg.id,
+            email: email.toLowerCase().trim(),
+            role,
+            invited_by: user.id,
+          })
+          .select()
+          .single();
+        data = retry.data;
+        error = retry.error;
+      }
       if (error) throw error;
       return data;
     },
@@ -121,7 +163,7 @@ export function useRevokeInvitation() {
   return useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
-        .from("pending_invitations" as any)
+        .from("pending_invitations")
         .delete()
         .eq("id", id);
       if (error) throw error;
