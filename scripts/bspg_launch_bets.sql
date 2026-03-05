@@ -20,6 +20,69 @@ BEGIN
 END
 $$;
 
+-- Ensure outcome category keys exist in canonical table before writing decisions.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.tables
+    WHERE table_schema = 'public'
+      AND table_name = 'outcome_categories'
+  ) THEN
+    INSERT INTO public.outcome_categories (key, label)
+    VALUES
+      ('revenue_growth', 'Revenue Growth'),
+      ('platform_adoption', 'Platform Adoption'),
+      ('market_leadership', 'Market Leadership'),
+      ('delivery_velocity', 'Delivery Velocity'),
+      ('operational_efficiency', 'Operational Efficiency'),
+      ('product_quality_and_reliability', 'Product Quality and Reliability')
+    ON CONFLICT (key) DO UPDATE
+    SET label = EXCLUDED.label;
+
+    IF EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'outcome_categories'
+        AND column_name = 'is_active'
+    ) THEN
+      UPDATE public.outcome_categories
+      SET is_active = true
+      WHERE key IN (
+        'revenue_growth',
+        'platform_adoption',
+        'market_leadership',
+        'delivery_velocity',
+        'operational_efficiency',
+        'product_quality_and_reliability'
+      );
+    END IF;
+
+    IF EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'outcome_categories'
+        AND column_name = 'sort_order'
+    ) THEN
+      UPDATE public.outcome_categories oc
+      SET sort_order = v.sort_order
+      FROM (
+        VALUES
+          ('revenue_growth', 1),
+          ('platform_adoption', 2),
+          ('market_leadership', 3),
+          ('delivery_velocity', 4),
+          ('operational_efficiency', 5),
+          ('product_quality_and_reliability', 6)
+      ) AS v(key, sort_order)
+      WHERE oc.key = v.key;
+    END IF;
+  END IF;
+END
+$$;
+
 -- Part A: dropdown options for BSPG
 WITH target_org AS (
   SELECT id
