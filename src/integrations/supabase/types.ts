@@ -581,6 +581,7 @@ export type Database = {
           outcome_delta: string | null
           outcome_target: string | null
           owner: string
+          sponsor: string | null
           owner_user_id: string | null
           pod_configuration: Json | null
           previous_exposure_value: string | null
@@ -629,6 +630,7 @@ export type Database = {
           outcome_delta?: string | null
           outcome_target?: string | null
           owner: string
+          sponsor?: string | null
           owner_user_id?: string | null
           pod_configuration?: Json | null
           previous_exposure_value?: string | null
@@ -677,6 +679,7 @@ export type Database = {
           outcome_delta?: string | null
           outcome_target?: string | null
           owner?: string
+          sponsor?: string | null
           owner_user_id?: string | null
           pod_configuration?: Json | null
           previous_exposure_value?: string | null
@@ -1139,6 +1142,7 @@ export type Database = {
           outcome_delta: string | null
           outcome_target: string | null
           owner: string | null
+          sponsor: string | null
           owner_user_id: string | null
           pod_configuration: Json | null
           previous_exposure_value: string | null
@@ -1194,6 +1198,7 @@ export type Database = {
           outcome_delta?: string | null
           outcome_target?: string | null
           owner?: string | null
+          sponsor?: string | null
           owner_user_id?: string | null
           pod_configuration?: Json | null
           previous_exposure_value?: string | null
@@ -1251,6 +1256,7 @@ export type Database = {
           outcome_delta?: string | null
           outcome_target?: string | null
           owner?: string | null
+          sponsor?: string | null
           owner_user_id?: string | null
           pod_configuration?: Json | null
           previous_exposure_value?: string | null

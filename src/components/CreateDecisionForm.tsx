@@ -25,6 +25,7 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
 
   const [title, setTitle] = useState("");
   const [owner, setOwner] = useState("");
+  const [sponsor, setSponsor] = useState("");
   const [solutionDomain, setSolutionDomain] = useState<SolutionDomain>("S1");
   const [outcomeTarget, setOutcomeTarget] = useState("");
   const [outcomeCategories, setOutcomeCategories] = useState<OutcomeCategoryItem[]>([]);
@@ -52,8 +53,13 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !owner || !triggerSignal.trim()) {
-      toast.error("Title, owner, and trigger signal are required.");
+    const normalizedTitle = title.trim();
+    const normalizedOwner = owner.trim();
+    const normalizedSponsor = sponsor.trim();
+    const normalizedTriggerSignal = triggerSignal.trim();
+
+    if (!normalizedTitle || !normalizedOwner || !normalizedSponsor || !normalizedTriggerSignal) {
+      toast.error("Title, owner, sponsor, and trigger signal are required.");
       return;
     }
     if (!outcomeCategoryKey) {
@@ -63,8 +69,9 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
 
     try {
       const payload: Omit<TablesInsert<"decisions">, "org_id" | "created_by"> = {
-        title,
-        owner,
+        title: normalizedTitle,
+        owner: normalizedOwner,
+        sponsor: normalizedSponsor,
         owner_user_id: user?.id ?? null,
         surface: domainLabels[solutionDomain] || solutionDomain,
         solution_domain: solutionDomain,
@@ -75,13 +82,13 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
         outcome_category_key: outcomeCategoryKey || null,
         expected_impact: expectedImpact || null,
         exposure_value: exposureValue || null,
-        trigger_signal: triggerSignal || null,
+        trigger_signal: normalizedTriggerSignal,
         revenue_at_risk: revenueAtRisk || null,
       };
 
       await createDecision.mutateAsync(payload);
 
-      toast.success(`Draft created — "${title}"`, {
+      toast.success(`Draft created — "${normalizedTitle}"`, {
         description: "Complete required fields to activate.",
         action: {
           label: "View bet",
@@ -115,7 +122,7 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
         <button onClick={onClose} className="text-xs text-muted-foreground hover:text-foreground">Cancel</button>
       </div>
       <form onSubmit={handleSubmit} className="space-y-3">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div>
             <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">Title *</label>
             <input required value={title} onChange={(e) => setTitle(e.target.value)}
@@ -124,6 +131,11 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
           <div>
             <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">Owner *</label>
             <input required value={owner} onChange={(e) => setOwner(e.target.value)}
+              className="w-full border rounded-sm px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-foreground" />
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">Sponsor *</label>
+            <input required value={sponsor} onChange={(e) => setSponsor(e.target.value)}
               className="w-full border rounded-sm px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-foreground" />
           </div>
         </div>

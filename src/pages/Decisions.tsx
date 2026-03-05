@@ -73,6 +73,7 @@ const fieldLabels: Record<string, string> = {
   current_delta: "Current Delta",
   revenue_at_risk: "Enterprise Exposure",
   owner: "Owner",
+  sponsor: "Sponsor",
   status: "Lifecycle",
   risk_level: "Risk",
 };
@@ -1100,7 +1101,7 @@ function BetCard({
             </div>
           </div>
 
-          <MetaFieldGrid columns={3} className="w-full xl:flex-1 xl:min-w-0">
+          <MetaFieldGrid columns={4} className="w-full xl:flex-1 xl:min-w-0">
             <MetaField label="Category">
               <CategorySelect value={(d.outcome_category_key ?? d.outcome_category) ?? ""} categories={categories} decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full !text-white" />
             </MetaField>
@@ -1108,6 +1109,18 @@ function BetCard({
               <InlineEdit
                 value={d.owner ?? ""}
                 field="owner"
+                decisionId={d.id}
+                canEdit={canWrite}
+                onSave={handleInlineSave}
+                logActivity={logActivity}
+                className="w-full block text-sm !text-white"
+                placeholder="TBD"
+              />
+            </MetaField>
+            <MetaField label="Sponsor">
+              <InlineEdit
+                value={d.sponsor ?? ""}
+                field="sponsor"
                 decisionId={d.id}
                 canEdit={canWrite}
                 onSave={handleInlineSave}
