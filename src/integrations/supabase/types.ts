@@ -1361,7 +1361,7 @@ export type Database = {
         | "Launch Milestone"
         | "Renewal Risk"
         | "Cross-Solution Conflict"
-      solution_domain: "S1" | "S2" | "S3" | "Cross"
+      solution_domain: "S1" | "S2" | "S3" | "S4" | "S5" | "S6" | "S7" | "Cross"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1540,7 +1540,7 @@ export const Constants = {
         "Renewal Risk",
         "Cross-Solution Conflict",
       ],
-      solution_domain: ["S1", "S2", "S3", "Cross"],
+      solution_domain: ["S1", "S2", "S3", "S4", "S5", "S6", "S7", "Cross"],
     },
   },
 } as const

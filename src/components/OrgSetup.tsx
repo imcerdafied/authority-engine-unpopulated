@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/telemetry";
 
-const SLOT_KEYS = ["S1", "S2", "S3", "S4", "S5"];
+const SLOT_KEYS = ["S1", "S2", "S3", "S4", "S5", "S6", "S7"];
 
 const DEFAULT_CATEGORIES: CustomCategory[] = [
   { key: "revenue_growth", label: "Revenue Growth" },
@@ -98,7 +98,7 @@ export default function OrgSetup() {
   };
 
   const addProductArea = () => {
-    if (productAreas.length < 5) {
+    if (productAreas.length < 7) {
       setProductAreas((prev) => [...prev, { label: "" }]);
     }
   };
@@ -202,7 +202,7 @@ export default function OrgSetup() {
           {step === 2 && (
             <>
               <p className="text-sm text-muted-foreground mb-4">
-                Define your product areas. These organize your strategic bets. You can add 1 to 5.
+                Define your product areas. These organize your strategic bets. You can add 1 to 7.
               </p>
               <div className="space-y-3">
                 {productAreas.map((area, i) => (
@@ -227,7 +227,7 @@ export default function OrgSetup() {
                     )}
                   </div>
                 ))}
-                {productAreas.length < 5 && (
+                {productAreas.length < 7 && (
                   <button
                     onClick={addProductArea}
                     className="text-[11px] uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"

@@ -29,6 +29,10 @@ const statusStyles: Record<string, string> = {
   "S1": "bg-foreground/80 text-primary-foreground",
   "S2": "bg-foreground/60 text-primary-foreground",
   "S3": "bg-foreground/40 text-primary-foreground",
+  "S4": "bg-foreground/30 text-primary-foreground",
+  "S5": "bg-foreground/20 text-primary-foreground",
+  "S6": "bg-foreground/15 text-primary-foreground",
+  "S7": "bg-foreground/10 text-primary-foreground",
   "Cross-Solution": "border border-foreground text-foreground bg-transparent",
   proposed: "bg-muted text-muted-foreground",
   prototyping: "bg-signal-amber/10 text-signal-amber border border-signal-amber/30",
@@ -45,9 +49,6 @@ const statusStyles: Record<string, string> = {
 };
 
 const labelOverrides: Record<string, string> = {
-  "S1": "Video",
-  "S2": "DPI",
-  "S3": "Agent Intelligence",
   active: "Active",
   defined: "Defined",
   activated: "Activated",
