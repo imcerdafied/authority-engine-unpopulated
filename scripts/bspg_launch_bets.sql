@@ -1,4 +1,4 @@
--- BSPG launch setup
+-- BSPG launch setup (amended)
 -- Prerequisites:
 -- 1) supabase/migrations/20260305213000_add_decision_sponsor.sql
 -- 2) supabase/migrations/20260305223000_extend_solution_domain_and_high_impact_cap.sql
@@ -93,13 +93,12 @@ WITH target_org AS (
 UPDATE public.organizations o
 SET
   product_areas = jsonb_build_array(
-    jsonb_build_object('key', 'S1', 'label', 'AI Platforms'),
+    jsonb_build_object('key', 'S1', 'label', 'Strategy Execution OS'),
     jsonb_build_object('key', 'S2', 'label', 'Enterprise Platforms'),
-    jsonb_build_object('key', 'S3', 'label', 'Strategy Execution OS'),
-    jsonb_build_object('key', 'S4', 'label', 'Decision Intelligence'),
-    jsonb_build_object('key', 'S5', 'label', 'Product Operating Model'),
-    jsonb_build_object('key', 'S6', 'label', 'Builder Pods and Delivery'),
-    jsonb_build_object('key', 'S7', 'label', 'Studio and Venture')
+    jsonb_build_object('key', 'S3', 'label', 'AI Platforms'),
+    jsonb_build_object('key', 'S4', 'label', 'Product Operating Model'),
+    jsonb_build_object('key', 'S5', 'label', 'Builder Pods and Delivery'),
+    jsonb_build_object('key', 'S6', 'label', 'Studio and Venture')
   ),
   custom_outcome_categories = jsonb_build_array(
     jsonb_build_object('key', 'revenue_growth', 'label', 'Revenue Growth'),
@@ -110,6 +109,27 @@ SET
     jsonb_build_object('key', 'product_quality_and_reliability', 'label', 'Product Quality and Reliability')
   )
 WHERE o.id IN (SELECT id FROM target_org);
+
+-- Remove prior BSPG launch-template bets that were renamed/retired.
+WITH target_org AS (
+  SELECT id
+  FROM public.organizations
+  WHERE lower(name) = lower('BSPG')
+  LIMIT 1
+),
+legacy_titles AS (
+  SELECT title FROM (
+    VALUES
+      ('BSPG defines the AI-native builder category'),
+      ('Build Authority becomes the strategy execution OS for enterprises'),
+      ('OutcomeOS becomes the executive decision layer for AI product companies'),
+      ('BSPG becomes the premium alternative to McKinsey for builders')
+  ) AS v(title)
+)
+DELETE FROM public.decisions d
+USING target_org o, legacy_titles l
+WHERE d.org_id = o.id
+  AND d.title = l.title;
 
 -- Part B: create/update BSPG launch bets (idempotent by title within org)
 WITH target_org AS (
@@ -123,88 +143,82 @@ seed_rows AS (
   FROM (
     VALUES
       (
-        'BSPG defines the AI-native builder category',
+        'BSPG defines the AI-native builder organization category',
         'Michael Cerda',
         'BSPG Leadership',
         'Product Operating Model',
-        'S5',
-        'Market Leadership',
+        'S4',
         'market_leadership',
-        '3 referenceable enterprise deployments of the Builder Pod model',
-        '3 signed engagements totaling $3.0M+ in services value',
-        '$5.0M annual services and licensing potential',
-        '$2.0M expected year-1 BSPG revenue',
-        '2 clients publish (or approve) case studies showing faster ship cycles and higher outcome delivery vs prior model'
+        '3 enterprise deployments of the Builder Pod operating model',
+        '3 enterprise engagements totaling $3M+ services revenue',
+        '$5M annual services opportunity',
+        '$2M expected BSPG year-1 revenue',
+        '2 clients adopt Builder Pods and publish case studies showing faster product delivery vs traditional consulting'
       ),
       (
-        'Build Authority becomes the strategy execution OS for enterprises',
+        'Build Authority becomes the strategy execution OS for enterprise product organizations',
         'Michael Cerda',
         'BSPG Leadership',
         'Strategy Execution OS',
-        'S3',
-        'Platform Adoption',
+        'S1',
         'platform_adoption',
-        '3 organizations actively running quarterly bets and pod execution inside Build Authority',
-        '50+ weekly active executive and pod-lead users across deployments',
-        '$1.5M annual licensing potential',
-        '$750K expected licensing revenue in year-1 pipeline',
-        'Weekly exec reviews run directly from Build Authority in at least 2 deployments for 4 consecutive weeks'
+        '3 organizations managing strategic bets inside Build Authority',
+        '50+ weekly active users across executive and pod leadership roles',
+        '$2M annual software licensing opportunity',
+        '$1M expected platform revenue',
+        'Executives run weekly strategy reviews using Build Authority dashboards'
       ),
       (
-        'OutcomeOS becomes the executive decision layer for AI product companies',
-        'Michael Cerda',
-        'BSPG Leadership',
-        'Decision Intelligence',
-        'S4',
-        'Platform Adoption',
-        'platform_adoption',
-        '2 enterprise deployments connecting conversational signals to downstream outcomes and decisions',
-        '1 shared "decision review" dashboard becomes the standard weekly operating view for leadership',
-        '$2.0M annual software licensing potential',
-        '$1.0M expected software revenue in year-1 pipeline',
-        'Executives explicitly use OutcomeOS in weekly business reviews and cite it in at least 6 decisions over a month'
-      ),
-      (
-        'Strike Crew proves elite small teams can outperform big consulting',
+        'Strike Crew proves elite small builder teams outperform traditional consulting',
         'Michael Cerda',
         'BSPG Leadership',
         'Builder Pods and Delivery',
-        'S6',
-        'Delivery Velocity',
+        'S5',
         'delivery_velocity',
-        'Ship 3 meaningful production releases with teams of 6 or fewer within 90 days of kickoff',
-        'Deliver in <6 months what would typically take 12-18 months',
-        '$4.0M annual delivery revenue potential',
-        '$2.5M expected year-1 delivery pipeline',
-        '2 clients renew or expand scope within 30 days of first production shipment'
+        'Ship 3 enterprise product platforms with teams under 6 people',
+        'Products shipped in under 6 months vs typical 12-18 month enterprise cycles',
+        '$4M consulting revenue pipeline',
+        '$2.5M expected year-1 services revenue',
+        'Clients renew or expand engagement after first product release'
       ),
       (
-        'BSPG launches one studio product into paid adoption',
-        'Michael Cerda',
-        'BSPG Leadership',
-        'Studio and Venture',
-        'S7',
-        'Revenue Growth',
-        'revenue_growth',
-        'Launch one product (e.g., Timeless Moment, TrueNorth, or another studio build) to 10 paying customers or 1 enterprise pilot',
-        'First standalone software revenue stream independent of services',
-        '$5.0M+ long-term product upside',
-        '$500K expected year-1 product revenue target',
-        'First 10 paid seats or first enterprise pilot signed with defined renewal path'
-      ),
-      (
-        'BSPG becomes the premium alternative to McKinsey for builders',
+        'BSPG becomes the premium alternative to McKinsey for product and platform strategy',
         'Michael Cerda',
         'BSPG Leadership',
         'Product Operating Model',
-        'S5',
-        'Market Leadership',
+        'S4',
         'market_leadership',
-        'Win 2 CEO-level or PE-sponsored engagements where BSPG is chosen explicitly over traditional consulting',
-        '2 marquee logos plus executive references that unlock follow-on deal flow',
-        '$3.0M annual high-end advisory and build revenue potential',
-        '$1.5M of year-1 top-of-funnel dependent on positioning',
-        '2 closed-won deals where buyer cites "working systems shipped" and "AI-native builder pods" as the decisive differentiator'
+        'Win 2 CEO or PE sponsored strategy engagements',
+        '2 marquee clients validating BSPG builder model',
+        '$3M consulting and platform revenue opportunity',
+        '$1.5M pipeline dependent on positioning',
+        'Deals closed where BSPG replaces traditional consulting firms'
+      ),
+      (
+        'Launch one BSPG studio product into paid adoption',
+        'Michael Cerda',
+        'BSPG Leadership',
+        'Studio and Venture',
+        'S6',
+        'revenue_growth',
+        'Release one product and reach 10 paying customers or 1 enterprise pilot',
+        'First BSPG standalone product revenue',
+        '$5M+ product opportunity',
+        '$500K year-1 product revenue',
+        'First 10 paid customers or enterprise pilot agreement'
+      ),
+      (
+        'Build Authority becomes the central system connecting strategy, execution, and outcomes',
+        'Michael Cerda',
+        'BSPG Leadership',
+        'Strategy Execution OS',
+        'S1',
+        'platform_adoption',
+        'Organizations run quarterly strategic planning directly inside Build Authority',
+        'Leadership teams track bets, pod execution, and outcomes in a single platform',
+        '$3M enterprise platform opportunity',
+        '$1M expected licensing pipeline',
+        'Executive teams conduct quarterly planning cycles entirely within Build Authority'
       )
   ) AS t(
     title,
@@ -212,7 +226,6 @@ seed_rows AS (
     sponsor,
     product_area,
     solution_domain,
-    outcome_category_label,
     outcome_category_key,
     outcome_target,
     expected_impact,
@@ -313,11 +326,11 @@ LEFT JOIN cats c
  AND c.key = d.outcome_category_key
 WHERE d.org_id IN (SELECT id FROM target_org)
   AND d.title IN (
-    'BSPG defines the AI-native builder category',
-    'Build Authority becomes the strategy execution OS for enterprises',
-    'OutcomeOS becomes the executive decision layer for AI product companies',
-    'Strike Crew proves elite small teams can outperform big consulting',
-    'BSPG launches one studio product into paid adoption',
-    'BSPG becomes the premium alternative to McKinsey for builders'
+    'BSPG defines the AI-native builder organization category',
+    'Build Authority becomes the strategy execution OS for enterprise product organizations',
+    'Strike Crew proves elite small builder teams outperform traditional consulting',
+    'BSPG becomes the premium alternative to McKinsey for product and platform strategy',
+    'Launch one BSPG studio product into paid adoption',
+    'Build Authority becomes the central system connecting strategy, execution, and outcomes'
   )
 ORDER BY d.created_at ASC;
