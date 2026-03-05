@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import type { Database } from "@/integrations/supabase/types";
+import type { TablesInsert } from "@/integrations/supabase/types";
 import { fetchOutcomeCategories, type OutcomeCategoryItem } from "@/lib/taxonomy";
 
 type SolutionDomain = Database["public"]["Enums"]["solution_domain"];
@@ -51,35 +52,59 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !owner || !triggerSignal.trim()) return;
-    if (!outcomeCategoryKey) return;
+    if (!title || !owner || !triggerSignal.trim()) {
+      toast.error("Title, owner, and trigger signal are required.");
+      return;
+    }
+    if (!outcomeCategoryKey) {
+      toast.error("Outcome category is required.");
+      return;
+    }
 
-    await createDecision.mutateAsync({
-      title,
-      owner,
-      owner_user_id: user?.id ?? null,
-      surface: domainLabels[solutionDomain] || solutionDomain,
-      solution_domain: solutionDomain,
-      impact_tier: "High",
-      status: "defined",
-      risk_level: "healthy",
-      outcome_target: outcomeTarget || null,
-      outcome_category_key: outcomeCategoryKey || null,
-      expected_impact: expectedImpact || null,
-      exposure_value: exposureValue || null,
-      trigger_signal: triggerSignal || null,
-      revenue_at_risk: revenueAtRisk || null,
-    } as any);
-    toast.success(`Draft created — "${title}"`, {
-      description: "Complete required fields to activate.",
-      action: {
-        label: "View bet",
-        onClick: () => navigate("/decisions"),
-      },
-    });
-    onClose();
-    if (navigateAfter) {
-      navigate("/decisions");
+    try {
+      const payload: Omit<TablesInsert<"decisions">, "org_id" | "created_by"> = {
+        title,
+        owner,
+        owner_user_id: user?.id ?? null,
+        surface: domainLabels[solutionDomain] || solutionDomain,
+        solution_domain: solutionDomain,
+        impact_tier: "High",
+        status: "defined",
+        risk_level: "healthy",
+        outcome_target: outcomeTarget || null,
+        outcome_category_key: outcomeCategoryKey || null,
+        expected_impact: expectedImpact || null,
+        exposure_value: exposureValue || null,
+        trigger_signal: triggerSignal || null,
+        revenue_at_risk: revenueAtRisk || null,
+      };
+
+      await createDecision.mutateAsync(payload);
+
+      toast.success(`Draft created — "${title}"`, {
+        description: "Complete required fields to activate.",
+        action: {
+          label: "View bet",
+          onClick: () => navigate("/decisions"),
+        },
+      });
+      onClose();
+      if (navigateAfter) {
+        navigate("/decisions");
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes("HIGH_IMPACT_CAP")) {
+        toast.error("Cannot register bet: all high-impact slots are full. Close one first.");
+        return;
+      }
+      if (message.includes("decision_status")) {
+        toast.error("Cannot register bet due to status configuration mismatch. Refresh and retry.");
+        return;
+      }
+      toast.error("Failed to register bet.", {
+        description: message,
+      });
     }
   };
 
