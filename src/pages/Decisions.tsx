@@ -6,6 +6,7 @@ import { useInterruptions, useCreateInterruption } from "@/hooks/useInterruption
 import { useOrgMembers, type OrgMember } from "@/hooks/useTeam";
 import { useOrg } from "@/contexts/OrgContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 import CreateDecisionForm from "@/components/CreateDecisionForm";
 import TagPill from "@/components/bets/TagPill";
 import SectionBlock from "@/components/bets/SectionBlock";
@@ -1305,28 +1306,43 @@ export default function Decisions() {
   const [closedBetsOpen, setClosedBetsOpen] = useState(false);
   const [closingIds, setClosingIds] = useState<Set<string>>(new Set());
 
-  const handleStatusConfirm = () => {
+  const handleStatusConfirm = async () => {
     if (!pendingStatus || !statusNote.trim()) return;
     if (pendingStatus.newStatus === "closed") {
       setClosingIds((prev) => new Set(prev).add(pendingStatus.decisionId));
     }
-    updateDecision.mutate({
-      id: pendingStatus.decisionId,
-      status: pendingStatus.newStatus as any,
-      state_changed_at: new Date().toISOString(),
-      state_change_note: statusNote.trim(),
-    } as any, {
-      onError: () => {
+    try {
+      await updateDecision.mutateAsync({
+        id: pendingStatus.decisionId,
+        status: pendingStatus.newStatus as any,
+        state_changed_at: new Date().toISOString(),
+        state_change_note: statusNote.trim(),
+      } as any);
+      logActivity(pendingStatus.decisionId, "status", pendingStatus.oldStatus, pendingStatus.newStatus);
+      setPendingStatus(null);
+      setStatusNote("");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes("new row violates row-level security policy")) {
+        toast.error("You do not have permission to change this bet status.");
+      } else if (
+        message.includes("ACTUAL_OUTCOME_REQUIRED") ||
+        message.includes("OUTCOME_DELTA_REQUIRED") ||
+        message.includes("CLOSURE_NOTE_REQUIRED")
+      ) {
+        toast.error("This bet cannot be closed yet. Add closure fields first.");
+      } else {
+        toast.error("Status update failed.", { description: message });
+      }
+    } finally {
+      if (pendingStatus.newStatus === "closed") {
         setClosingIds((prev) => {
           const next = new Set(prev);
           next.delete(pendingStatus.decisionId);
           return next;
         });
-      },
-    });
-    logActivity(pendingStatus.decisionId, "status", pendingStatus.oldStatus, pendingStatus.newStatus);
-    setPendingStatus(null);
-    setStatusNote("");
+      }
+    }
   };
 
   const handleInlineSave = async (id: string, field: string, oldValue: string, newValue: string) => {
