@@ -1136,10 +1136,10 @@ function BetCard({
 
         {pendingStatus?.decisionId === d.id && (
           <div className="mt-3 p-3 border border-white/20 rounded-sm max-w-xl">
-            <label className="text-[11px] uppercase tracking-wider text-white/60 block mb-1">What changed? What&apos;s the evidence?</label>
+            <label className="text-[11px] uppercase tracking-wider text-white/60 block mb-1">What changed? What&apos;s the evidence? (optional)</label>
             <textarea
               rows={2}
-              placeholder="Required: reason for state change"
+              placeholder="Optional context for this lifecycle change"
               value={statusNote}
               onChange={(e) => setStatusNote(e.target.value)}
               className="w-full text-xs border rounded-sm px-2 py-1.5 bg-background text-foreground"
@@ -1147,8 +1147,7 @@ function BetCard({
             <div className="mt-2 flex items-center gap-3">
               <button
                 onClick={handleStatusConfirm}
-                disabled={!statusNote.trim()}
-                className="text-[11px] font-semibold uppercase tracking-wider px-3 py-1 rounded-sm bg-white text-black disabled:opacity-50"
+                className="text-[11px] font-semibold uppercase tracking-wider px-3 py-1 rounded-sm bg-white text-black"
               >
                 Confirm
               </button>
@@ -1307,7 +1306,8 @@ export default function Decisions() {
   const [closingIds, setClosingIds] = useState<Set<string>>(new Set());
 
   const handleStatusConfirm = async () => {
-    if (!pendingStatus || !statusNote.trim()) return;
+    if (!pendingStatus) return;
+    const note = statusNote.trim();
     if (pendingStatus.newStatus === "closed") {
       setClosingIds((prev) => new Set(prev).add(pendingStatus.decisionId));
     }
@@ -1316,9 +1316,13 @@ export default function Decisions() {
         id: pendingStatus.decisionId,
         status: pendingStatus.newStatus as any,
         state_changed_at: new Date().toISOString(),
-        state_change_note: statusNote.trim(),
+        state_change_note: note || null,
       } as any);
       logActivity(pendingStatus.decisionId, "status", pendingStatus.oldStatus, pendingStatus.newStatus);
+      toast.success(`Lifecycle updated to ${BET_LIFECYCLE_LABELS[pendingStatus.newStatus as BetLifecycleStatus]}.`);
+      if (pendingStatus.newStatus === "closed") {
+        setClosedBetsOpen(true);
+      }
       setPendingStatus(null);
       setStatusNote("");
     } catch (err: unknown) {
