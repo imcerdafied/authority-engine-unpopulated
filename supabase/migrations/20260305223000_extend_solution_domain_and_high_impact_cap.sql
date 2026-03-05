@@ -29,6 +29,16 @@ ALTER TYPE public.solution_domain ADD VALUE IF NOT EXISTS 'S5';
 ALTER TYPE public.solution_domain ADD VALUE IF NOT EXISTS 'S6';
 ALTER TYPE public.solution_domain ADD VALUE IF NOT EXISTS 'S7';
 
+-- decisions_computed depends on decisions.solution_domain in some environments.
+-- Drop it before type changes, then restore below.
+DO $$
+BEGIN
+  IF to_regclass('public.decisions_computed') IS NOT NULL THEN
+    EXECUTE 'DROP VIEW public.decisions_computed';
+  END IF;
+END
+$$;
+
 -- Ensure decisions.solution_domain exists and is aligned to public.solution_domain.
 DO $$
 DECLARE
@@ -81,6 +91,23 @@ BEGIN
   END IF;
 END
 $$;
+
+CREATE OR REPLACE VIEW public.decisions_computed
+WITH (security_invoker = true)
+AS
+SELECT
+  d.*,
+  EXTRACT(DAY FROM (now() - d.created_at))::INTEGER AS age_days,
+  COALESCE(d.slice_deadline_days, 10) - EXTRACT(DAY FROM (now() - d.created_at))::INTEGER AS slice_remaining,
+  EXTRACT(DAY FROM (now() - d.created_at))::INTEGER > COALESCE(d.slice_deadline_days, 10) AS is_exceeded,
+  COALESCE(d.slice_deadline_days, 10) - EXTRACT(DAY FROM (now() - d.created_at))::INTEGER BETWEEN 0 AND 3 AS is_urgent,
+  EXTRACT(DAY FROM (now() - d.created_at))::INTEGER > 7 AS is_aging,
+  d.outcome_category IS NULL AS is_unbound,
+  d.risk_level::text = 'at_risk' AS needs_exec_attention
+FROM public.decisions d;
+
+GRANT SELECT ON public.decisions_computed TO authenticated;
+GRANT SELECT ON public.decisions_computed TO anon;
 
 -- Align DB cap with product requirement (6+ active high-impact bets possible).
 CREATE OR REPLACE FUNCTION public.enforce_high_impact_cap()
