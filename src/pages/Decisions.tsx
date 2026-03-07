@@ -1281,7 +1281,7 @@ export default function Decisions() {
   const updateDecision = useUpdateDecision();
   const logActivity = useLogActivity();
   const createInterruption = useCreateInterruption();
-  const { currentRole, productAreas } = useOrg();
+  const { currentRole } = useOrg();
   const categories = BET_CATEGORY_OPTIONS as unknown as { key: string; label: string }[];
   const { user } = useAuth();
   const [showCreate, setShowCreate] = useState(false);
@@ -1291,12 +1291,6 @@ export default function Decisions() {
   const [filterStatus, setFilterStatus] = useState("");
   const [filterRisk, setFilterRisk] = useState("");
   const [filterDomain, setFilterDomain] = useState("");
-
-  // Derive solution domain options from org product areas
-  const orgDomainOptions = productAreas.map((pa) => pa.key);
-  const orgDomainLabels: Record<string, string> = Object.fromEntries(
-    productAreas.map((pa) => [pa.key, pa.label]),
-  );
 
   const filterStatusOptions = BET_LIFECYCLE_STATUSES.filter((s) => s !== "closed");
   const riskLevelOptions = ["at_risk", "watch", "healthy"] as const;
@@ -1351,6 +1345,9 @@ export default function Decisions() {
   const orderedDecisions = [...activeDecisions].sort(
     (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
   );
+  const productAreaOptions = Array.from(
+    new Set(orderedDecisions.map((d) => String(d.surface || "").trim()).filter(Boolean)),
+  );
   const isEmpty = decisions.length === 0;
 
   const selectClass = "text-xs border rounded-sm px-2 py-1.5 bg-background focus:outline-none focus:ring-1 focus:ring-foreground";
@@ -1360,7 +1357,7 @@ export default function Decisions() {
     if (isClosedBetLifecycle(d.status)) return false;
     if (filterStatus && d.status !== filterStatus) return false;
     if (filterRisk && toBetRiskLevel(d.risk_level) !== filterRisk) return false;
-    if (filterDomain && d.solution_domain !== filterDomain) return false;
+    if (filterDomain && String(d.surface || "").trim() !== filterDomain) return false;
     return true;
   });
 
@@ -1393,11 +1390,11 @@ export default function Decisions() {
                   <option key={r} value={r}>{BET_RISK_LABELS[r]}</option>
                 ))}
               </select>
-              {orgDomainOptions.length > 0 && (
+              {productAreaOptions.length > 0 && (
                 <select value={filterDomain} onChange={(e) => setFilterDomain(e.target.value)} className={selectClass}>
-                  <option value="">All Domains</option>
-                  {orgDomainOptions.map((d) => (
-                    <option key={d} value={d}>{orgDomainLabels[d] ?? d}</option>
+                  <option value="">All Product Areas</option>
+                  {productAreaOptions.map((area) => (
+                    <option key={area} value={area}>{area}</option>
                   ))}
                 </select>
               )}
