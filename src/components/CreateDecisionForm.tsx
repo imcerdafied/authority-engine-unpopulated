@@ -94,6 +94,32 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
       reader.readAsDataURL(file);
     });
 
+  const readFunctionError = async (error: unknown) => {
+    const maybe = error as { message?: string; context?: unknown };
+    if (maybe?.context instanceof Response) {
+      try {
+        const body = await maybe.context.clone().json();
+        if (body && typeof body.error === "string" && body.error.trim()) {
+          return body.error.trim();
+        }
+      } catch {
+        // Ignore JSON parse failures and fall through.
+      }
+      try {
+        const text = await maybe.context.clone().text();
+        if (text.trim()) {
+          return text.trim();
+        }
+      } catch {
+        // Ignore text parse failures and fall through.
+      }
+    }
+    if (typeof maybe?.message === "string" && maybe.message.trim()) {
+      return maybe.message.trim();
+    }
+    return "Strategy mapping failed.";
+  };
+
   const mapOutcomeCategory = (candidate: string | null | undefined) => {
     if (!candidate) return "";
     const normalized = candidate.trim().toLowerCase();
@@ -114,6 +140,23 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
     setStrategySuggestions([]);
 
     try {
+      const userInputWarnings: string[] = [];
+      const normalizedSourceTextSegments: string[] = [];
+      if (strategyText.trim()) {
+        normalizedSourceTextSegments.push(strategyText.trim());
+      }
+
+      const normalizedUrlInput = strategyUrl.trim();
+      let normalizedSourceUrl: string | null = null;
+      if (normalizedUrlInput) {
+        if (/^https?:\/\/\S+$/i.test(normalizedUrlInput)) {
+          normalizedSourceUrl = normalizedUrlInput;
+        } else {
+          normalizedSourceTextSegments.push(normalizedUrlInput);
+          userInputWarnings.push("URL field content was treated as strategy text because it was not a valid URL.");
+        }
+      }
+
       let filePayload:
         | {
             name: string;
@@ -122,18 +165,37 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
           }
         | undefined;
       if (strategyFile) {
-        filePayload = {
-          name: strategyFile.name,
-          mimeType: strategyFile.type || "application/octet-stream",
-          base64: await fileToBase64(strategyFile),
-        };
+        const lowerName = strategyFile.name.toLowerCase();
+        const mime = (strategyFile.type || "").toLowerCase();
+        const isTextFile = mime.startsWith("text/") || lowerName.endsWith(".txt") || lowerName.endsWith(".md");
+        if (isTextFile) {
+          const strategyFileText = (await strategyFile.text()).trim();
+          if (strategyFileText) {
+            normalizedSourceTextSegments.push(strategyFileText);
+          } else {
+            userInputWarnings.push("Selected text file was empty.");
+          }
+        } else {
+          filePayload = {
+            name: strategyFile.name,
+            mimeType: strategyFile.type || "application/octet-stream",
+            base64: await fileToBase64(strategyFile),
+          };
+        }
+      }
+
+      const normalizedSourceText = normalizedSourceTextSegments.join("\n\n").trim();
+      if (!normalizedSourceText && !normalizedSourceUrl && !filePayload) {
+        toast.error("No usable strategy content detected. Paste text, provide a valid URL, or choose a non-empty file.");
+        setStrategyWarnings(userInputWarnings);
+        return;
       }
 
       const { data, error } = await supabase.functions.invoke("map-strategy-bets", {
         body: {
           orgId: currentOrg.id,
-          sourceText: strategyText.trim() || null,
-          sourceUrl: strategyUrl.trim() || null,
+          sourceText: normalizedSourceText || null,
+          sourceUrl: normalizedSourceUrl,
           file: filePayload || null,
         },
       });
@@ -155,16 +217,18 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
         }))
         .filter((b) => b.title.length > 0);
       setStrategySuggestions(suggestions);
-      setStrategyWarnings(Array.isArray(data?.warnings) ? data.warnings.map((w: any) => String(w)) : []);
+      const modelWarnings = Array.isArray(data?.warnings) ? data.warnings.map((w: any) => String(w)) : [];
+      setStrategyWarnings([...userInputWarnings, ...modelWarnings]);
       setStrategySummary(typeof data?.summary === "string" ? data.summary : "");
       if (suggestions.length === 0) {
         toast.error("No clear bet candidates found. Try a cleaner strategy source.");
       } else {
         toast.success(`Mapped ${suggestions.length} bet candidate${suggestions.length === 1 ? "" : "s"}.`);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Strategy mapping failed:", err);
-      toast.error(err?.message || "Strategy mapping failed.");
+      const message = await readFunctionError(err);
+      toast.error("Strategy mapping failed.", { description: message });
     } finally {
       setStrategyLoading(false);
     }
@@ -305,20 +369,23 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
         <button onClick={onClose} className="text-xs text-muted-foreground hover:text-foreground">Cancel</button>
       </div>
       <div className="border rounded-sm p-3 mb-4 bg-background">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Strategy Import (Beta)</p>
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Bulk Strategy Import (Beta)</p>
+        <p className="text-[11px] text-muted-foreground mb-2">
+          Import one strategy source to map multiple bets, then create all mapped drafts at once.
+        </p>
         <div className="space-y-2">
           <textarea
             value={strategyText}
             onChange={(e) => setStrategyText(e.target.value)}
             rows={4}
-            placeholder="Paste strategy text, memo excerpt, or planning notes"
+            placeholder="Paste strategy text, memo excerpt, or planning notes (optional if using URL/file)"
             className="w-full border rounded-sm px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-foreground"
           />
           <input
             type="url"
             value={strategyUrl}
             onChange={(e) => setStrategyUrl(e.target.value)}
-            placeholder="Optional public URL or Google Doc link"
+            placeholder="Optional source URL (Google Doc/public page)"
             className="w-full border rounded-sm px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-foreground"
           />
           <input
@@ -327,6 +394,9 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
             onChange={(e) => setStrategyFile(e.target.files?.[0] || null)}
             className="w-full text-xs text-muted-foreground"
           />
+          <p className="text-[10px] text-muted-foreground">
+            File upload is for batch mapping only, not for attaching to a single bet.
+          </p>
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -334,7 +404,7 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
               disabled={strategyLoading}
               className="text-[11px] font-semibold uppercase tracking-wider text-foreground border border-foreground px-3 py-1.5 rounded-sm hover:bg-foreground hover:text-background transition-colors disabled:opacity-50"
             >
-              {strategyLoading ? "Analyzing..." : "Map Bets"}
+              {strategyLoading ? "Analyzing..." : "Map Strategy"}
             </button>
             {strategySuggestions.length > 0 && (
               <button
@@ -343,7 +413,7 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
                 disabled={createDecision.isPending}
                 className="text-[11px] font-semibold uppercase tracking-wider text-background bg-foreground px-3 py-1.5 rounded-sm hover:bg-foreground/90 transition-colors disabled:opacity-50"
               >
-                Create All Drafts
+                {createDecision.isPending ? "Creating..." : `Create ${strategySuggestions.length} Draft${strategySuggestions.length === 1 ? "" : "s"}`}
               </button>
             )}
           </div>
@@ -355,6 +425,9 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
           )}
           {strategySuggestions.length > 0 && (
             <div className="space-y-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Mapped Draft Bets
+              </p>
               {strategySuggestions.map((s, i) => (
                 <div key={`${s.title}-${i}`} className="border rounded-sm p-2">
                   <p className="text-xs font-semibold">{s.title}</p>
@@ -369,6 +442,9 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
                   </button>
                 </div>
               ))}
+              <p className="text-[10px] text-muted-foreground">
+                Sponsor from the manual form below will be applied to all created drafts.
+              </p>
             </div>
           )}
         </div>

@@ -44,7 +44,10 @@ function stripHtml(input: string): string {
 }
 
 function decodeBase64ToString(value: string): string {
-  const bytes = Uint8Array.from(atob(value), (c) => c.charCodeAt(0));
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+  const padLength = normalized.length % 4 === 0 ? 0 : 4 - (normalized.length % 4);
+  const padded = normalized + "=".repeat(padLength);
+  const bytes = Uint8Array.from(atob(padded), (c) => c.charCodeAt(0));
   return new TextDecoder().decode(bytes);
 }
 
@@ -92,10 +95,22 @@ serve(async (req) => {
     const supabaseAnonKey =
       Deno.env.get("SUPABASE_ANON_KEY") ??
       Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
     if (!supabaseAnonKey) {
       return new Response(JSON.stringify({ error: "Missing anon key" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (!supabaseKey) {
+      return new Response(JSON.stringify({ error: "Missing service role key" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (!anthropicKey) {
+      return new Response(JSON.stringify({ error: "Missing ANTHROPIC_API_KEY secret" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
