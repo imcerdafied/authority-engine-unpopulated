@@ -40,6 +40,7 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
   const [strategyLoading, setStrategyLoading] = useState(false);
   const [strategyWarnings, setStrategyWarnings] = useState<string[]>([]);
   const [strategySummary, setStrategySummary] = useState("");
+  const [strategySponsorHint, setStrategySponsorHint] = useState("");
   const [strategySuggestions, setStrategySuggestions] = useState<Array<{
     title: string;
     owner: string;
@@ -208,6 +209,12 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
     return exact?.key ?? "";
   };
 
+  const inferSponsorFromText = (source: string) => {
+    const match = source.match(/(?:^|\n)\s*sponsor\s*:\s*([^\n|]+)/i);
+    if (!match?.[1]) return "";
+    return match[1].trim().replace(/^["']|["']$/g, "");
+  };
+
   const fallbackParseStructuredBets = (source: string) => {
     const normalized = source.replace(/\r/g, "");
     const splitByBet = normalized
@@ -281,6 +288,7 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
     setStrategyLoading(true);
     setStrategyWarnings([]);
     setStrategySummary("");
+    setStrategySponsorHint("");
     setStrategySuggestions([]);
 
     let normalizedSourceText = "";
@@ -334,6 +342,13 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
         toast.error("No usable strategy content detected. Paste text, provide a valid URL, or choose a non-empty file.");
         setStrategyWarnings(userInputWarnings);
         return;
+      }
+      const inferredSponsor = inferSponsorFromText(normalizedSourceText);
+      if (inferredSponsor) {
+        setStrategySponsorHint(inferredSponsor);
+        if (!sponsor.trim()) {
+          setSponsor(inferredSponsor);
+        }
       }
 
       const data = await invokeMapStrategyBets({
@@ -425,40 +440,48 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
 
   const createAllSuggestions = async () => {
     if (!strategySuggestions.length) return;
-    const normalizedSponsor = sponsor.trim();
-    if (!normalizedSponsor) {
-      toast.error("Sponsor is required before creating suggestions.");
-      return;
-    }
+    const sponsorForBatch = sponsor.trim() || strategySponsorHint || "TBD";
     let created = 0;
+    let failed = 0;
     for (const s of strategySuggestions) {
       if (!s.title || !s.owner || !s.trigger_signal) continue;
       const solutionDomain = resolveSolutionDomain(s.product_area);
       const mappedCategory = mapOutcomeCategory(s.outcome_category_key) || outcomeCategories[0]?.key || null;
-      await createDecision.mutateAsync({
-        title: s.title,
-        owner: s.owner,
-        sponsor: normalizedSponsor,
-        owner_user_id: user?.id ?? null,
-        surface: s.product_area || domainLabels[solutionDomain] || solutionDomain,
-        solution_domain: solutionDomain,
-        impact_tier: "High",
-        status: "defined",
-        risk_level: "healthy",
-        outcome_target: s.outcome_target || null,
-        outcome_category_key: mappedCategory,
-        expected_impact: s.expected_impact || null,
-        exposure_value: s.exposure_value || null,
-        trigger_signal: s.trigger_signal || null,
-        revenue_at_risk: s.revenue_at_risk || null,
-      } as any);
-      created += 1;
+      try {
+        await createDecision.mutateAsync({
+          title: s.title,
+          owner: s.owner,
+          sponsor: sponsorForBatch,
+          owner_user_id: user?.id ?? null,
+          surface: s.product_area || domainLabels[solutionDomain] || solutionDomain,
+          solution_domain: solutionDomain,
+          impact_tier: "High",
+          status: "defined",
+          risk_level: "healthy",
+          outcome_target: s.outcome_target || null,
+          outcome_category_key: mappedCategory,
+          expected_impact: s.expected_impact || null,
+          exposure_value: s.exposure_value || null,
+          trigger_signal: s.trigger_signal || null,
+          revenue_at_risk: s.revenue_at_risk || null,
+        } as any);
+        created += 1;
+      } catch {
+        failed += 1;
+      }
     }
     if (created === 0) {
-      toast.error("No complete suggestions to create.");
+      toast.error("No mapped bets could be created.");
       return;
     }
-    toast.success(`Created ${created} draft bet${created === 1 ? "" : "s"}.`);
+    if (!sponsor.trim() && !strategySponsorHint) {
+      toast("Batch import used sponsor \"TBD\" because no sponsor was provided in the source.");
+    }
+    if (failed > 0) {
+      toast.warning(`Created ${created} bet${created === 1 ? "" : "s"}; ${failed} failed.`);
+    } else {
+      toast.success(`Created ${created} bet${created === 1 ? "" : "s"}.`);
+    }
     onClose();
     if (navigateAfter) navigate("/decisions");
   };
@@ -538,7 +561,7 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
       <div className="border rounded-sm p-3 mb-4 bg-background">
         <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Bulk Strategy Import (Beta)</p>
         <p className="text-[11px] text-muted-foreground mb-2">
-          Import one strategy source to map multiple bets, then create all mapped drafts at once.
+          Import one strategy source to map multiple bets, then create all mapped bets at once.
         </p>
         <div className="space-y-2">
           <textarea
@@ -580,7 +603,7 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
                 disabled={createDecision.isPending}
                 className="text-[11px] font-semibold uppercase tracking-wider text-background bg-foreground px-3 py-1.5 rounded-sm hover:bg-foreground/90 transition-colors disabled:opacity-50"
               >
-                {createDecision.isPending ? "Creating..." : `Create ${strategySuggestions.length} Draft${strategySuggestions.length === 1 ? "" : "s"}`}
+                {createDecision.isPending ? "Creating..." : `Create ${strategySuggestions.length} Bet${strategySuggestions.length === 1 ? "" : "s"}`}
               </button>
             )}
           </div>
@@ -593,7 +616,7 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
           {strategySuggestions.length > 0 && (
             <div className="space-y-2">
               <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Mapped Draft Bets
+                Mapped Candidate Bets
               </p>
               {strategySuggestions.map((s, i) => (
                 <div key={`${s.title}-${i}`} className="border rounded-sm p-2">
@@ -610,7 +633,7 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
                 </div>
               ))}
               <p className="text-[10px] text-muted-foreground">
-                Sponsor from the manual form below will be applied to all created drafts.
+                Sponsor in the form is used when provided; otherwise parsed sponsor or "TBD" is applied.
               </p>
             </div>
           )}
