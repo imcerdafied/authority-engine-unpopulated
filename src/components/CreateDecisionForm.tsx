@@ -208,6 +208,69 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
     return exact?.key ?? "";
   };
 
+  const fallbackParseStructuredBets = (source: string) => {
+    const normalized = source.replace(/\r/g, "");
+    const splitByBet = normalized
+      .split(/\n(?=\s*BET\s+\d+\b)/i)
+      .map((chunk) => chunk.trim())
+      .filter(Boolean);
+    const sections = splitByBet.length > 1 ? splitByBet : [normalized];
+
+    const readField = (lines: string[], label: string) => {
+      const labelRegex = new RegExp(`^${label}\\s*:?(.*)$`, "i");
+      for (let i = 0; i < lines.length; i += 1) {
+        const line = lines[i].trim();
+        const match = line.match(labelRegex);
+        if (!match) continue;
+        const inlineValue = match[1]?.trim();
+        if (inlineValue) return inlineValue;
+        for (let j = i + 1; j < lines.length; j += 1) {
+          const candidate = lines[j].trim();
+          if (candidate) return candidate;
+        }
+        return "";
+      }
+      return "";
+    };
+
+    const parsed = sections
+      .map((section) => {
+        const lines = section
+          .split("\n")
+          .map((l) => l.trim())
+          .filter(Boolean);
+        const title =
+          readField(lines, "Title") ||
+          lines.find((l) => l.length > 8 && !/^BET\s+\d+\b/i.test(l)) ||
+          "";
+
+        const owner = readField(lines, "Owner") || "TBD";
+        const productArea = readField(lines, "Product Area") || "";
+        const outcomeTarget = readField(lines, "Outcome Target") || null;
+        const outcomeCategory = readField(lines, "Outcome Category") || null;
+        const expectedImpact = readField(lines, "Expected Impact") || null;
+        const exposureValue = readField(lines, "Exposure Value") || null;
+        const revenueAtRisk = readField(lines, "Revenue at Risk") || null;
+        const triggerSignal = readField(lines, "Trigger Signal") || "";
+
+        return {
+          title: title.trim(),
+          owner: owner.trim(),
+          product_area: productArea.trim(),
+          outcome_target: outcomeTarget ? outcomeTarget.trim() : null,
+          outcome_category_key: outcomeCategory ? outcomeCategory.trim() : null,
+          expected_impact: expectedImpact ? expectedImpact.trim() : null,
+          exposure_value: exposureValue ? exposureValue.trim() : null,
+          revenue_at_risk: revenueAtRisk ? revenueAtRisk.trim() : null,
+          trigger_signal: triggerSignal.trim() || "Define measurable trigger signal",
+        };
+      })
+      .filter((b) => b.title.length > 0)
+      .slice(0, 8);
+
+    return parsed;
+  };
+
   const analyzeStrategy = async () => {
     if (!currentOrg?.id) return;
     if (!strategyText.trim() && !strategyUrl.trim() && !strategyFile) {
@@ -220,8 +283,9 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
     setStrategySummary("");
     setStrategySuggestions([]);
 
+    let normalizedSourceText = "";
+    const userInputWarnings: string[] = [];
     try {
-      const userInputWarnings: string[] = [];
       const normalizedSourceTextSegments: string[] = [];
       if (strategyText.trim()) {
         normalizedSourceTextSegments.push(strategyText.trim());
@@ -265,7 +329,7 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
         }
       }
 
-      const normalizedSourceText = normalizedSourceTextSegments.join("\n\n").trim();
+      normalizedSourceText = normalizedSourceTextSegments.join("\n\n").trim();
       if (!normalizedSourceText && !normalizedSourceUrl && !filePayload) {
         toast.error("No usable strategy content detected. Paste text, provide a valid URL, or choose a non-empty file.");
         setStrategyWarnings(userInputWarnings);
@@ -306,6 +370,20 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
     } catch (err: unknown) {
       console.error("Strategy mapping failed:", err);
       const message = await readFunctionError(err);
+      const localFallbackSuggestions = normalizedSourceText
+        ? fallbackParseStructuredBets(normalizedSourceText)
+        : [];
+      if (localFallbackSuggestions.length > 0) {
+        setStrategySuggestions(localFallbackSuggestions);
+        setStrategySummary(`Mapped ${localFallbackSuggestions.length} candidate bet${localFallbackSuggestions.length === 1 ? "" : "s"} using local parsing fallback.`);
+        setStrategyWarnings([
+          ...userInputWarnings,
+          "AI strategy mapping was unavailable, so local text parsing fallback was used.",
+        ]);
+        toast.success(`Mapped ${localFallbackSuggestions.length} bet candidate${localFallbackSuggestions.length === 1 ? "" : "s"} (local fallback).`);
+        return;
+      }
+
       const normalized = message.toLowerCase();
       const isLikelySessionIssue =
         /invalid jwt|jwt expired|token expired/i.test(normalized) ||
