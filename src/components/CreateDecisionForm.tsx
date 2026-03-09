@@ -65,6 +65,13 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
         });
     }
   }, [customOutcomeCategories]);
+
+  useEffect(() => {
+    if (!outcomeCategoryKey && outcomeCategories.length > 0) {
+      setOutcomeCategoryKey(outcomeCategories[0].key);
+    }
+  }, [outcomeCategoryKey, outcomeCategories]);
+
   const [triggerSignal, setTriggerSignal] = useState("");
   const [revenueAtRisk, setRevenueAtRisk] = useState("");
 
@@ -720,7 +727,7 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
           </div>
         </div>
         <div className="flex justify-end pt-2">
-          <button type="submit" disabled={createDecision.isPending || !outcomeCategoryKey}
+          <button type="submit" disabled={createDecision.isPending}
             className="text-[11px] font-semibold uppercase tracking-wider text-background bg-foreground px-4 py-2 rounded-sm hover:bg-foreground/90 transition-colors disabled:opacity-50">
             {createDecision.isPending ? "Registering..." : "Register Bet"}
           </button>
