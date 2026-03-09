@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useOrg } from "@/contexts/OrgContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { trackEvent } from "@/lib/telemetry";
-import { isClosedBetLifecycle, toBetRiskLevel } from "@/lib/bet-status";
+import { isClosedBetLifecycle, toBetLifecycleStatus, toBetRiskLevel } from "@/lib/bet-status";
 import type { TablesInsert } from "@/integrations/supabase/types";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -65,6 +65,7 @@ export interface DecisionComputed {
 function computeDecisionFields(row: Record<string, unknown>): DecisionComputed {
   const created = new Date((row.created_at as string) || 0).getTime();
   const now = Date.now();
+  const lifecycle = toBetLifecycleStatus(row.status as string | null | undefined);
   const ageDays = Math.floor((now - created) / (1000 * 60 * 60 * 24));
   const sliceDeadline = (row.slice_deadline_days as number) ?? 10;
   const sliceDueAt = row.slice_due_at as string | null;
@@ -75,9 +76,10 @@ function computeDecisionFields(row: Record<string, unknown>): DecisionComputed {
     sliceRemaining = sliceDeadline - ageDays;
   }
   const isActive = !isClosedBetLifecycle(row.status as string);
-  const isExceeded = isActive && (sliceDueAt ? now > new Date(sliceDueAt).getTime() : ageDays > sliceDeadline);
-  const isUrgent = isActive && sliceRemaining >= 0 && sliceRemaining <= 3;
-  const isAging = isActive && ageDays > 14;
+  const hasStarted = isActive && lifecycle !== "defined";
+  const isExceeded = hasStarted && (sliceDueAt ? now > new Date(sliceDueAt).getTime() : ageDays > sliceDeadline);
+  const isUrgent = hasStarted && sliceRemaining >= 0 && sliceRemaining <= 3;
+  const isAging = hasStarted && ageDays > 14;
   const isUnbound = isActive && !row.outcome_target;
   const needsExecAttention = toBetRiskLevel(row.risk_level as string | null | undefined) === "at_risk";
 
