@@ -306,7 +306,12 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
     } catch (err: unknown) {
       console.error("Strategy mapping failed:", err);
       const message = await readFunctionError(err);
-      if (/invalid jwt|unauthorized|forbidden|session/i.test(message.toLowerCase())) {
+      const normalized = message.toLowerCase();
+      const isLikelySessionIssue =
+        /invalid jwt|jwt expired|token expired/i.test(normalized) ||
+        (normalized.includes("unauthorized") && !normalized.includes("forbidden"));
+
+      if (isLikelySessionIssue) {
         toast.error("Strategy mapping failed.", {
           description: "Your session expired for edge function access. Sign out, sign back in, then retry.",
         });
