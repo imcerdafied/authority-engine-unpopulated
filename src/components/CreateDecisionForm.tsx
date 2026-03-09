@@ -124,10 +124,18 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
   const getAccessTokenWithRetry = async () => {
     for (let i = 0; i < 6; i += 1) {
       const { data } = await supabase.auth.getSession();
-      const token = data.session?.access_token;
-      if (token) return token;
+      const session = data.session;
+      const isExpiring =
+        !!session?.expires_at && (session.expires_at * 1000 - Date.now()) < 60_000;
+
+      if (session?.access_token && !isExpiring) {
+        return session.access_token;
+      }
+
       const { data: refreshed } = await supabase.auth.refreshSession();
-      if (refreshed.session?.access_token) return refreshed.session.access_token;
+      if (refreshed.session?.access_token) {
+        return refreshed.session.access_token;
+      }
       await sleep(250);
     }
     return null;
@@ -139,43 +147,58 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
     sourceUrl: string | null;
     file: { name: string; mimeType: string; base64: string } | null;
   }) => {
-    const firstAttempt = await supabase.functions.invoke("map-strategy-bets", { body });
-    if (!firstAttempt.error) return firstAttempt.data;
+    const getEndpoint = () => {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+      if (!supabaseUrl) return null;
+      return `${supabaseUrl.replace(/\/+$/, "")}/functions/v1/map-strategy-bets`;
+    };
 
-    const firstError = firstAttempt.error;
-    const firstMessage = String((firstError as { message?: string } | null)?.message || "");
-    const isAuthError = /invalid jwt|401|unauthorized|forbidden/i.test(firstMessage);
-    if (!isAuthError) {
-      throw firstError;
-    }
+    const invokeWithToken = async (accessToken: string) => {
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+      const endpoint = getEndpoint();
+      if (!endpoint || !supabaseAnonKey) {
+        throw new Error("Missing Supabase client configuration in frontend environment.");
+      }
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+          apikey: supabaseAnonKey,
+        },
+        body: JSON.stringify(body),
+      });
+      const responseBody = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const detail =
+          typeof responseBody?.error === "string"
+            ? responseBody.error
+            : typeof responseBody?.message === "string"
+              ? responseBody.message
+              : `HTTP ${response.status}`;
+        throw new Error(detail);
+      }
+      return responseBody;
+    };
 
     const accessToken = await getAccessTokenWithRetry();
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
-    if (!accessToken || !supabaseUrl || !supabaseAnonKey) {
+    if (!accessToken || !supabaseUrl) {
       throw new Error("Session is not valid for strategy import. Please sign out and sign in again.");
     }
 
-    const response = await fetch(`${supabaseUrl}/functions/v1/map-strategy-bets`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-        apikey: supabaseAnonKey,
-      },
-      body: JSON.stringify(body),
-    });
-    const responseBody = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      const detail =
-        typeof responseBody?.error === "string"
-          ? responseBody.error
-          : typeof responseBody?.message === "string"
-            ? responseBody.message
-            : `HTTP ${response.status}`;
-      throw new Error(detail);
+    try {
+      return await invokeWithToken(accessToken);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!/invalid jwt|jwt|expired|401|unauthorized/i.test(message.toLowerCase())) {
+        throw error;
+      }
+      const refreshedToken = await getAccessTokenWithRetry();
+      if (!refreshedToken) throw error;
+      return invokeWithToken(refreshedToken);
     }
-    return responseBody;
   };
 
   const mapOutcomeCategory = (candidate: string | null | undefined) => {
