@@ -10,6 +10,7 @@ import type { TablesInsert } from "@/integrations/supabase/types";
 import { fetchOutcomeCategories, type OutcomeCategoryItem } from "@/lib/taxonomy";
 
 type SolutionDomain = Database["public"]["Enums"]["solution_domain"];
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export default function CreateDecisionForm({ onClose, navigateAfter = false }: { onClose: () => void; navigateAfter?: boolean }) {
   const createDecision = useCreateDecision();
@@ -120,6 +121,63 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
     return "Strategy mapping failed.";
   };
 
+  const getAccessTokenWithRetry = async () => {
+    for (let i = 0; i < 6; i += 1) {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (token) return token;
+      const { data: refreshed } = await supabase.auth.refreshSession();
+      if (refreshed.session?.access_token) return refreshed.session.access_token;
+      await sleep(250);
+    }
+    return null;
+  };
+
+  const invokeMapStrategyBets = async (body: {
+    orgId: string;
+    sourceText: string | null;
+    sourceUrl: string | null;
+    file: { name: string; mimeType: string; base64: string } | null;
+  }) => {
+    const firstAttempt = await supabase.functions.invoke("map-strategy-bets", { body });
+    if (!firstAttempt.error) return firstAttempt.data;
+
+    const firstError = firstAttempt.error;
+    const firstMessage = String((firstError as { message?: string } | null)?.message || "");
+    const isAuthError = /invalid jwt|401|unauthorized|forbidden/i.test(firstMessage);
+    if (!isAuthError) {
+      throw firstError;
+    }
+
+    const accessToken = await getAccessTokenWithRetry();
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+    if (!accessToken || !supabaseUrl || !supabaseAnonKey) {
+      throw new Error("Session is not valid for strategy import. Please sign out and sign in again.");
+    }
+
+    const response = await fetch(`${supabaseUrl}/functions/v1/map-strategy-bets`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+        apikey: supabaseAnonKey,
+      },
+      body: JSON.stringify(body),
+    });
+    const responseBody = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const detail =
+        typeof responseBody?.error === "string"
+          ? responseBody.error
+          : typeof responseBody?.message === "string"
+            ? responseBody.message
+            : `HTTP ${response.status}`;
+      throw new Error(detail);
+    }
+    return responseBody;
+  };
+
   const mapOutcomeCategory = (candidate: string | null | undefined) => {
     if (!candidate) return "";
     const normalized = candidate.trim().toLowerCase();
@@ -191,15 +249,12 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
         return;
       }
 
-      const { data, error } = await supabase.functions.invoke("map-strategy-bets", {
-        body: {
-          orgId: currentOrg.id,
-          sourceText: normalizedSourceText || null,
-          sourceUrl: normalizedSourceUrl,
-          file: filePayload || null,
-        },
+      const data = await invokeMapStrategyBets({
+        orgId: currentOrg.id,
+        sourceText: normalizedSourceText || null,
+        sourceUrl: normalizedSourceUrl,
+        file: filePayload || null,
       });
-      if (error) throw error;
 
       const incoming = Array.isArray(data?.bets) ? data.bets : [];
       const suggestions = incoming
@@ -228,6 +283,12 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
     } catch (err: unknown) {
       console.error("Strategy mapping failed:", err);
       const message = await readFunctionError(err);
+      if (/invalid jwt|unauthorized|forbidden|session/i.test(message.toLowerCase())) {
+        toast.error("Strategy mapping failed.", {
+          description: "Your session expired for edge function access. Sign out, sign back in, then retry.",
+        });
+        return;
+      }
       toast.error("Strategy mapping failed.", { description: message });
     } finally {
       setStrategyLoading(false);
