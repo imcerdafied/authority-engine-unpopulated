@@ -26,7 +26,7 @@ const roleLabels: Record<string, string> = {
 
 const Sep = () => <span className="text-muted-foreground/30 mx-3 hidden md:inline">|</span>;
 
-const navLinkClass = "text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center md:min-h-0 md:min-w-0 md:flex-initial";
+const navLinkClass = "text-[13px] uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors font-medium min-h-[44px] min-w-[44px] flex items-center justify-center md:min-h-0 md:min-w-0 md:flex-initial";
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -57,13 +57,13 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="border-b px-4 lg:px-6 py-3">
+      <header className="border-b px-4 lg:px-6 py-4">
         <div className="flex flex-col md:flex-row md:flex-wrap md:items-center md:justify-between">
           <div className="flex items-center justify-between w-full md:w-auto">
             <div className="flex flex-col">
               <Link to="/" className="flex items-center gap-2.5" onClick={closeMenu}>
-                <img src={logo} alt="Build Authority" className="w-6 h-6" />
-                <span className="text-xs font-bold tracking-widest uppercase leading-tight">
+                <img src={logo} alt="Build Authority" className="w-8 h-8" />
+                <span className="text-sm font-bold tracking-widest uppercase leading-tight">
                   BUILD AUTHORITY
                 </span>
               </Link>
