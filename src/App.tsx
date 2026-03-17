@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { OrgProvider, useOrg } from "@/contexts/OrgContext";
 import AppLayout from "@/components/AppLayout";
 import Decisions from "@/pages/Decisions";
+import Loops from "@/pages/Loops";
 import Review from "@/pages/Review";
 import HowItWorks from "@/pages/HowItWorks";
 import Signals from "@/pages/Signals";
@@ -54,6 +55,7 @@ function AppContent() {
             <Routes>
               <Route path="/" element={<Decisions />} />
               <Route path="/decisions" element={<Decisions />} />
+              <Route path="/loops" element={<Loops />} />
               <Route path="/review" element={<Review />} />
               <Route path="/how-it-works" element={<HowItWorks />} />
               <Route path="/signals" element={<Signals />} />
