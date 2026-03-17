@@ -7,6 +7,7 @@ import logo from "@/assets/logo.png";
 import { cn } from "@/lib/utils";
 import ChatAdvisor from "@/components/ChatAdvisor";
 import FeedbackButton from "@/components/FeedbackButton";
+import WorkspaceSwitcher from "@/components/WorkspaceSwitcher";
 import CreateWorkspaceModal from "@/components/CreateWorkspaceModal";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -30,7 +31,7 @@ const navLinkClass = "text-[10px] uppercase tracking-wider text-muted-foreground
 export default function AppLayout({ children }: { children: ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
-  const [createWsOpen, setCreateWsOpen] = useState(false);
+  const [createWorkspaceOpen, setCreateWorkspaceOpen] = useState(false);
   const { user, signOut } = useAuth();
   const { currentOrg, currentRole } = useOrg();
   const navigate = useNavigate();
@@ -59,17 +60,17 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       <header className="border-b px-4 lg:px-6 py-3">
         <div className="flex flex-col md:flex-row md:flex-wrap md:items-center md:justify-between">
           <div className="flex items-center justify-between w-full md:w-auto">
-            <Link to="/" className="flex items-center gap-2.5" onClick={closeMenu}>
-              <img src={logo} alt="Build Authority" className="w-6 h-6" />
-              <div className="flex flex-col">
+            <div className="flex flex-col">
+              <Link to="/" className="flex items-center gap-2.5" onClick={closeMenu}>
+                <img src={logo} alt="Build Authority" className="w-6 h-6" />
                 <span className="text-xs font-bold tracking-widest uppercase leading-tight">
                   BUILD AUTHORITY
                 </span>
-                <span className="text-[9px] uppercase tracking-widest text-muted-foreground leading-tight">
-                  {currentOrg?.name ?? "Organization"}
-                </span>
+              </Link>
+              <div className="leading-tight mt-0.5 pl-[34px]">
+                <WorkspaceSwitcher onCreateWorkspace={() => setCreateWorkspaceOpen(true)} />
               </div>
-            </Link>
+            </div>
             <button
               onClick={() => setMenuOpen(!menuOpen)}
               className="md:hidden p-2 -mr-2 min-h-[44px] min-w-[44px] flex flex-col items-center justify-center gap-1"
@@ -150,7 +151,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuItem
-                    onSelect={() => { closeMenu(); setCreateWsOpen(true); }}
+                    onSelect={() => { closeMenu(); setCreateWorkspaceOpen(true); }}
                     className="text-[11px] uppercase tracking-wider cursor-pointer"
                   >
                     Create Workspace
@@ -177,7 +178,10 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
       <ChatAdvisor chatOpen={chatOpen} setChatOpen={setChatOpen} />
       <FeedbackButton />
-      <CreateWorkspaceModal open={createWsOpen} onOpenChange={setCreateWsOpen} />
+      <CreateWorkspaceModal
+        open={createWorkspaceOpen}
+        onOpenChange={setCreateWorkspaceOpen}
+      />
     </div>
   );
 }

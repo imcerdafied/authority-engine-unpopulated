@@ -85,10 +85,10 @@ ALTER TABLE outcome_loops ENABLE ROW LEVEL SECURITY;
 ALTER TABLE loop_versions ENABLE ROW LEVEL SECURITY;
 
 -- Read: org members can see loops for their org
-CREATE POLICY "org_members_read_loops" ON outcome_loops
+CREATE POLICY "organization_memberships_read_loops" ON outcome_loops
   FOR SELECT USING (
     org_id IN (
-      SELECT org_id FROM org_members WHERE user_id = auth.uid()
+      SELECT org_id FROM organization_memberships WHERE user_id = auth.uid()
     )
   );
 
@@ -96,7 +96,7 @@ CREATE POLICY "org_members_read_loops" ON outcome_loops
 CREATE POLICY "admin_pod_lead_insert_loops" ON outcome_loops
   FOR INSERT WITH CHECK (
     org_id IN (
-      SELECT org_id FROM org_members
+      SELECT org_id FROM organization_memberships
       WHERE user_id = auth.uid() AND role IN ('admin', 'pod_lead')
     )
   );
@@ -105,7 +105,7 @@ CREATE POLICY "admin_pod_lead_insert_loops" ON outcome_loops
 CREATE POLICY "admin_pod_lead_owner_update_loops" ON outcome_loops
   FOR UPDATE USING (
     org_id IN (
-      SELECT org_id FROM org_members
+      SELECT org_id FROM organization_memberships
       WHERE user_id = auth.uid() AND role IN ('admin', 'pod_lead')
     )
     OR owner_user_id = auth.uid()
@@ -115,17 +115,17 @@ CREATE POLICY "admin_pod_lead_owner_update_loops" ON outcome_loops
 CREATE POLICY "admin_delete_loops" ON outcome_loops
   FOR DELETE USING (
     org_id IN (
-      SELECT org_id FROM org_members
+      SELECT org_id FROM organization_memberships
       WHERE user_id = auth.uid() AND role = 'admin'
     )
   );
 
 -- Loop versions: same read policy as loops
-CREATE POLICY "org_members_read_loop_versions" ON loop_versions
+CREATE POLICY "organization_memberships_read_loop_versions" ON loop_versions
   FOR SELECT USING (
     loop_id IN (
       SELECT id FROM outcome_loops WHERE org_id IN (
-        SELECT org_id FROM org_members WHERE user_id = auth.uid()
+        SELECT org_id FROM organization_memberships WHERE user_id = auth.uid()
       )
     )
   );
@@ -135,7 +135,7 @@ CREATE POLICY "writers_insert_loop_versions" ON loop_versions
   FOR INSERT WITH CHECK (
     loop_id IN (
       SELECT id FROM outcome_loops WHERE org_id IN (
-        SELECT org_id FROM org_members
+        SELECT org_id FROM organization_memberships
         WHERE user_id = auth.uid() AND role IN ('admin', 'pod_lead')
       )
       OR owner_user_id = auth.uid()

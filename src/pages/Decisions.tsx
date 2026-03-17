@@ -6,6 +6,7 @@ import { useInterruptions, useCreateInterruption } from "@/hooks/useInterruption
 import { useOrgMembers, type OrgMember } from "@/hooks/useTeam";
 import { useOrg } from "@/contexts/OrgContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 import CreateDecisionForm from "@/components/CreateDecisionForm";
 import TagPill from "@/components/bets/TagPill";
 import SectionBlock from "@/components/bets/SectionBlock";
@@ -73,6 +74,7 @@ const fieldLabels: Record<string, string> = {
   current_delta: "Current Delta",
   revenue_at_risk: "Enterprise Exposure",
   owner: "Owner",
+  sponsor: "Sponsor",
   status: "Lifecycle",
   risk_level: "Risk",
 };
@@ -1100,7 +1102,7 @@ function BetCard({
             </div>
           </div>
 
-          <MetaFieldGrid columns={3} className="w-full xl:flex-1 xl:min-w-0">
+          <MetaFieldGrid columns={4} className="w-full xl:flex-1 xl:min-w-0">
             <MetaField label="Category">
               <CategorySelect value={(d.outcome_category_key ?? d.outcome_category) ?? ""} categories={categories} decisionId={d.id} canEdit={canWrite} onSave={handleInlineSave} logActivity={logActivity} className="w-full !text-white" />
             </MetaField>
@@ -1108,6 +1110,18 @@ function BetCard({
               <InlineEdit
                 value={d.owner ?? ""}
                 field="owner"
+                decisionId={d.id}
+                canEdit={canWrite}
+                onSave={handleInlineSave}
+                logActivity={logActivity}
+                className="w-full block text-sm !text-white"
+                placeholder="TBD"
+              />
+            </MetaField>
+            <MetaField label="Sponsor">
+              <InlineEdit
+                value={d.sponsor ?? ""}
+                field="sponsor"
                 decisionId={d.id}
                 canEdit={canWrite}
                 onSave={handleInlineSave}
@@ -1136,10 +1150,10 @@ function BetCard({
 
         {pendingStatus?.decisionId === d.id && (
           <div className="mt-3 p-3 border border-white/20 rounded-sm max-w-xl">
-            <label className="text-[11px] uppercase tracking-wider text-white/60 block mb-1">What changed? What&apos;s the evidence?</label>
+            <label className="text-[11px] uppercase tracking-wider text-white/60 block mb-1">What changed? What&apos;s the evidence? (optional)</label>
             <textarea
               rows={2}
-              placeholder="Required: reason for state change"
+              placeholder="Optional context for this lifecycle change"
               value={statusNote}
               onChange={(e) => setStatusNote(e.target.value)}
               className="w-full text-xs border rounded-sm px-2 py-1.5 bg-background text-foreground"
@@ -1147,8 +1161,7 @@ function BetCard({
             <div className="mt-2 flex items-center gap-3">
               <button
                 onClick={handleStatusConfirm}
-                disabled={!statusNote.trim()}
-                className="text-[11px] font-semibold uppercase tracking-wider px-3 py-1 rounded-sm bg-white text-black disabled:opacity-50"
+                className="text-[11px] font-semibold uppercase tracking-wider px-3 py-1 rounded-sm bg-white text-black"
               >
                 Confirm
               </button>
@@ -1302,28 +1315,48 @@ export default function Decisions() {
   const [closedBetsOpen, setClosedBetsOpen] = useState(false);
   const [closingIds, setClosingIds] = useState<Set<string>>(new Set());
 
-  const handleStatusConfirm = () => {
-    if (!pendingStatus || !statusNote.trim()) return;
+  const handleStatusConfirm = async () => {
+    if (!pendingStatus) return;
+    const note = statusNote.trim();
     if (pendingStatus.newStatus === "closed") {
       setClosingIds((prev) => new Set(prev).add(pendingStatus.decisionId));
     }
-    updateDecision.mutate({
-      id: pendingStatus.decisionId,
-      status: pendingStatus.newStatus as any,
-      state_changed_at: new Date().toISOString(),
-      state_change_note: statusNote.trim(),
-    } as any, {
-      onError: () => {
+    try {
+      await updateDecision.mutateAsync({
+        id: pendingStatus.decisionId,
+        status: pendingStatus.newStatus as any,
+        state_changed_at: new Date().toISOString(),
+        state_change_note: note || null,
+      } as any);
+      logActivity(pendingStatus.decisionId, "status", pendingStatus.oldStatus, pendingStatus.newStatus);
+      toast.success(`Lifecycle updated to ${BET_LIFECYCLE_LABELS[pendingStatus.newStatus as BetLifecycleStatus]}.`);
+      if (pendingStatus.newStatus === "closed") {
+        setClosedBetsOpen(true);
+      }
+      setPendingStatus(null);
+      setStatusNote("");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes("new row violates row-level security policy")) {
+        toast.error("You do not have permission to change this bet status.");
+      } else if (
+        message.includes("ACTUAL_OUTCOME_REQUIRED") ||
+        message.includes("OUTCOME_DELTA_REQUIRED") ||
+        message.includes("CLOSURE_NOTE_REQUIRED")
+      ) {
+        toast.error("This bet cannot be closed yet. Add closure fields first.");
+      } else {
+        toast.error("Status update failed.", { description: message });
+      }
+    } finally {
+      if (pendingStatus.newStatus === "closed") {
         setClosingIds((prev) => {
           const next = new Set(prev);
           next.delete(pendingStatus.decisionId);
           return next;
         });
-      },
-    });
-    logActivity(pendingStatus.decisionId, "status", pendingStatus.oldStatus, pendingStatus.newStatus);
-    setPendingStatus(null);
-    setStatusNote("");
+      }
+    }
   };
 
   const handleInlineSave = async (id: string, field: string, oldValue: string, newValue: string) => {

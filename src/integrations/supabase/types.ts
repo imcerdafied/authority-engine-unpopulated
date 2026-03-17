@@ -581,6 +581,7 @@ export type Database = {
           outcome_delta: string | null
           outcome_target: string | null
           owner: string
+          sponsor: string | null
           owner_user_id: string | null
           pod_configuration: Json | null
           previous_exposure_value: string | null
@@ -629,6 +630,7 @@ export type Database = {
           outcome_delta?: string | null
           outcome_target?: string | null
           owner: string
+          sponsor?: string | null
           owner_user_id?: string | null
           pod_configuration?: Json | null
           previous_exposure_value?: string | null
@@ -677,6 +679,7 @@ export type Database = {
           outcome_delta?: string | null
           outcome_target?: string | null
           owner?: string
+          sponsor?: string | null
           owner_user_id?: string | null
           pod_configuration?: Json | null
           previous_exposure_value?: string | null
@@ -840,6 +843,47 @@ export type Database = {
           product_areas?: Json
         }
         Relationships: []
+      }
+      pending_invitations: {
+        Row: {
+          claimed_at: string | null
+          created_at: string
+          email: string
+          id: string
+          invited_by: string | null
+          org_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          role_label: string | null
+        }
+        Insert: {
+          claimed_at?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          invited_by?: string | null
+          org_id: string
+          role?: Database["public"]["Enums"]["app_role"]
+          role_label?: string | null
+        }
+        Update: {
+          claimed_at?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          invited_by?: string | null
+          org_id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          role_label?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_invitations_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pod_initiatives: {
         Row: {
@@ -1098,6 +1142,7 @@ export type Database = {
           outcome_delta: string | null
           outcome_target: string | null
           owner: string | null
+          sponsor: string | null
           owner_user_id: string | null
           pod_configuration: Json | null
           previous_exposure_value: string | null
@@ -1153,6 +1198,7 @@ export type Database = {
           outcome_delta?: string | null
           outcome_target?: string | null
           owner?: string | null
+          sponsor?: string | null
           owner_user_id?: string | null
           pod_configuration?: Json | null
           previous_exposure_value?: string | null
@@ -1210,6 +1256,7 @@ export type Database = {
           outcome_delta?: string | null
           outcome_target?: string | null
           owner?: string | null
+          sponsor?: string | null
           owner_user_id?: string | null
           pod_configuration?: Json | null
           previous_exposure_value?: string | null
@@ -1244,6 +1291,17 @@ export type Database = {
       }
     }
     Functions: {
+      get_org_members: {
+        Args: { target_org_id: string }
+        Returns: {
+          display_name: string
+          email: string
+          joined_at: string
+          role: string
+          role_label: string | null
+          user_id: string
+        }[]
+      }
       get_overview_metrics: { Args: { _org_id: string }; Returns: Json }
       get_user_role_in_org: {
         Args: { _org_id: string; _user_id: string }
@@ -1303,7 +1361,7 @@ export type Database = {
         | "Launch Milestone"
         | "Renewal Risk"
         | "Cross-Solution Conflict"
-      solution_domain: "S1" | "S2" | "S3" | "Cross"
+      solution_domain: "S1" | "S2" | "S3" | "S4" | "S5" | "S6" | "S7" | "Cross"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1482,8 +1540,7 @@ export const Constants = {
         "Renewal Risk",
         "Cross-Solution Conflict",
       ],
-      solution_domain: ["S1", "S2", "S3", "Cross"],
+      solution_domain: ["S1", "S2", "S3", "S4", "S5", "S6", "S7", "Cross"],
     },
   },
 } as const
-

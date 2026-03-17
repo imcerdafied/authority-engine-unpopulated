@@ -3,7 +3,7 @@ import { useOrg, type ProductArea, type CustomCategory } from "@/contexts/OrgCon
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-const SLOT_KEYS = ["S1", "S2", "S3", "S4", "S5"];
+const SLOT_KEYS = ["S1", "S2", "S3", "S4", "S5", "S6", "S7"];
 
 export default function OrgSettings() {
   const { currentOrg, currentRole, productAreas: orgAreas, customOutcomeCategories: orgCategories, updateOrg } = useOrg();
@@ -36,7 +36,7 @@ export default function OrgSettings() {
   };
 
   const addArea = () => {
-    if (areas.length < 5) setAreas((prev) => [...prev, { label: "" }]);
+    if (areas.length < 7) setAreas((prev) => [...prev, { label: "" }]);
   };
 
   const removeArea = (index: number) => {
@@ -109,7 +109,7 @@ export default function OrgSettings() {
             Product Areas
           </h2>
           <p className="text-sm text-muted-foreground mb-3">
-            These organize your strategic bets into domains. 1 to 5 areas.
+            These organize your strategic bets into domains. 1 to 7 areas.
           </p>
           <div className="space-y-2">
             {areas.map((area, i) => (
@@ -134,7 +134,7 @@ export default function OrgSettings() {
                 )}
               </div>
             ))}
-            {areas.length < 5 && (
+            {areas.length < 7 && (
               <button
                 onClick={addArea}
                 className="text-[11px] uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"

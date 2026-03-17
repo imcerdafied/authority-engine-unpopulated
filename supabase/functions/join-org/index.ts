@@ -113,19 +113,80 @@ serve(async (req) => {
     }
 
     let role = "viewer";
-    const { data: allow } = await serviceClient
-      .from("org_access_allowlist")
-      .select("role")
-      .eq("org_id", orgId)
-      .eq("email", normalizedEmail)
-      .maybeSingle();
-    if (allow?.role && ["admin", "pod_lead", "viewer"].includes(String(allow.role))) {
-      role = String(allow.role);
+    let inviteId: string | null = null;
+    let inviteRoleLabel: string | null = null;
+
+    const roleFromInvitation = async () => {
+      const { data: invitationWithLabel, error: invitationError } = await serviceClient
+        .from("pending_invitations" as any)
+        .select("id, role, role_label")
+        .eq("org_id", orgId)
+        .eq("email", normalizedEmail)
+        .is("claimed_at", null)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!invitationError) {
+        return invitationWithLabel as { id?: string; role?: string; role_label?: string | null } | null;
+      }
+
+      if (String(invitationError.message || "").includes("role_label")) {
+        const { data: invitationNoLabel, error: invitationFallbackError } = await serviceClient
+          .from("pending_invitations" as any)
+          .select("id, role")
+          .eq("org_id", orgId)
+          .eq("email", normalizedEmail)
+          .is("claimed_at", null)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (!invitationFallbackError) {
+          return invitationNoLabel as { id?: string; role?: string; role_label?: string | null } | null;
+        }
+      }
+
+      if (!String(invitationError.message || "").toLowerCase().includes("pending_invitations")) {
+        console.warn("Invite lookup skipped:", invitationError.message);
+      }
+      return null;
+    };
+
+    const invitation = await roleFromInvitation();
+    if (invitation?.id) {
+      inviteId = invitation.id;
+    }
+    if (invitation?.role && ["admin", "pod_lead", "viewer"].includes(String(invitation.role))) {
+      role = String(invitation.role);
+    } else {
+      const { data: allow } = await serviceClient
+        .from("org_access_allowlist")
+        .select("role")
+        .eq("org_id", orgId)
+        .eq("email", normalizedEmail)
+        .maybeSingle();
+      if (allow?.role && ["admin", "pod_lead", "viewer"].includes(String(allow.role))) {
+        role = String(allow.role);
+      }
+    }
+    if (invitation?.role_label) {
+      inviteRoleLabel = String(invitation.role_label);
     }
 
-    const { error: insertError } = await serviceClient
+    const membershipPayload: Record<string, unknown> = { user_id: user.id, org_id: orgId, role };
+    if (inviteRoleLabel) membershipPayload.role_label = inviteRoleLabel;
+
+    let insertError: any = null;
+    const firstInsert = await serviceClient
       .from("organization_memberships")
-      .insert({ user_id: user.id, org_id: orgId, role });
+      .insert(membershipPayload as any);
+    insertError = firstInsert.error;
+    if (insertError && String(insertError.message || "").includes("role_label")) {
+      const retryInsert = await serviceClient
+        .from("organization_memberships")
+        .insert({ user_id: user.id, org_id: orgId, role });
+      insertError = retryInsert.error;
+    }
 
     if (insertError) {
       console.error("Join org error:", insertError);
@@ -133,6 +194,16 @@ serve(async (req) => {
         JSON.stringify({ error: "Failed to join organization" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    if (inviteId) {
+      const { error: claimError } = await serviceClient
+        .from("pending_invitations" as any)
+        .update({ claimed_at: new Date().toISOString() } as any)
+        .eq("id", inviteId);
+      if (claimError) {
+        console.warn("Failed to mark invitation as claimed:", claimError.message);
+      }
     }
 
     return new Response(

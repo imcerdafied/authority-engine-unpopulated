@@ -37,13 +37,25 @@ serve(async (req) => {
     }
 
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
-    const { data, error } = await serviceClient
+    let { data, error } = await serviceClient
       .from("organization_memberships")
       .select(
-        "org_id, role, organizations(id,name,created_at,created_by,allowed_email_domain,product_areas,custom_outcome_categories)",
+        "org_id, role, role_label, organizations(id,name,created_at,created_by,allowed_email_domain,product_areas,custom_outcome_categories)",
       )
       .eq("user_id", user.id)
       .order("created_at", { ascending: true });
+
+    if (error && String(error.message || "").includes("role_label")) {
+      const retry = await serviceClient
+        .from("organization_memberships")
+        .select(
+          "org_id, role, organizations(id,name,created_at,created_by,allowed_email_domain,product_areas,custom_outcome_categories)",
+        )
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: true });
+      data = retry.data?.map((row: any) => ({ ...row, role_label: null })) ?? null;
+      error = retry.error as any;
+    }
 
     if (error) {
       return new Response(JSON.stringify({ error: error.message || "Failed to load memberships" }), {
@@ -70,4 +82,3 @@ serve(async (req) => {
     });
   }
 });
-

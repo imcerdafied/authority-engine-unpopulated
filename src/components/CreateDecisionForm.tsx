@@ -6,9 +6,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import type { Database } from "@/integrations/supabase/types";
+import type { TablesInsert } from "@/integrations/supabase/types";
 import { fetchOutcomeCategories, type OutcomeCategoryItem } from "@/lib/taxonomy";
 
 type SolutionDomain = Database["public"]["Enums"]["solution_domain"];
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export default function CreateDecisionForm({ onClose, navigateAfter = false }: { onClose: () => void; navigateAfter?: boolean }) {
   const createDecision = useCreateDecision();
@@ -24,6 +26,7 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
 
   const [title, setTitle] = useState("");
   const [owner, setOwner] = useState("");
+  const [sponsor, setSponsor] = useState("");
   const [productArea, setProductArea] = useState("");
   const [outcomeTarget, setOutcomeTarget] = useState("");
   const [outcomeCategories, setOutcomeCategories] = useState<OutcomeCategoryItem[]>([]);
@@ -37,6 +40,7 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
   const [strategyLoading, setStrategyLoading] = useState(false);
   const [strategyWarnings, setStrategyWarnings] = useState<string[]>([]);
   const [strategySummary, setStrategySummary] = useState("");
+  const [strategySponsorHint, setStrategySponsorHint] = useState("");
   const [strategySuggestions, setStrategySuggestions] = useState<Array<{
     title: string;
     owner: string;
@@ -61,8 +65,21 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
         });
     }
   }, [customOutcomeCategories]);
+
+  useEffect(() => {
+    if (!outcomeCategoryKey && outcomeCategories.length > 0) {
+      setOutcomeCategoryKey(outcomeCategories[0].key);
+    }
+  }, [outcomeCategoryKey, outcomeCategories]);
+
   const [triggerSignal, setTriggerSignal] = useState("");
   const [revenueAtRisk, setRevenueAtRisk] = useState("");
+
+  useEffect(() => {
+    if (!productArea && productAreas.length > 0) {
+      setProductArea(productAreas[0].label);
+    }
+  }, [productArea, productAreas]);
 
   if (!canCreate) return null;
 
@@ -86,11 +103,186 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
       reader.readAsDataURL(file);
     });
 
+  const readFunctionError = async (error: unknown) => {
+    const maybe = error as { message?: string; context?: unknown };
+    if (maybe?.context instanceof Response) {
+      try {
+        const body = await maybe.context.clone().json();
+        if (body && typeof body.error === "string" && body.error.trim()) {
+          return body.error.trim();
+        }
+      } catch {
+        // Ignore JSON parse failures and fall through.
+      }
+      try {
+        const text = await maybe.context.clone().text();
+        if (text.trim()) {
+          return text.trim();
+        }
+      } catch {
+        // Ignore text parse failures and fall through.
+      }
+    }
+    if (typeof maybe?.message === "string" && maybe.message.trim()) {
+      return maybe.message.trim();
+    }
+    return "Strategy mapping failed.";
+  };
+
+  const getAccessTokenWithRetry = async () => {
+    for (let i = 0; i < 6; i += 1) {
+      const { data } = await supabase.auth.getSession();
+      const session = data.session;
+      const isExpiring =
+        !!session?.expires_at && (session.expires_at * 1000 - Date.now()) < 60_000;
+
+      if (session?.access_token && !isExpiring) {
+        return session.access_token;
+      }
+
+      const { data: refreshed } = await supabase.auth.refreshSession();
+      if (refreshed.session?.access_token) {
+        return refreshed.session.access_token;
+      }
+      await sleep(250);
+    }
+    return null;
+  };
+
+  const invokeMapStrategyBets = async (body: {
+    orgId: string;
+    sourceText: string | null;
+    sourceUrl: string | null;
+    file: { name: string; mimeType: string; base64: string } | null;
+  }) => {
+    const getEndpoint = () => {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+      if (!supabaseUrl) return null;
+      return `${supabaseUrl.replace(/\/+$/, "")}/functions/v1/map-strategy-bets`;
+    };
+
+    const invokeWithToken = async (accessToken: string) => {
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+      const endpoint = getEndpoint();
+      if (!endpoint || !supabaseAnonKey) {
+        throw new Error("Missing Supabase client configuration in frontend environment.");
+      }
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+          apikey: supabaseAnonKey,
+        },
+        body: JSON.stringify(body),
+      });
+      const responseBody = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const detail =
+          typeof responseBody?.error === "string"
+            ? responseBody.error
+            : typeof responseBody?.message === "string"
+              ? responseBody.message
+              : `HTTP ${response.status}`;
+        throw new Error(detail);
+      }
+      return responseBody;
+    };
+
+    const accessToken = await getAccessTokenWithRetry();
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+    if (!accessToken || !supabaseUrl) {
+      throw new Error("Session is not valid for strategy import. Please sign out and sign in again.");
+    }
+
+    try {
+      return await invokeWithToken(accessToken);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!/invalid jwt|jwt|expired|401|unauthorized/i.test(message.toLowerCase())) {
+        throw error;
+      }
+      const refreshedToken = await getAccessTokenWithRetry();
+      if (!refreshedToken) throw error;
+      return invokeWithToken(refreshedToken);
+    }
+  };
+
   const mapOutcomeCategory = (candidate: string | null | undefined) => {
     if (!candidate) return "";
     const normalized = candidate.trim().toLowerCase();
     const exact = outcomeCategories.find((c) => c.key.toLowerCase() === normalized || c.label.toLowerCase() === normalized);
     return exact?.key ?? "";
+  };
+
+  const inferSponsorFromText = (source: string) => {
+    const match = source.match(/(?:^|\n)\s*sponsor\s*:\s*([^\n|]+)/i);
+    if (!match?.[1]) return "";
+    return match[1].trim().replace(/^["']|["']$/g, "");
+  };
+
+  const fallbackParseStructuredBets = (source: string) => {
+    const normalized = source.replace(/\r/g, "");
+    const splitByBet = normalized
+      .split(/\n(?=\s*BET\s+\d+\b)/i)
+      .map((chunk) => chunk.trim())
+      .filter(Boolean);
+    const sections = splitByBet.length > 1 ? splitByBet : [normalized];
+
+    const readField = (lines: string[], label: string) => {
+      const labelRegex = new RegExp(`^${label}\\s*:?(.*)$`, "i");
+      for (let i = 0; i < lines.length; i += 1) {
+        const line = lines[i].trim();
+        const match = line.match(labelRegex);
+        if (!match) continue;
+        const inlineValue = match[1]?.trim();
+        if (inlineValue) return inlineValue;
+        for (let j = i + 1; j < lines.length; j += 1) {
+          const candidate = lines[j].trim();
+          if (candidate) return candidate;
+        }
+        return "";
+      }
+      return "";
+    };
+
+    const parsed = sections
+      .map((section) => {
+        const lines = section
+          .split("\n")
+          .map((l) => l.trim())
+          .filter(Boolean);
+        const title =
+          readField(lines, "Title") ||
+          lines.find((l) => l.length > 8 && !/^BET\s+\d+\b/i.test(l)) ||
+          "";
+
+        const owner = readField(lines, "Owner") || "TBD";
+        const productArea = readField(lines, "Product Area") || "";
+        const outcomeTarget = readField(lines, "Outcome Target") || null;
+        const outcomeCategory = readField(lines, "Outcome Category") || null;
+        const expectedImpact = readField(lines, "Expected Impact") || null;
+        const exposureValue = readField(lines, "Exposure Value") || null;
+        const revenueAtRisk = readField(lines, "Revenue at Risk") || null;
+        const triggerSignal = readField(lines, "Trigger Signal") || "";
+
+        return {
+          title: title.trim(),
+          owner: owner.trim(),
+          product_area: productArea.trim(),
+          outcome_target: outcomeTarget ? outcomeTarget.trim() : null,
+          outcome_category_key: outcomeCategory ? outcomeCategory.trim() : null,
+          expected_impact: expectedImpact ? expectedImpact.trim() : null,
+          exposure_value: exposureValue ? exposureValue.trim() : null,
+          revenue_at_risk: revenueAtRisk ? revenueAtRisk.trim() : null,
+          trigger_signal: triggerSignal.trim() || "Define measurable trigger signal",
+        };
+      })
+      .filter((b) => b.title.length > 0)
+      .slice(0, 8);
+
+    return parsed;
   };
 
   const analyzeStrategy = async () => {
@@ -103,9 +295,28 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
     setStrategyLoading(true);
     setStrategyWarnings([]);
     setStrategySummary("");
+    setStrategySponsorHint("");
     setStrategySuggestions([]);
 
+    let normalizedSourceText = "";
+    const userInputWarnings: string[] = [];
     try {
+      const normalizedSourceTextSegments: string[] = [];
+      if (strategyText.trim()) {
+        normalizedSourceTextSegments.push(strategyText.trim());
+      }
+
+      const normalizedUrlInput = strategyUrl.trim();
+      let normalizedSourceUrl: string | null = null;
+      if (normalizedUrlInput) {
+        if (/^https?:\/\/\S+$/i.test(normalizedUrlInput)) {
+          normalizedSourceUrl = normalizedUrlInput;
+        } else {
+          normalizedSourceTextSegments.push(normalizedUrlInput);
+          userInputWarnings.push("URL field content was treated as strategy text because it was not a valid URL.");
+        }
+      }
+
       let filePayload:
         | {
             name: string;
@@ -114,22 +325,45 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
           }
         | undefined;
       if (strategyFile) {
-        filePayload = {
-          name: strategyFile.name,
-          mimeType: strategyFile.type || "application/octet-stream",
-          base64: await fileToBase64(strategyFile),
-        };
+        const lowerName = strategyFile.name.toLowerCase();
+        const mime = (strategyFile.type || "").toLowerCase();
+        const isTextFile = mime.startsWith("text/") || lowerName.endsWith(".txt") || lowerName.endsWith(".md");
+        if (isTextFile) {
+          const strategyFileText = (await strategyFile.text()).trim();
+          if (strategyFileText) {
+            normalizedSourceTextSegments.push(strategyFileText);
+          } else {
+            userInputWarnings.push("Selected text file was empty.");
+          }
+        } else {
+          filePayload = {
+            name: strategyFile.name,
+            mimeType: strategyFile.type || "application/octet-stream",
+            base64: await fileToBase64(strategyFile),
+          };
+        }
       }
 
-      const { data, error } = await supabase.functions.invoke("map-strategy-bets", {
-        body: {
-          orgId: currentOrg.id,
-          sourceText: strategyText.trim() || null,
-          sourceUrl: strategyUrl.trim() || null,
-          file: filePayload || null,
-        },
+      normalizedSourceText = normalizedSourceTextSegments.join("\n\n").trim();
+      if (!normalizedSourceText && !normalizedSourceUrl && !filePayload) {
+        toast.error("No usable strategy content detected. Paste text, provide a valid URL, or choose a non-empty file.");
+        setStrategyWarnings(userInputWarnings);
+        return;
+      }
+      const inferredSponsor = inferSponsorFromText(normalizedSourceText);
+      if (inferredSponsor) {
+        setStrategySponsorHint(inferredSponsor);
+        if (!sponsor.trim()) {
+          setSponsor(inferredSponsor);
+        }
+      }
+
+      const data = await invokeMapStrategyBets({
+        orgId: currentOrg.id,
+        sourceText: normalizedSourceText || null,
+        sourceUrl: normalizedSourceUrl,
+        file: filePayload || null,
       });
-      if (error) throw error;
 
       const incoming = Array.isArray(data?.bets) ? data.bets : [];
       const suggestions = incoming
@@ -147,16 +381,43 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
         }))
         .filter((b) => b.title.length > 0);
       setStrategySuggestions(suggestions);
-      setStrategyWarnings(Array.isArray(data?.warnings) ? data.warnings.map((w: any) => String(w)) : []);
+      const modelWarnings = Array.isArray(data?.warnings) ? data.warnings.map((w: any) => String(w)) : [];
+      setStrategyWarnings([...userInputWarnings, ...modelWarnings]);
       setStrategySummary(typeof data?.summary === "string" ? data.summary : "");
       if (suggestions.length === 0) {
         toast.error("No clear bet candidates found. Try a cleaner strategy source.");
       } else {
         toast.success(`Mapped ${suggestions.length} bet candidate${suggestions.length === 1 ? "" : "s"}.`);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Strategy mapping failed:", err);
-      toast.error(err?.message || "Strategy mapping failed.");
+      const message = await readFunctionError(err);
+      const localFallbackSuggestions = normalizedSourceText
+        ? fallbackParseStructuredBets(normalizedSourceText)
+        : [];
+      if (localFallbackSuggestions.length > 0) {
+        setStrategySuggestions(localFallbackSuggestions);
+        setStrategySummary(`Mapped ${localFallbackSuggestions.length} candidate bet${localFallbackSuggestions.length === 1 ? "" : "s"} using local parsing fallback.`);
+        setStrategyWarnings([
+          ...userInputWarnings,
+          "AI strategy mapping was unavailable, so local text parsing fallback was used.",
+        ]);
+        toast.success(`Mapped ${localFallbackSuggestions.length} bet candidate${localFallbackSuggestions.length === 1 ? "" : "s"} (local fallback).`);
+        return;
+      }
+
+      const normalized = message.toLowerCase();
+      const isLikelySessionIssue =
+        /invalid jwt|jwt expired|token expired/i.test(normalized) ||
+        (normalized.includes("unauthorized") && !normalized.includes("forbidden"));
+
+      if (isLikelySessionIssue) {
+        toast.error("Strategy mapping failed.", {
+          description: "Your session expired for edge function access. Sign out, sign back in, then retry.",
+        });
+        return;
+      }
+      toast.error("Strategy mapping failed.", { description: message });
     } finally {
       setStrategyLoading(false);
     }
@@ -186,70 +447,115 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
 
   const createAllSuggestions = async () => {
     if (!strategySuggestions.length) return;
+    const sponsorForBatch = sponsor.trim() || strategySponsorHint || "TBD";
     let created = 0;
+    let failed = 0;
     for (const s of strategySuggestions) {
       if (!s.title || !s.owner || !s.trigger_signal) continue;
       const solutionDomain = resolveSolutionDomain(s.product_area);
       const mappedCategory = mapOutcomeCategory(s.outcome_category_key) || outcomeCategories[0]?.key || null;
-      await createDecision.mutateAsync({
-        title: s.title,
-        owner: s.owner,
-        owner_user_id: user?.id ?? null,
-        surface: s.product_area || domainLabels[solutionDomain] || solutionDomain,
-        solution_domain: solutionDomain,
-        impact_tier: "High",
-        status: "defined",
-        risk_level: "healthy",
-        outcome_target: s.outcome_target || null,
-        outcome_category_key: mappedCategory,
-        expected_impact: s.expected_impact || null,
-        exposure_value: s.exposure_value || null,
-        trigger_signal: s.trigger_signal || null,
-        revenue_at_risk: s.revenue_at_risk || null,
-      } as any);
-      created += 1;
+      try {
+        await createDecision.mutateAsync({
+          title: s.title,
+          owner: s.owner,
+          sponsor: sponsorForBatch,
+          owner_user_id: user?.id ?? null,
+          surface: s.product_area || domainLabels[solutionDomain] || solutionDomain,
+          solution_domain: solutionDomain,
+          impact_tier: "High",
+          status: "defined",
+          risk_level: "healthy",
+          outcome_target: s.outcome_target || null,
+          outcome_category_key: mappedCategory,
+          expected_impact: s.expected_impact || null,
+          exposure_value: s.exposure_value || null,
+          trigger_signal: s.trigger_signal || null,
+          revenue_at_risk: s.revenue_at_risk || null,
+        } as any);
+        created += 1;
+      } catch {
+        failed += 1;
+      }
     }
     if (created === 0) {
-      toast.error("No complete suggestions to create.");
+      toast.error("No mapped bets could be created.");
       return;
     }
-    toast.success(`Created ${created} draft bet${created === 1 ? "" : "s"}.`);
+    if (!sponsor.trim() && !strategySponsorHint) {
+      toast("Batch import used sponsor \"TBD\" because no sponsor was provided in the source.");
+    }
+    if (failed > 0) {
+      toast.warning(`Created ${created} bet${created === 1 ? "" : "s"}; ${failed} failed.`);
+    } else {
+      toast.success(`Created ${created} bet${created === 1 ? "" : "s"}.`);
+    }
     onClose();
     if (navigateAfter) navigate("/decisions");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !owner || !triggerSignal.trim() || !productArea.trim()) return;
-    if (!outcomeCategoryKey) return;
-    const solutionDomain = resolveSolutionDomain(productArea);
+    const normalizedTitle = title.trim();
+    const normalizedOwner = owner.trim();
+    const normalizedSponsor = sponsor.trim();
+    const normalizedProductArea = productArea.trim();
+    const normalizedTriggerSignal = triggerSignal.trim();
 
-    await createDecision.mutateAsync({
-      title,
-      owner,
-      owner_user_id: user?.id ?? null,
-      surface: productArea.trim(),
-      solution_domain: solutionDomain,
-      impact_tier: "High",
-      status: "defined",
-      risk_level: "healthy",
-      outcome_target: outcomeTarget || null,
-      outcome_category_key: outcomeCategoryKey || null,
-      expected_impact: expectedImpact || null,
-      exposure_value: exposureValue || null,
-      trigger_signal: triggerSignal || null,
-      revenue_at_risk: revenueAtRisk || null,
-    } as any);
-    toast.success(`Draft created — "${title}"`, {
-      description: "Complete required fields to activate.",
-      action: {
-        label: "View bet",
-        onClick: () => navigate("/decisions"),
-      },
-    });
-    onClose();
-    if (navigateAfter) {
-      navigate("/decisions");
+    if (!normalizedTitle || !normalizedOwner || !normalizedSponsor || !normalizedProductArea || !normalizedTriggerSignal) {
+      toast.error("Title, owner, sponsor, product area, and trigger signal are required.");
+      return;
+    }
+    if (!outcomeCategoryKey) {
+      toast.error("Outcome category is required.");
+      return;
+    }
+
+    try {
+      const solutionDomain = resolveSolutionDomain(normalizedProductArea);
+      const payload: Omit<TablesInsert<"decisions">, "org_id" | "created_by"> = {
+        title: normalizedTitle,
+        owner: normalizedOwner,
+        sponsor: normalizedSponsor,
+        owner_user_id: user?.id ?? null,
+        surface: normalizedProductArea,
+        solution_domain: solutionDomain,
+        impact_tier: "High",
+        status: "defined",
+        risk_level: "healthy",
+        outcome_target: outcomeTarget || null,
+        outcome_category_key: outcomeCategoryKey || null,
+        expected_impact: expectedImpact || null,
+        exposure_value: exposureValue || null,
+        trigger_signal: normalizedTriggerSignal,
+        revenue_at_risk: revenueAtRisk || null,
+      };
+
+      await createDecision.mutateAsync(payload);
+
+      toast.success(`Draft created — "${normalizedTitle}"`, {
+        description: "Complete required fields to activate.",
+        action: {
+          label: "View bet",
+          onClick: () => navigate("/decisions"),
+        },
+      });
+      onClose();
+      if (navigateAfter) {
+        navigate("/decisions");
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes("HIGH_IMPACT_CAP")) {
+        toast.error("Cannot register bet: all high-impact slots are full. Close one first.");
+        return;
+      }
+      if (message.includes("decision_status")) {
+        toast.error("Cannot register bet due to status configuration mismatch. Refresh and retry.");
+        return;
+      }
+      toast.error("Failed to register bet.", {
+        description: message,
+      });
     }
   };
 
@@ -260,20 +566,23 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
         <button onClick={onClose} className="text-xs text-muted-foreground hover:text-foreground">Cancel</button>
       </div>
       <div className="border rounded-sm p-3 mb-4 bg-background">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Strategy Import (Beta)</p>
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Bulk Strategy Import (Beta)</p>
+        <p className="text-[11px] text-muted-foreground mb-2">
+          Import one strategy source to map multiple bets, then create all mapped bets at once.
+        </p>
         <div className="space-y-2">
           <textarea
             value={strategyText}
             onChange={(e) => setStrategyText(e.target.value)}
             rows={4}
-            placeholder="Paste strategy text, memo excerpt, or planning notes"
+            placeholder="Paste strategy text, memo excerpt, or planning notes (optional if using URL/file)"
             className="w-full border rounded-sm px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-foreground"
           />
           <input
             type="url"
             value={strategyUrl}
             onChange={(e) => setStrategyUrl(e.target.value)}
-            placeholder="Optional public URL or Google Doc link"
+            placeholder="Optional source URL (Google Doc/public page)"
             className="w-full border rounded-sm px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-foreground"
           />
           <input
@@ -282,6 +591,9 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
             onChange={(e) => setStrategyFile(e.target.files?.[0] || null)}
             className="w-full text-xs text-muted-foreground"
           />
+          <p className="text-[10px] text-muted-foreground">
+            File upload is for batch mapping only, not for attaching to a single bet.
+          </p>
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -289,7 +601,7 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
               disabled={strategyLoading}
               className="text-[11px] font-semibold uppercase tracking-wider text-foreground border border-foreground px-3 py-1.5 rounded-sm hover:bg-foreground hover:text-background transition-colors disabled:opacity-50"
             >
-              {strategyLoading ? "Analyzing..." : "Map Bets"}
+              {strategyLoading ? "Analyzing..." : "Map Strategy"}
             </button>
             {strategySuggestions.length > 0 && (
               <button
@@ -298,7 +610,7 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
                 disabled={createDecision.isPending}
                 className="text-[11px] font-semibold uppercase tracking-wider text-background bg-foreground px-3 py-1.5 rounded-sm hover:bg-foreground/90 transition-colors disabled:opacity-50"
               >
-                Create All Drafts
+                {createDecision.isPending ? "Creating..." : `Create ${strategySuggestions.length} Bet${strategySuggestions.length === 1 ? "" : "s"}`}
               </button>
             )}
           </div>
@@ -310,6 +622,9 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
           )}
           {strategySuggestions.length > 0 && (
             <div className="space-y-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Mapped Candidate Bets
+              </p>
               {strategySuggestions.map((s, i) => (
                 <div key={`${s.title}-${i}`} className="border rounded-sm p-2">
                   <p className="text-xs font-semibold">{s.title}</p>
@@ -324,12 +639,15 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
                   </button>
                 </div>
               ))}
+              <p className="text-[10px] text-muted-foreground">
+                Sponsor in the form is used when provided; otherwise parsed sponsor or "TBD" is applied.
+              </p>
             </div>
           )}
         </div>
       </div>
       <form onSubmit={handleSubmit} className="space-y-3">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div>
             <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">Title *</label>
             <input required value={title} onChange={(e) => setTitle(e.target.value)}
@@ -338,6 +656,11 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
           <div>
             <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">Owner *</label>
             <input required value={owner} onChange={(e) => setOwner(e.target.value)}
+              className="w-full border rounded-sm px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-foreground" />
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">Sponsor *</label>
+            <input required value={sponsor} onChange={(e) => setSponsor(e.target.value)}
               className="w-full border rounded-sm px-3 py-2 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-foreground" />
           </div>
         </div>
@@ -404,7 +727,7 @@ export default function CreateDecisionForm({ onClose, navigateAfter = false }: {
           </div>
         </div>
         <div className="flex justify-end pt-2">
-          <button type="submit" disabled={createDecision.isPending || !outcomeCategoryKey}
+          <button type="submit" disabled={createDecision.isPending}
             className="text-[11px] font-semibold uppercase tracking-wider text-background bg-foreground px-4 py-2 rounded-sm hover:bg-foreground/90 transition-colors disabled:opacity-50">
             {createDecision.isPending ? "Registering..." : "Register Bet"}
           </button>

@@ -1,6 +1,7 @@
-import { useState } from "react";
-import { useLocation, useParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 const PENDING_ORG_JOIN_KEY = "pending_org_join";
 
@@ -10,25 +11,41 @@ interface AuthProps {
 
 export default function Auth({ skipInviteCode }: AuthProps = {}) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const { orgId } = useParams<{ orgId?: string }>();
-  const isJoinFlow = skipInviteCode || /^\/join\/[^/]+$/.test(location.pathname);
+  const queryOrgId = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get("org");
+  }, [location.search]);
+  const joinOrgId = queryOrgId || orgId || null;
+  const isJoinFlow = skipInviteCode || !!joinOrgId || /^\/join\/[^/]+$/.test(location.pathname);
 
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const getOAuthRedirectTo = () => {
-    if (isJoinFlow && orgId) return `${window.location.origin}/join/${orgId}`;
+    if (isJoinFlow && joinOrgId) return `${window.location.origin}/join/${joinOrgId}`;
     return window.location.origin;
   };
+
+  useEffect(() => {
+    if (!user) return;
+    if (joinOrgId) {
+      navigate(`/join/${joinOrgId}`, { replace: true });
+      return;
+    }
+    navigate("/", { replace: true });
+  }, [user, joinOrgId, navigate]);
 
   const handleGoogleSSO = async () => {
     setError(null);
     setMessage(null);
     setLoading(true);
 
-    if (isJoinFlow && orgId) {
-      localStorage.setItem(PENDING_ORG_JOIN_KEY, orgId);
+    if (isJoinFlow && joinOrgId) {
+      localStorage.setItem(PENDING_ORG_JOIN_KEY, joinOrgId);
     }
 
     const workspaceDomain = import.meta.env.VITE_GOOGLE_WORKSPACE_DOMAIN as
