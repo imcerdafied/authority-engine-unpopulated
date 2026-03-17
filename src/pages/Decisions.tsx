@@ -13,6 +13,7 @@ import ExposureCallout from "@/components/bets/ExposureCallout";
 import MetaFieldGrid, { MetaField } from "@/components/bets/MetaFieldGrid";
 import LifecycleRiskControls from "@/components/bets/LifecycleRiskControls";
 import BetCapabilityPodsSection from "@/components/capability-pods/BetCapabilityPodsSection";
+import LoopsPanel from "@/components/loops/LoopsPanel";
 import InitiativesPanel from "@/components/InitiativesPanel";
 import MetricsSidebar from "@/components/MetricsSidebar";
 import ScoreHistory from "@/components/ScoreHistory";
@@ -1258,6 +1259,8 @@ function BetCard({
         betId={d.id}
         canWrite={canWrite}
       />
+
+      <LoopsPanel betId={d.id} canWrite={canWrite} />
 
       <DriftIndicators betId={d.id} />
       <MetricsSidebar betId={d.id} canWrite={canWrite} />
